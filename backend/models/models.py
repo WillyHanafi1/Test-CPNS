@@ -45,12 +45,24 @@ class Question(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     package_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("packages.id"))
     content: Mapped[str] = mapped_column(Text)
-    options: Mapped[dict] = mapped_column(JSON) # {"A": "...", "B": "...", ...}
-    correct_answer: Mapped[str] = mapped_column(String(10))
-    points: Mapped[int] = mapped_column(Integer, default=5)
+    image_url: Mapped[str] = mapped_column(String(500), nullable=True)
+    discussion: Mapped[str] = mapped_column(Text, nullable=True)
     segment: Mapped[str] = mapped_column(String(50)) # TWK, TIU, TKP
+    number: Mapped[int] = mapped_column(Integer) # Question number in package (1-110)
 
     package: Mapped["Package"] = relationship(back_populates="questions")
+    options: Mapped[list["QuestionOption"]] = relationship(back_populates="question", cascade="all, delete-orphan")
+
+class QuestionOption(Base):
+    __tablename__ = "question_options"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    question_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("questions.id"))
+    label: Mapped[str] = mapped_column(String(10)) # A, B, C, D, E
+    content: Mapped[str] = mapped_column(Text)
+    score: Mapped[int] = mapped_column(Integer, default=0)
+
+    question: Mapped["Question"] = relationship(back_populates="options")
 
 class ExamSession(Base):
     __tablename__ = "exam_sessions"

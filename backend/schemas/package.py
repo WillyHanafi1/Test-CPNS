@@ -1,20 +1,36 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict
+from typing import List, Optional
 import uuid
+
+class OptionBase(BaseModel):
+    label: str # A, B, C, D, E
+    content: str
+    score: int = 0
+
+class OptionCreate(OptionBase):
+    pass
+
+class Option(OptionBase):
+    id: uuid.UUID
+    question_id: uuid.UUID
+
+    class Config:
+        from_attributes = True
 
 class QuestionBase(BaseModel):
     content: str
-    options: Dict[str, str]
-    correct_answer: str
-    points: int = 5
+    image_url: Optional[str] = None
+    discussion: Optional[str] = None
     segment: str # TWK, TIU, TKP
+    number: int
 
 class QuestionCreate(QuestionBase):
-    pass
+    options: List[OptionCreate]
 
 class Question(QuestionBase):
     id: uuid.UUID
     package_id: uuid.UUID
+    options: List[Option]
 
     class Config:
         from_attributes = True

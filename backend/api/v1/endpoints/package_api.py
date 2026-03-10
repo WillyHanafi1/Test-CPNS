@@ -5,9 +5,10 @@ from typing import List, Optional
 import uuid
 
 from backend.db.session import get_async_session
-from backend.models.models import Package, Question
-from backend.schemas.package import Package as PackageSchema, PackageCreate, Question as QuestionSchema, QuestionCreate
+from backend.models.models import Package, Question, QuestionOption
+from backend.schemas.package import Package as PackageSchema, PackageCreate, Question as QuestionSchema, QuestionCreate, PackageWithQuestions
 from backend.core.redis_service import redis_service
+from sqlalchemy.orm import selectinload
 
 router = APIRouter(prefix="/packages", tags=["packages"])
 
@@ -39,21 +40,28 @@ async def get_packages(
     
     return packages
 
-@router.get("/{package_id}", response_model=PackageSchema)
+@router.get("/{package_id}", response_model=PackageWithQuestions)
 async def get_package(package_id: uuid.UUID, db: AsyncSession = Depends(get_async_session)):
     # Try cache first
-    cache_key = f"package:{package_id}"
+    cache_key = f"package_full:{package_id}"
     cached_data = await redis_service.get_cache(cache_key)
     if cached_data:
         return cached_data
 
-    result = await db.execute(select(Package).where(Package.id == package_id))
+    # Use selectinload to get questions and their options in one go (or two optimized queries)
+    result = await db.execute(
+        select(Package)
+        .options(
+            selectinload(Package.questions).selectinload(Question.options)
+        )
+        .where(Package.id == package_id)
+    )
     package = result.scalar_one_or_none()
     if not package:
         raise HTTPException(status_code=404, detail="Package not found")
     
     # Set cache
-    await redis_service.set_cache(cache_key, PackageSchema.from_orm(package).dict())
+    await redis_service.set_cache(cache_key, PackageWithQuestions.from_orm(package).dict())
     
     return package
 
