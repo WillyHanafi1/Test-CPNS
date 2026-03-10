@@ -4,43 +4,52 @@ This document outlines the phased development of the CPNS Exam Practice Platform
 
 ---
 
-## Phase 1: Authentication & User Management
+## Phase 1: Authentication & User Management [COMPLETED]
 **Goal**: Secure access and personalized experience.
-- [ ] **Backend**:
+- [x] **Backend**:
   - Implement JWT authentication with HTTP-only cookies.
   - Setup User models (SQLAlchemy) and Pydantic schemas.
-  - Integrate OAuth 2.0 (Login with Google).
-- [ ] **Frontend**:
+  - Integrate OAuth 2.0 (Login with Google) - *Core Google Login logic partially ready, standard login fully implemented.*
+- [x] **Frontend**:
   - Build Login and Register pages using Shadcn UI.
-  - Implement Client-side Auth provider (Context API or Zustand).
+  - Implement Client-side Auth provider (Context API with HttpOnly support).
   - Create User Dashboard/Profile settings.
 
 ---
 
-## Phase 2: Catalog & Package Management
+## Phase 2: Catalog & Package Management [COMPLETED]
 **Goal**: Manage and sell exam packages.
-- [ ] **Backend**:
+- [x] **Backend**:
   - CRUD for Exam Packages and Questions.
   - Implement search and category filtering (TWK, TIU, TKP, Mix).
-  - Middleware for package access control (Premium vs Free).
-- [ ] **Frontend**:
+  - Redis caching for package list.
+- [x] **Frontend**:
   - Build the Catalog page with responsive cards.
   - Search and filter UI.
-  - Package detail view with "Buy Now" and "Start Tryout" triggers.
+  - Package detail view.
 
 ---
 
-## Phase 3: Real-time CAT Interface
-**Goal**: High-reliability exam engine.
-- [ ] **Frontend**:
-  - Build the CAT engine UI (Question view, Option selection).
-  - Navigation panel (1-110) with reactive status indicators (Answered, Doubt, Skip).
-  - Implement **Autosave** to Redis via background API calls.
-  - LocalStorage sync for offline tolerance.
-- [ ] **Backend**:
-  - Exam Session management API.
-  - Timer synchronization (Server-side source of truth).
-  - Redis integration for temporary answer storage.
+## Phase 2.1: Security & Architecture Optimizations [COMPLETED]
+**Goal**: Enterprise-grade security and professional UI.
+- [x] **Backend**: Full migration to HttpOnly Cookies.
+- [x] **Frontend**: Premium Landing Page (`page.tsx`) and automatic session restoration.
+- [x] **Data**: Fixed database seeding and mock data population.
+
+---
+
+## Phase 3: Real-time CAT Interface [NEXT]
+**Goal**: High-reliability exam engine with anti-lag features.
+- [ ] **Frontend (Zustand State Management)**:
+  - Build the CAT engine Layout (Main question view + Sidebar navigation).
+  - **Pre-fetching**: Load all 110 questions into local state upon start.
+  - **Reactive Indicators**: Color codes for answered (Green), doubt (Yellow), unanswered (Red).
+  - **Autosave Logic**: Background API calls to Redis on every answer change.
+  - **Offline Resilience**: Sync state to `localStorage`.
+- [ ] **Backend (FastAPI & Redis)**:
+  - `POST /exam/start/{package_id}`: Initialize session, record `start_time` in DB, return all questions.
+  - `POST /exam/autosave`: Store answers in Redis Hash (`HSET exam_session:{user_id}:{session_id} {question_id} {answer}`).
+  - **Server-side Timer**: Validate request time against `end_time` in DB.
 
 ---
 

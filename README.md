@@ -18,10 +18,11 @@ Platform latihan ujian CPNS (CAT) modern dengan arsitektur *high-performance* da
 - **Celery**: Background task processing untuk skoring dan notifikasi.
 
 ## 🚀 Fitur Utama
-1. **Real-time CAT Interface**: Antarmuka ujian responsif dengan fitur *autosave* ke Redis.
-2. **Leaderboard Nasional**: Peringkat *real-time* berbasis Redis ZSET.
-3. **Analitik Hasil**: Pembahasan detail dan statistik nilai per kategori (TWK, TIU, TKP).
-4. **Keamanan Tinggi**: JWT dengan HTTP-Only Cookies dan RBAC.
+1. **Premium Landing Page**: Beranda modern dengan performa tinggi.
+2. **Catalog & Package System**: Manajemen paket soal (TWK, TIU, TKP) dengan caching Redis.
+3. **Enterprise Security**: JWT via HttpOnly Cookies untuk perlindungan maksimal.
+4. **Real-time CAT Interface**: (In Progress) Antarmuka ujian responsif dengan fitur *autosave* ke Redis.
+5. **Leaderboard Nasional**: Peringkat *real-time* berbasis Redis ZSET.
 
 ## 🛠️ Cara Menjalankan
 
