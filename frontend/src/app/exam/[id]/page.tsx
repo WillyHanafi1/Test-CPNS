@@ -83,7 +83,8 @@ export default function ExamPage() {
             await fetch(`${API_URL}/api/v1/exam/finish/${sessionId}`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              credentials: 'include'
+              credentials: 'include',
+              body: JSON.stringify({})
             });
           }
           
