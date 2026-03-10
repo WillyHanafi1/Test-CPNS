@@ -1,12 +1,17 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useExamStore } from '@/store/useExamStore';
 import { Button } from '@/components/ui/button';
-import { Clock, Send, ShieldAlert } from 'lucide-react';
+import { Clock, Send, ShieldAlert, Loader2 } from 'lucide-react';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
 export default function ExamHeader() {
-  const { timeLeft, finishExam } = useExamStore();
+  const router = useRouter();
+  const { timeLeft, finishExam, sessionId, packageId } = useExamStore();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const formatTime = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
@@ -15,9 +20,28 @@ export default function ExamHeader() {
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const handleFinish = () => {
-    if (confirm("Apakah Anda yakin ingin mengakhiri ujian dan mengumpulkan jawaban?")) {
-      finishExam();
+  const handleFinish = async () => {
+    if (!confirm("Apakah Anda yakin ingin mengakhiri ujian dan mengumpulkan jawaban?")) return;
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${API_URL}/api/v1/exam/finish/${sessionId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        finishExam();
+        router.push(`/exam/${packageId}/result`);
+      } else {
+        alert("Gagal mengumpulkan ujian. Silakan coba lagi.");
+      }
+    } catch (error) {
+      console.error("Finish error:", error);
+      alert("Terjadi kesalahan koneksi.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -47,9 +71,14 @@ export default function ExamHeader() {
 
         <Button 
           onClick={handleFinish}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-lg shadow-emerald-500/20"
+          disabled={isSubmitting}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-lg shadow-emerald-500/20 w-32"
         >
-          <Send className="w-4 h-4 mr-2" />
+          {isSubmitting ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <Send className="w-4 h-4 mr-2" />
+          )}
           Selesaikan
         </Button>
       </div>

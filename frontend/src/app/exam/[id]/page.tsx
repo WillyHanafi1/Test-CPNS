@@ -80,16 +80,54 @@ export default function ExamPage() {
     );
   }
 
+  // Handle Auto-Finish on Time Up
+  useEffect(() => {
+    if (isFinished) {
+      const autoFinish = async () => {
+        try {
+          const sessionId = useExamStore.getState().sessionId;
+          const packageId = useExamStore.getState().packageId;
+          
+          if (sessionId) {
+            await fetch(`${API_URL}/api/v1/exam/finish/${sessionId}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include'
+            });
+          }
+          
+          if (packageId) {
+            router.push(`/exam/${packageId}/result`);
+          } else {
+            router.push('/dashboard');
+          }
+        } catch (error) {
+          console.error("Auto-finish error:", error);
+          router.push('/dashboard');
+        }
+      };
+      
+      autoFinish();
+    }
+  }, [isFinished, router]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white">
+        <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4" />
+        <p className="text-slate-400 animate-pulse">Menyiapkan Lembar Ujian...</p>
+      </div>
+    );
+  }
+
   if (isFinished) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white p-4 text-center">
-        <h1 className="text-3xl font-bold mb-4">Waktu Habis!</h1>
+        <Loader2 className="w-12 h-12 text-emerald-500 animate-spin mb-4" />
+        <h1 className="text-3xl font-bold mb-4">Ujian Selesai!</h1>
         <p className="text-slate-400 mb-8 max-w-md">
-          Ujian Anda telah selesai dikumpulkan secara otomatis. Hasil Anda sedang diproses oleh sistem.
+          Sistem sedang mengamankan jawaban dan menghitung skor Anda. Mohon tunggu sebentar...
         </p>
-        <Button onClick={() => router.push('/dashboard')} className="bg-indigo-600 hover:bg-indigo-700">
-          Kembali ke Dashboard
-        </Button>
       </div>
     );
   }
