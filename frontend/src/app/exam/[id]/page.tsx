@@ -20,11 +20,14 @@ export default function ExamPage() {
     startExam, 
     tick, 
     questions, 
-    currentIndex 
+    currentIndex,
+    sessionId,
+    packageId
   } = useExamStore();
+  
   const [loading, setLoading] = useState(true);
 
-  // Initialize Exam
+  // HOOK 1: Initialize Exam
   useEffect(() => {
     const initExam = async () => {
       // If already started and same package, don't restart
@@ -47,7 +50,7 @@ export default function ExamPage() {
           String(id), 
           data.session_id, 
           data.package.questions, 
-          100 // 100 minutes
+          100 // minutes
         );
       } catch (error) {
         console.error(error);
@@ -60,7 +63,7 @@ export default function ExamPage() {
     initExam();
   }, [id, startExam, isStarted, questions.length, router]);
 
-  // Timer Tick
+  // HOOK 2: Timer Tick
   useEffect(() => {
     if (!isStarted || isFinished) return;
 
@@ -71,23 +74,11 @@ export default function ExamPage() {
     return () => clearInterval(interval);
   }, [isStarted, isFinished, tick]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white">
-        <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4" />
-        <p className="text-slate-400 animate-pulse">Menyiapkan Lembar Ujian...</p>
-      </div>
-    );
-  }
-
-  // Handle Auto-Finish on Time Up
+  // HOOK 3: Handle Auto-Finish on Time Up
   useEffect(() => {
     if (isFinished) {
       const autoFinish = async () => {
         try {
-          const sessionId = useExamStore.getState().sessionId;
-          const packageId = useExamStore.getState().packageId;
-          
           if (sessionId) {
             await fetch(`${API_URL}/api/v1/exam/finish/${sessionId}`, {
               method: 'POST',
@@ -109,7 +100,12 @@ export default function ExamPage() {
       
       autoFinish();
     }
-  }, [isFinished, router]);
+  }, [isFinished, router, sessionId, packageId]);
+
+
+  // ==========================================
+  // SEMUA RETURN (RENDER) HARUS DI BAWAH HOOKS
+  // ==========================================
 
   if (loading) {
     return (

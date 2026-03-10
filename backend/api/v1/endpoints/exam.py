@@ -4,6 +4,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 import uuid
 from datetime import datetime, timedelta
+from pydantic import BaseModel, ConfigDict
+from typing import List, Optional
 
 from backend.db.session import get_async_session
 from backend.models.models import Package, Question, ExamSession, User, Answer, QuestionOption
@@ -12,7 +14,39 @@ from backend.core.redis_service import redis_service
 
 router = APIRouter(prefix="/exam", tags=["exam"])
 
-@router.post("/start/{package_id}")
+# ==============================================================
+# SCHEMA RESPONSE (ANTI-CHEAT & FIX SERIALIZATION ERROR)
+# ==============================================================
+class OptionResponse(BaseModel):
+    id: uuid.UUID
+    label: str
+    content: str
+    # KUNCI JAWABAN (score) SENGAJA TIDAK DIMASUKKAN AGAR AMAN
+    model_config = ConfigDict(from_attributes=True)
+
+class QuestionResponse(BaseModel):
+    id: uuid.UUID
+    content: str
+    image_url: Optional[str] = None
+    segment: str
+    number: int
+    options: List[OptionResponse]
+    # PEMBAHASAN (discussion) SENGAJA TIDAK DIMASUKKAN
+    model_config = ConfigDict(from_attributes=True)
+
+class PackageResponse(BaseModel):
+    id: uuid.UUID
+    title: str
+    questions: List[QuestionResponse]
+    model_config = ConfigDict(from_attributes=True)
+
+class StartExamResponse(BaseModel):
+    session_id: uuid.UUID
+    package: PackageResponse
+    end_time: datetime
+# ==============================================================
+
+@router.post("/start/{package_id}", response_model=StartExamResponse)
 async def start_exam(
     package_id: uuid.UUID,
     db: AsyncSession = Depends(get_async_session),
