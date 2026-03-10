@@ -180,25 +180,28 @@ async def finish_exam(
         ))
     
     # 4. Update session
+    total_score = score_twk + score_tiu + score_tkp
+    user_email = current_user.email
+    
     session.score_twk = score_twk
     session.score_tiu = score_tiu
     session.score_tkp = score_tkp
-    session.total_score = score_twk + score_tiu + score_tkp
+    session.total_score = total_score
     session.status = "finished"
     session.end_time = datetime.utcnow()
     
     db.add_all(db_answers)
     await db.commit()
     
-    # 5. Update Leaderboard in Redis (Sorted Set)
-    await redis_service.redis.zadd("leaderboard:national", {current_user.email: session.total_score})
+    # 5. Update Leaderboard in Redis using LOCAL variables
+    await redis_service.redis.zadd("leaderboard:national", {user_email: total_score})
     
     # 6. Cleanup Redis answers
     await redis_service.redis.delete(cache_key)
     
     return {
         "status": "finished",
-        "total_score": session.total_score,
+        "total_score": total_score,
         "score_twk": score_twk,
         "score_tiu": score_tiu,
         "score_tkp": score_tkp

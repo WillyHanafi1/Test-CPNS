@@ -1,17 +1,23 @@
-import os
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Optional
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "CPNS Platform"
-    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "cpns_user")
-    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "cpns_password")
-    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "cpns_db")
-    DATABASE_URL: str = os.getenv("DATABASE_URL", f"postgresql+asyncpg://{POSTGRES_USER}:{POSTGRES_PASSWORD}@localhost:5432/{POSTGRES_DB}")
     
-    REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    # These will be automatically loaded from .env if present
+    DATABASE_URL: str
+    REDIS_URL: str = "redis://localhost:6379/0"
+    
+    # Security
+    SECRET_KEY: str = "your-secret-key-keep-it-secret"
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7 # 7 days
 
-    class Config:
-        case_sensitive = True
-        env_file = ".env"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=True,
+        extra="ignore"
+    )
 
 settings = Settings()
