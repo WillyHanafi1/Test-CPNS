@@ -1,0 +1,224 @@
+"use client";
+
+import React, { useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Loader2, CheckCircle, XCircle, Award, BarChart3, Home, ArrowRight } from 'lucide-react';
+import { useExamStore } from '@/store/useExamStore';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+
+export default function ResultPage() {
+  const { id } = useParams();
+  const router = useRouter();
+  const { sessionId, resetExam } = useExamStore();
+  const [result, setResult] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchResult = async () => {
+      if (!sessionId) {
+        router.push('/dashboard');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/api/v1/exam/finish/${sessionId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include'
+        });
+        
+        if (!response.ok) throw new Error("Gagal mengambil hasil");
+        
+        const data = await response.json();
+        setResult(data);
+      } catch (error) {
+        console.error("Fetch result error:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchResult();
+  }, [sessionId, router]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white">
+        <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4" />
+        <p className="text-slate-400 font-medium animate-pulse">Mengkalkulasi Skor Anda...</p>
+      </div>
+    );
+  }
+
+  if (!result) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white p-4 text-center">
+        <XCircle className="w-16 h-16 text-rose-500 mb-4" />
+        <h1 className="text-2xl font-bold mb-2">Ups! Terjadi Kesalahan</h1>
+        <p className="text-slate-400 mb-8">Gagal memproses hasil ujian Anda. Silakan cek riwayat nilai di Dashboard.</p>
+        <Button onClick={() => router.push('/dashboard')} className="bg-indigo-600">Kembali ke Dashboard</Button>
+      </div>
+    );
+  }
+
+  const passingGrades = {
+    TWK: 65,
+    TIU: 80,
+    TKP: 166
+  };
+
+  const isPass = (result.score_twk >= passingGrades.TWK && 
+                  result.score_tiu >= passingGrades.TIU && 
+                  result.score_tkp >= passingGrades.TKP);
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-white p-4 md:p-8 animate-in fade-in duration-700">
+      <div className="max-w-4xl mx-auto space-y-8">
+        {/* Header Result */}
+        <div className="text-center space-y-4">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-indigo-500/10 border border-indigo-500/20 mb-2 rotate-3 hover:rotate-0 transition-transform duration-300">
+            <Award className="w-10 h-10 text-indigo-500" />
+          </div>
+          <h1 className="text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">Hasil Simulasi CAT</h1>
+          <p className="text-slate-400 font-medium">Rincian skor Seleksi Kompetensi Dasar (SKD)</p>
+        </div>
+
+        {/* Main Status Card */}
+        <div className={`relative p-8 md:p-12 rounded-[2.5rem] border-2 flex flex-col items-center text-center space-y-6 overflow-hidden transition-all duration-500 hover:shadow-2xl ${
+          isPass 
+            ? 'bg-emerald-500/5 border-emerald-500/30 hover:shadow-emerald-500/10' 
+            : 'bg-rose-500/5 border-rose-500/30 hover:shadow-rose-500/10'
+        }`}>
+          {/* Subtle Background Glow */}
+          <div className={`absolute -top-24 -left-24 w-64 h-64 rounded-full blur-[100px] opacity-20 ${isPass ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+          
+          <div className="relative">
+            {isPass ? (
+              <div className="relative">
+                <CheckCircle className="w-20 h-20 text-emerald-500" />
+                <div className="absolute inset-0 w-20 h-20 bg-emerald-500 blur-2xl opacity-20 animate-pulse" />
+              </div>
+            ) : (
+              <XCircle className="w-20 h-20 text-rose-500" />
+            )}
+          </div>
+
+          <div className="relative space-y-2">
+            <h2 className={`text-4xl font-black italic tracking-tighter ${isPass ? 'text-emerald-400' : 'text-rose-400'}`}>
+              {isPass ? 'SELAMAT! ANDA LULUS' : 'MAAF, ANDA BELUM LULUS'}
+            </h2>
+            <p className="text-slate-400 max-w-sm mx-auto font-medium">
+              {isPass 
+                ? 'Skor Anda telah melampaui Passing Grade BKN (P/L).' 
+                : 'Skor Anda belum mencapai ambang batas minimum di salah satu kategori (TL).'}
+            </p>
+          </div>
+
+          <div className="relative pt-4">
+            <div className="text-8xl font-black text-white tracking-tighter">
+              {result.total_score}
+            </div>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em] mt-2">Total Skor SKD Nasional</p>
+          </div>
+        </div>
+
+        {/* Categories Breakdown */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <CategoryScore 
+            label="TWK" 
+            fullLabel="Tes Wawasan Kebangsaan" 
+            score={result.score_twk} 
+            min={passingGrades.TWK} 
+            colorClass={result.score_twk >= passingGrades.TWK ? "bg-emerald-500" : "bg-rose-500"}
+          />
+          <CategoryScore 
+            label="TIU" 
+            fullLabel="Tes Intelegensia Umum" 
+            score={result.score_tiu} 
+            min={passingGrades.TIU} 
+            colorClass={result.score_tiu >= passingGrades.TIU ? "bg-emerald-500" : "bg-rose-500"}
+          />
+          <CategoryScore 
+            label="TKP" 
+            fullLabel="Tes Karakteristik Pribadi" 
+            score={result.score_tkp} 
+            min={passingGrades.TKP} 
+            colorClass={result.score_tkp >= passingGrades.TKP ? "bg-emerald-500" : "bg-rose-500"}
+          />
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-8">
+          <Button 
+            variant="outline"
+            className="w-full sm:w-auto border-slate-800 bg-slate-900/50 hover:bg-slate-900 text-slate-300 py-7 px-10 rounded-3xl border-2 transition-all group"
+            onClick={() => {
+              resetExam();
+              router.push('/dashboard');
+            }}
+          >
+            <Home className="w-5 h-5 mr-3 group-hover:-translate-y-0.5 transition-transform" />
+            <span className="font-bold">Ke Dashboard</span>
+          </Button>
+          <Button 
+            className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-7 px-10 rounded-3xl shadow-2xl shadow-indigo-600/20 group"
+            onClick={() => {
+              resetExam();
+              router.push('/leaderboard');
+            }}
+          >
+            <BarChart3 className="w-5 h-5 mr-3 group-hover:scale-110 transition-transform" />
+            <span>Lihat Ranking Nasional</span>
+            <ArrowRight className="w-4 h-4 ml-3 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CategoryScore({ label, fullLabel, score, min, colorClass }: { 
+  label: string, 
+  fullLabel: string, 
+  score: number, 
+  min: number,
+  colorClass: string 
+}) {
+  const progress = Math.min((score / (min * 1.5)) * 100, 100);
+  
+  return (
+    <Card className="bg-slate-900/50 border-slate-800 border-2 rounded-[2rem] overflow-hidden transition-all hover:border-slate-700 hover:bg-slate-900">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center justify-between">
+          {label}
+          {score >= min ? (
+            <span className="text-[10px] text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">LULUD</span>
+          ) : (
+             <span className="text-[10px] text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20">GAGAL</span>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-baseline justify-between">
+          <span className="text-5xl font-black text-white">{score}</span>
+          <div className="text-right">
+            <div className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">Ambang Batas</div>
+            <div className="text-sm font-bold text-slate-300">{min}</div>
+          </div>
+        </div>
+        <div className="h-3 bg-slate-800 rounded-full overflow-hidden p-[2px]">
+          <div 
+            className={`h-full rounded-full transition-all duration-[1500ms] ease-out ${colorClass}`}
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        <p className="text-[10px] text-slate-500 font-medium leading-tight">
+          {fullLabel}
+        </p>
+      </CardContent>
+    </Card>
+  );
+}

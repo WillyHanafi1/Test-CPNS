@@ -1,10 +1,52 @@
 "use client";
 
-import React from 'react';
+import { useRouter } from 'next/navigation';
 import { useExamStore } from '@/store/useExamStore';
+import { Button } from '@/components/ui/button';
+import { Loader2, Send } from 'lucide-react';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
 export default function ExamSidebar() {
-  const { questions, currentIndex, setCurrentIndex, answers, doubtStatus } = useExamStore();
+  const router = useRouter();
+  const { 
+    questions, 
+    currentIndex, 
+    setCurrentIndex, 
+    answers, 
+    doubtStatus, 
+    sessionId, 
+    packageId, 
+    finishExam 
+  } = useExamStore();
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  const handleFinish = async () => {
+    if (!window.confirm("Apakah Anda yakin ingin menyelesaikan ujian? Jawaban yang sudah disimpan tidak dapat diubah kembali.")) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${API_URL}/api/v1/exam/finish/${sessionId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        finishExam();
+        router.push(`/exam/${packageId}/result`);
+      } else {
+        alert("Gagal mengumpulkan ujian. Silakan coba lagi.");
+      }
+    } catch (error) {
+      console.error("Finish error:", error);
+      alert("Terjadi kesalahan koneksi.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const getStatusColor = (questionId: string, index: number) => {
     const isCurrent = index === currentIndex;
@@ -47,7 +89,7 @@ export default function ExamSidebar() {
         </div>
       </div>
 
-      <div className="pt-6 border-t border-slate-800">
+      <div className="pt-6 border-t border-slate-800 space-y-4">
         <div className="bg-indigo-500/10 rounded-xl p-4 border border-indigo-500/20">
           <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider mb-1">Status Koneksi</p>
           <div className="flex items-center space-x-2">
@@ -55,6 +97,19 @@ export default function ExamSidebar() {
             <span className="text-xs text-slate-300">Terhubung ke Cloud Redis</span>
           </div>
         </div>
+
+        <Button 
+          onClick={handleFinish}
+          disabled={isSubmitting}
+          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-6 rounded-xl shadow-lg shadow-emerald-900/20 transition-all duration-300"
+        >
+          {isSubmitting ? (
+            <Loader2 className="w-5 h-5 animate-spin mr-2" />
+          ) : (
+            <Send className="w-4 h-4 mr-2" />
+          )}
+          Selesaikan Ujian
+        </Button>
       </div>
     </div>
   );

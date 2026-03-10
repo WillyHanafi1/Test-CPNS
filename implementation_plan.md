@@ -30,60 +30,60 @@ This document outlines the phased development of the CPNS Exam Practice Platform
 
 ---
 
-## Phase 2.1: Security & Architecture Optimizations [COMPLETED]
-**Goal**: Enterprise-grade security and professional UI.
-- [x] **Backend**: Full migration to HttpOnly Cookies.
-- [x] **Frontend**: Premium Landing Page (`page.tsx`) and automatic session restoration.
-- [x] **Data**: Fixed database seeding and mock data population.
+## Phase 2.2: Admin Dashboard & Stability [COMPLETED]
+**Goal**: Enterprise-ready management tools and stable navigation.
+- [x] **Backend**:
+  - Robust `get_current_user` supporting both HttpOnly Cookies and Authorization Headers.
+  - Fix Pydantic Serialization for complex SQLAlchemy models.
+- [x] **Frontend**:
+  - **Optimistic Auth Loading**: Instant user state restoration from localStorage.
+  - **Navigation Guard**: Fixed "History Stack Trap" using `router.replace`.
+  - **Admin Bank Soal**: Full integration for Package selection and Question management.
 
 ---
 
-## Phase 3: Real-time CAT Interface [NEXT]
+## Phase 3: Exam Engine & Real-time CAT [DONE - STABLE]
 **Goal**: High-reliability exam engine with anti-lag features.
-- [ ] **Frontend (Zustand State Management)**:
-  - Build the CAT engine Layout (Main question view + Sidebar navigation).
-  - **Pre-fetching**: Load all 110 questions into local state upon start.
-  - **Reactive Indicators**: Color codes for answered (Green), doubt (Yellow), unanswered (Red).
-  - **Autosave Logic**: Background API calls to Redis on every answer change.
-  - **Offline Resilience**: Sync state to `localStorage`.
-- [ ] **Backend (FastAPI & Redis)**:
-  - `POST /exam/start/{package_id}`: Initialize session, record `start_time` in DB, return all questions.
-  - `POST /exam/autosave`: Store answers in Redis Hash (`HSET exam_session:{user_id}:{session_id} {question_id} {answer}`).
-  - **Server-side Timer**: Validate request time against `end_time` in DB.
+- [x] **Frontend (Zustand State Management)**:
+  - Main question view + Sidebar navigation.
+  - **Pre-fetching**: Load all questions into local state.
+  - **Reactive Indicators**: Color codes for answered, doubt, unanswered.
+  - **Optimistic Autosave**: Background API calls to Redis.
+- [x] **Backend (FastAPI & Redis)**:
+  - Session initialization and server-side timer.
+  - Redis Hash-based answer storage.
+  - **Synchronous Scoring**: (Currently implemented, will be refactored to Async).
 
 ---
 
-## Phase 4: Scoring, Analytics & Background Tasks
-**Goal**: Scalable scoring and deep insights.
-- [ ] **Backend**:
-  - Implement Scoring Algorithm (correct/wrong logic for TWK/TIU and graded logic for TKP).
-  - Setup **Celery Workers** for asynchronous scoring processing.
-  - Store "Pre-calculated" results in PostgreSQL to ensure fast result retrieval.
-- [ ] **Frontend**:
-  - Result dashboard with categorized charts (Radar charts for TWK/TIU/TKP).
-  - Discussion mode (Showing correct answer vs user answer per question).
+## Phase 4: Async Processing & Scoring Refactor [NEXT]
+**Goal**: Enterprise-grade background tasks.
+- [ ] **Celery + RabbitMQ/Redis Implementation**:
+  - Refactor `finish_exam` to dispatch scoring to a Celery worker.
+  - Implement bulk-insert of answers from Redis to PostgreSQL in background.
+  - **Pre-Calculation**: Store fixed result JSON in DB for fast retrieval.
+- [ ] **Result Analytics Enhancement**:
+  - Add Radar charts/Detailed statistics to the existing Result page.
+  - Implement "Discussion Mode" UI to review individual questions.
 
 ---
 
-## Phase 5: Leaderboard & Social Features
+## Phase 5: National Leaderboard & Analytics [STABLE - REFINING]
 **Goal**: Competition and engagement.
-- [ ] **Backend**:
-  - Implementation of **Redis ZSET (Sorted Sets)** for real-time ranking.
-  - API for Global and Agency-specific leaderboards.
-- [ ] **Frontend**:
-  - National ranking page with search and pagination.
-  - "My Rank" widget in the dashboard.
+- [x] **Backend**: Redis ZSET (Sorted Sets) implementation for real-time ranking.
+- [x] **Frontend**: Premium National ranking page with Podium UI.
+- [ ] **Next**: Optimize leaderboard queries (ZREVRANGE) and add "My Rank" widget.
 
 ---
 
-## Phase 6: Payment Integration & Final Polish
-**Goal**: Monetization and SEO.
+## Phase 6: Payment Integration (Midtrans)
+**Goal**: Monetization and RBAC protection.
 - [ ] **Backend**:
-  - Integrate **Midtrans** (Snap/Core API) for transactions.
-  - Webhook handlers for payment status updates.
+  - Integrate Midtrans Snap/Core API.
+  - Webhook handlers for payment status.
+  - **RBAC Middleware**: Enforce transaction checks before starting exams.
 - [ ] **Frontend**:
-  - Payment success/failed landing pages.
-  - SEO optimization and performance audit.
+  - Transaction history page and checkout integration.
 
 ---
 

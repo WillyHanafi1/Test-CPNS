@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime, timedelta
 
 from backend.db.session import get_async_session
-from backend.models.models import Package, Question, ExamSession, User
+from backend.models.models import Package, Question, ExamSession, User, Answer, QuestionOption
 from backend.api.v1.endpoints.auth import get_current_user
 from backend.core.redis_service import redis_service
 
@@ -69,3 +69,138 @@ async def autosave_answer(
     await redis_service.redis.expire(cache_key, 10800)
     
     return {"status": "saved"}
+
+@router.post("/finish/{session_id}")
+async def finish_exam(
+    session_id: uuid.UUID,
+    db: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(get_current_user)
+):
+    # 1. Fetch session
+    result = await db.execute(
+        select(ExamSession)
+        .where(ExamSession.id == session_id, ExamSession.user_id == current_user.id)
+    )
+    session = result.scalar_one_or_none()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    if session.status == "finished":
+        return {
+            "status": "already finished", 
+            "total_score": session.total_score,
+            "score_twk": session.score_twk,
+            "score_tiu": session.score_tiu,
+            "score_tkp": session.score_tkp
+        }
+
+    # 2. Fetch answers from Redis
+    cache_key = f"exam_answers:{current_user.id}:{session_id}"
+    redis_answers = await redis_service.redis.hgetall(cache_key)
+    
+    # 3. Fetch all questions and options for this package to calculate scores
+    result = await db.execute(
+        select(Question)
+        .options(selectinload(Question.options))
+        .where(Question.package_id == session.package_id)
+    )
+    questions = result.scalars().all()
+    
+    score_twk = 0
+    score_tiu = 0
+    score_tkp = 0
+    
+    db_answers = []
+    
+    for q in questions:
+        # Redis returns bytes, need to decode
+        selected_option_id_str = redis_answers.get(str(q.id))
+        if not selected_option_id_str:
+            continue
+            
+        # If it's bytes, decode to str
+        if isinstance(selected_option_id_str, bytes):
+            selected_option_id_str = selected_option_id_str.decode('utf-8')
+            
+        selected_option_id = uuid.UUID(selected_option_id_str)
+        selected_option = next((opt for opt in q.options if opt.id == selected_option_id), None)
+        
+        if not selected_option:
+            continue
+            
+        points = selected_option.score
+        
+        if q.segment == "TWK":
+            score_twk += points
+        elif q.segment == "TIU":
+            score_tiu += points
+        elif q.segment == "TKP":
+            score_tkp += points
+            
+        db_answers.append(Answer(
+            id=uuid.uuid4(),
+            session_id=session_id,
+            question_id=q.id,
+            selected_option=selected_option.label,
+            points_earned=points
+        ))
+    
+    # 4. Update session
+    session.score_twk = score_twk
+    session.score_tiu = score_tiu
+    session.score_tkp = score_tkp
+    session.total_score = score_twk + score_tiu + score_tkp
+    session.status = "finished"
+    session.end_time = datetime.utcnow()
+    
+    db.add_all(db_answers)
+    await db.commit()
+    
+    # 5. Update Leaderboard in Redis (Sorted Set)
+    await redis_service.redis.zadd("leaderboard:national", {current_user.email: session.total_score})
+    
+    # 6. Cleanup Redis answers
+    await redis_service.redis.delete(cache_key)
+    
+    return {
+        "status": "finished",
+        "total_score": session.total_score,
+        "score_twk": score_twk,
+        "score_tiu": score_tiu,
+        "score_tkp": score_tkp
+    }
+
+@router.get("/national-leaderboard")
+async def get_leaderboard(
+    db: AsyncSession = Depends(get_async_session)
+):
+    # 1. Fetch from Redis ZSET (Top 50)
+    raw_leaderboard = await redis_service.redis.zrevrange("leaderboard:national", 0, 49, withscores=True)
+    
+    leaderboard = []
+    for member, score in raw_leaderboard:
+        email = member
+        if isinstance(email, bytes):
+            email = email.decode('utf-8')
+            
+        # 2. Get full name from DB for display
+        result = await db.execute(
+            select(User)
+            .options(selectinload(User.profile))
+            .where(User.email == email)
+        )
+        user = result.scalar_one_or_none()
+        
+        display_name = user.profile.full_name if user and user.profile else email
+        # Mask email if no profile
+        if not user or not user.profile:
+            parts = email.split("@")
+            display_name = parts[0][:3] + "***@" + parts[1]
+
+        leaderboard.append({
+            "name": display_name,
+            "score": int(score),
+            "target": user.profile.target_agency if user and user.profile else "Umum"
+        })
+        
+    return leaderboard

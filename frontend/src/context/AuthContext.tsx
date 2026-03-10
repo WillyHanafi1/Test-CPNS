@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 interface User {
   id: string;
   email: string;
+  role: string;
   full_name?: string;
 }
 
@@ -34,7 +35,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (savedUser) {
           const userData = JSON.parse(savedUser);
           
-          // Optional: Verify session with backend using credentials (cookie)
+          // Set user immediately from localStorage to prevent "Auth Flicker"
+          setUser(userData);
+          
+          // Verify session with backend in the background
           const response = await fetch(`${API_URL}/api/v1/auth/me`, {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
@@ -42,11 +46,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           });
 
           if (response.ok) {
-            setUser(userData);
+            const data = await response.json();
+            const freshUser: User = { 
+              id: data.id, 
+              email: data.email, 
+              role: data.role,
+              full_name: data.profile?.full_name 
+            };
+            setUser(freshUser);
+            localStorage.setItem('user_info', JSON.stringify(freshUser));
           } else {
-            // Token might be expired or invalid
+            // Token expired or invalid
             localStorage.removeItem('user_info');
             setUser(null);
+            router.replace('/login');
           }
         }
       } catch (error) {
@@ -73,10 +86,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (response.ok) {
       const data = await response.json();
-      const userData = { id: data.user_id, email: data.email };
+      const userData: User = { id: data.user_id, email: data.email, role: data.role };
       setUser(userData);
       localStorage.setItem('user_info', JSON.stringify(userData));
-      router.push('/dashboard');
+      
+      if (data.role === 'admin') {
+        router.replace('/admin');
+      } else {
+        router.replace('/dashboard');
+      }
     } else {
       const error = await response.json();
       throw new Error(error.detail || 'Login failed');

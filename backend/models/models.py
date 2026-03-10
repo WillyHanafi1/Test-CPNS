@@ -11,10 +11,12 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     hashed_password: Mapped[str] = mapped_column(String(255))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    role: Mapped[str] = mapped_column(String(20), default="participant") # admin, participant
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     profile: Mapped["UserProfile"] = relationship(back_populates="user", uselist=False)
     sessions: Mapped[list["ExamSession"]] = relationship(back_populates="user")
+    transactions: Mapped[list["UserTransaction"]] = relationship(back_populates="user")
 
 class UserProfile(Base):
     __tablename__ = "user_profiles"
@@ -38,6 +40,7 @@ class Package(Base):
     category: Mapped[str] = mapped_column(String(50)) # TWK, TIU, TKP, Mix
 
     questions: Mapped[list["Question"]] = relationship(back_populates="package")
+    transactions: Mapped[list["UserTransaction"]] = relationship(back_populates="package")
 
 class Question(Base):
     __tablename__ = "questions"
@@ -73,6 +76,9 @@ class ExamSession(Base):
     start_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     end_time: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     total_score: Mapped[int] = mapped_column(Integer, default=0)
+    score_twk: Mapped[int] = mapped_column(Integer, default=0)
+    score_tiu: Mapped[int] = mapped_column(Integer, default=0)
+    score_tkp: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(20), default="ongoing")
 
     user: Mapped["User"] = relationship(back_populates="sessions")
@@ -88,3 +94,18 @@ class Answer(Base):
     points_earned: Mapped[int] = mapped_column(Integer, default=0)
 
     session: Mapped["ExamSession"] = relationship(back_populates="answers")
+
+class UserTransaction(Base):
+    __tablename__ = "user_transactions"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
+    package_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("packages.id"))
+    payment_status: Mapped[str] = mapped_column(String(20), default="pending") # pending, success, failed
+    amount: Mapped[int] = mapped_column(Integer)
+    snap_token: Mapped[str] = mapped_column(String(255), nullable=True) # For Midtrans
+    access_expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    user: Mapped["User"] = relationship(back_populates="transactions")
+    package: Mapped["Package"] = relationship(back_populates="transactions")

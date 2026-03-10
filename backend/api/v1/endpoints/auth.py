@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -9,33 +9,61 @@ from backend.db.session import get_async_session
 from backend.models.models import User, UserProfile
 from backend.schemas.user import UserCreate, User as UserSchema, UserWithProfile
 from backend.schemas.token import Token
+from sqlalchemy.orm import selectinload
 from backend.core.security import verify_password, get_password_hash, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM, SECRET_KEY
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
-from fastapi import Cookie
+# Cookie removed
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
 
 async def get_current_user(
-    db: AsyncSession = Depends(get_async_session),
-    access_token: str = Cookie(None)
+    request: Request,
+    db: AsyncSession = Depends(get_async_session)
 ) -> User:
-    if not access_token:
+    # 1. Try to get token from HttpOnly Cookie
+    token = request.cookies.get("access_token")
+    
+    # 2. If not in cookie, try Header (for flexibility/Postman)
+    if not token:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
+    
+    if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Clean "Bearer " if it came from cookie (unlikely but safe)
+    if token.startswith("Bearer "):
+        token = token.replace("Bearer ", "")
     
     try:
-        payload = jwt.decode(access_token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("sub")
         if email is None:
             raise HTTPException(status_code=401, detail="Invalid token")
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
         
-    result = await db.execute(select(User).where(User.email == email))
+    result = await db.execute(
+        select(User)
+        .options(selectinload(User.profile))
+        .where(User.email == email)
+    )
     user = result.scalar_one_or_none()
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
     return user
+
+async def get_current_admin(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="The user does not have enough privileges"
+        )
+    return current_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -101,13 +129,13 @@ async def login(
         secure=False, # Set to True in production
     )
     
-    return {"message": "Successfully logged in", "user_id": str(user.id), "email": user.email}
+    return {"message": "Successfully logged in", "user_id": str(user.id), "email": user.email, "role": user.role}
 
 @router.post("/logout")
 async def logout(response: Response):
     response.delete_cookie("access_token")
     return {"message": "Successfully logged out"}
 
-@router.get("/me", response_model=UserSchema)
+@router.get("/me", response_model=UserWithProfile)
 async def get_me(current_user: User = Depends(get_current_user)):
     return current_user
