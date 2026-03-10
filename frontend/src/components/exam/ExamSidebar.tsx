@@ -1,5 +1,6 @@
 "use client";
 
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useExamStore } from '@/store/useExamStore';
 import { Button } from '@/components/ui/button';
@@ -19,7 +20,7 @@ export default function ExamSidebar() {
     packageId, 
     finishExam 
   } = useExamStore();
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleFinish = async () => {
     if (!window.confirm("Apakah Anda yakin ingin menyelesaikan ujian? Jawaban yang sudah disimpan tidak dapat diubah kembali.")) {
