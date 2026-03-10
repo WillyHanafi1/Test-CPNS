@@ -1,6 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.api.v1.endpoints.auth import router as auth_router
+from backend.api.v1.endpoints.package_api import router as package_router
+
 app = FastAPI(
     title="CPNS Platform API",
     description="Latest Tech Stack CPNS Exam Practice Platform",
@@ -15,6 +18,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(auth_router, prefix="/api/v1")
+app.include_router(package_router, prefix="/api/v1")
 
 @app.get("/")
 async def root():

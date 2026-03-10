@@ -1,0 +1,27 @@
+import redis.asyncio as redis
+import json
+from typing import Optional, Any
+from backend.config import settings
+
+class RedisService:
+    def __init__(self):
+        self.redis = redis.from_url(settings.REDIS_URL, decode_responses=True)
+
+    async def set_cache(self, key: str, value: Any, expire: int = 3600):
+        await self.redis.set(key, json.dumps(value), ex=expire)
+
+    async def get_cache(self, key: str) -> Optional[Any]:
+        data = await self.redis.get(key)
+        if data:
+            return json.loads(data)
+        return None
+
+    async def delete_cache(self, key: str):
+        await self.redis.delete(key)
+
+    async def clear_pattern(self, pattern: str):
+        keys = await self.redis.keys(pattern)
+        if keys:
+            await self.redis.delete(*keys)
+
+redis_service = RedisService()
