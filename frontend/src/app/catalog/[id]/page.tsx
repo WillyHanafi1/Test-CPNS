@@ -26,7 +26,8 @@ export default function PackageDetailPage() {
   useEffect(() => {
     const fetchPackage = async () => {
       try {
-        const response = await fetch(`http://localhost:8000/api/v1/packages/${id}`);
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+        const response = await fetch(`${baseUrl}/api/v1/packages/${id}`);
         if (response.ok) {
           const data = await response.json();
           setPkg(data);
@@ -125,9 +126,11 @@ export default function PackageDetailPage() {
                       {pkg.price === 0 ? 'GRATIS' : `Rp ${pkg.price.toLocaleString('id-ID')}`}
                     </span>
                   </div>
-                  <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white h-12 text-lg font-bold">
-                    {pkg.price === 0 ? 'Mulai Ujian Sekarang' : 'Beli Paket Sekarang'}
-                  </Button>
+                  <Link href={`/exam/${pkg.id}`} className="w-full block">
+                    <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white h-12 text-lg font-bold">
+                      {pkg.price === 0 ? 'Mulai Ujian Sekarang' : 'Beli Paket Sekarang'}
+                    </Button>
+                  </Link>
                   <p className="text-center text-xs text-slate-500 mt-4">
                     Akses selamanya dengan sekali pembayaran
                   </p>

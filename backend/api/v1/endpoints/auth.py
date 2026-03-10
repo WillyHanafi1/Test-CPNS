@@ -5,11 +5,11 @@ from sqlalchemy import select
 from datetime import timedelta
 import uuid
 
-from db.session import get_async_session
-from models.models import User, UserProfile
-from schemas.user import UserCreate, User as UserSchema, UserWithProfile
-from schemas.token import Token
-from core.security import verify_password, get_password_hash, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM, SECRET_KEY
+from backend.db.session import get_async_session
+from backend.models.models import User, UserProfile
+from backend.schemas.user import UserCreate, User as UserSchema, UserWithProfile
+from backend.schemas.token import Token
+from backend.core.security import verify_password, get_password_hash, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM, SECRET_KEY
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from fastapi import Cookie

@@ -1,8 +1,7 @@
 # Prerequisites
+**/__pycache__/
+*.pyc
 backend/venv/
-backend/__pycache__/
-backend/*.pyc
-backend/alembic/versions/*.pyc
 
 # Local env files
 .env

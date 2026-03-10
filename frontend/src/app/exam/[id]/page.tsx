@@ -9,7 +9,7 @@ import ExamSidebar from '@/components/exam/ExamSidebar';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
 export default function ExamPage() {
   const { id } = useParams();

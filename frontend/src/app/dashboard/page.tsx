@@ -4,6 +4,7 @@ import React from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { LogOut, User } from 'lucide-react';
+import Link from 'next/link';
 
 export default function DashboardPage() {
   const { user, logout, loading } = useAuth();
@@ -57,19 +58,23 @@ export default function DashboardPage() {
           <div className="bg-slate-900/50 border border-slate-800 p-8 rounded-2xl hover:border-indigo-500/50 transition-all duration-300">
             <h3 className="text-xl font-semibold mb-2">My Progress</h3>
             <p className="text-slate-400 mb-6">Track your scores and performance over time.</p>
-            <Button variant="secondary" className="w-full">View Stats</Button>
+            <Button variant="secondary" className="w-full" disabled>View Stats</Button>
           </div>
           
           <div className="bg-slate-900/50 border border-slate-800 p-8 rounded-2xl hover:border-indigo-500/50 transition-all duration-300">
             <h3 className="text-xl font-semibold mb-2">Exam Catalog</h3>
             <p className="text-slate-400 mb-6">Browse hundreds of practice questions and packages.</p>
-            <Button variant="secondary" className="w-full">Explore Catalog</Button>
+            <Link href="/catalog" className="w-full block">
+              <Button variant="secondary" className="w-full">Explore Catalog</Button>
+            </Link>
           </div>
           
           <div className="bg-slate-900/50 border border-slate-800 p-8 rounded-2xl hover:border-indigo-500/50 transition-all duration-300 border-indigo-500/30 ring-1 ring-indigo-500/20">
             <h3 className="text-xl font-semibold mb-2">Launch CAT</h3>
             <p className="text-slate-400 mb-6">Start a simulated Computer Assisted Test session.</p>
-            <Button className="w-full bg-indigo-600 hover:bg-indigo-700">Begin Trial</Button>
+            <Link href="/catalog" className="w-full block">
+              <Button className="w-full bg-indigo-600 hover:bg-indigo-700">Begin Trial</Button>
+            </Link>
           </div>
         </div>
       </main>

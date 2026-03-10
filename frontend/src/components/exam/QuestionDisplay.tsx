@@ -5,7 +5,7 @@ import { useExamStore } from '@/store/useExamStore';
 import { Button } from '@/components/ui/button';
 import { Check, Info, Flag } from 'lucide-react';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
 export default function QuestionDisplay() {
   const { 

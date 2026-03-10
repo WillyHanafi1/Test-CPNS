@@ -43,21 +43,46 @@ docker-compose up -d
 ```
 
 ### 3. Setup Backend
-```bash
-cd backend
+```powershell
+# Jalankan dari folder root (Test-CPNS)
 python -m venv venv
 .\venv\Scripts\activate  # Windows
-pip install -r requirements.txt
-alembic upgrade head
-uvicorn main:app --reload
+pip install -r backend/requirements.txt
+
+# Jalankan server di port 8001 (Sangat disarankan untuk Windows)
+$env:PYTHONPATH = "."; uvicorn backend.main:app --reload --port 8001
 ```
 
-### 4. Setup Frontend
+### 4. Setup Database & Seeding
+```powershell
+# Jalankan migrasi database
+alembic upgrade head
+
+# Seed Data Awal (User & Paket Soal)
+$env:PYTHONPATH = "."; python seed_users_initial.py
+$env:PYTHONPATH = "."; python seed_package.py
+```
+
+### 5. Setup Frontend
+Pastikan berkas `frontend/.env.local` mengarah ke port backend yang aktif:
+`NEXT_PUBLIC_API_URL=http://localhost:8001`
+
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
+
+## ⚠️ Troubleshooting (Penting)
+
+### 1. ModuleNotFoundError: No module named 'backend'
+Seluruh backend menggunakan *absolute imports*. Selalu jalankan `uvicorn` atau skrip python dari **folder root** dengan menyetel `PYTHONPATH`.
+
+### 2. WinError 10013 / Socket Permission
+Jika port `8000` ditolak, gunakan port `8001` atau port lain yang tersedia di atas 1024.
+
+### 3. JSON Serialization Error (UUID)
+Gunakan `backend.core.redis_service` untuk caching, karena sudah menangani serialisasi `UUID` secara otomatis.
 
 ## 📐 Arsitektur Database (ERD)
 Dapat dilihat secara detail di berkas `infra/database_erd.md` (Coming Soon).

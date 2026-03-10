@@ -26,7 +26,8 @@ export default function CatalogPage() {
     const fetchPackages = async () => {
       setLoading(true);
       try {
-        let url = 'http://localhost:8000/api/v1/packages/';
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+        let url = `${baseUrl}/api/v1/packages/`;
         const params = new URLSearchParams();
         if (category) params.append('category', category);
         if (params.toString()) url += `?${params.toString()}`;

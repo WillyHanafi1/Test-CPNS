@@ -1,5 +1,7 @@
 import redis.asyncio as redis
 import json
+import uuid
+from datetime import datetime
 from typing import Optional, Any
 from backend.config import settings
 
@@ -8,7 +10,14 @@ class RedisService:
         self.redis = redis.from_url(settings.REDIS_URL, decode_responses=True)
 
     async def set_cache(self, key: str, value: Any, expire: int = 3600):
-        await self.redis.set(key, json.dumps(value), ex=expire)
+        def json_serial(obj):
+            if isinstance(obj, (datetime)):
+                return obj.isoformat()
+            if isinstance(obj, uuid.UUID):
+                return str(obj)
+            raise TypeError(f"Type {type(obj)} not serializable")
+            
+        await self.redis.set(key, json.dumps(value, default=json_serial), ex=expire)
 
     async def get_cache(self, key: str) -> Optional[Any]:
         data = await self.redis.get(key)
