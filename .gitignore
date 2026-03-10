@@ -1,0 +1,26 @@
+# Prerequisites
+backend/venv/
+backend/__pycache__/
+backend/*.pyc
+backend/alembic/versions/*.pyc
+
+# Local env files
+.env
+.env.local
+backend/.env
+
+# Node.js
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# IDEs
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker
+postgres_data/
