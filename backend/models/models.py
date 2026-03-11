@@ -41,6 +41,7 @@ class Package(Base):
 
     questions: Mapped[list["Question"]] = relationship(back_populates="package", cascade="all, delete-orphan")
     transactions: Mapped[list["UserTransaction"]] = relationship(back_populates="package")
+    sessions: Mapped[list["ExamSession"]] = relationship(back_populates="package")
 
 class Question(Base):
     __tablename__ = "questions"
@@ -55,6 +56,7 @@ class Question(Base):
 
     package: Mapped["Package"] = relationship(back_populates="questions")
     options: Mapped[list["QuestionOption"]] = relationship(back_populates="question", cascade="all, delete-orphan")
+    answers: Mapped[list["Answer"]] = relationship(back_populates="question")
 
 class QuestionOption(Base):
     __tablename__ = "question_options"
@@ -82,7 +84,8 @@ class ExamSession(Base):
     status: Mapped[str] = mapped_column(String(20), default="ongoing")
 
     user: Mapped["User"] = relationship(back_populates="sessions")
-    answers: Mapped[list["Answer"]] = relationship(back_populates="session")
+    package: Mapped["Package"] = relationship(back_populates="sessions")
+    answers: Mapped[list["Answer"]] = relationship(back_populates="session", cascade="all, delete-orphan")
 
 class Answer(Base):
     __tablename__ = "answers"
@@ -94,6 +97,7 @@ class Answer(Base):
     points_earned: Mapped[int] = mapped_column(Integer, default=0)
 
     session: Mapped["ExamSession"] = relationship(back_populates="answers")
+    question: Mapped["Question"] = relationship(back_populates="answers")
 
 class UserTransaction(Base):
     __tablename__ = "user_transactions"

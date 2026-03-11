@@ -58,10 +58,13 @@ export default function CatalogPage() {
 
   useEffect(() => {
     fetchPackages();
+    // Cleanup debounce timer on unmount
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
   }, [fetchPackages]);
 
   // No client-side filter needed — results come pre-filtered from the server
-  const filteredPackages = packages;
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
@@ -144,9 +147,9 @@ export default function CatalogPage() {
                 <div key={i} className="h-64 bg-slate-900/50 animate-pulse rounded-2xl border border-slate-800" />
               ))}
             </div>
-          ) : filteredPackages.length > 0 ? (
+          ) : packages.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredPackages.map((pkg) => (
+              {packages.map((pkg) => (
                 <PackageCard key={pkg.id} {...pkg} />
               ))}
             </div>

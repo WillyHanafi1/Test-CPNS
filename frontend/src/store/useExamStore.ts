@@ -115,7 +115,7 @@ export const useExamStore = create<ExamState>()(
           }
           // Constantly recalculate to avoid F5 desync
           const newTimeLeft = Math.max(0, Math.floor((endMs - realNow) / 1000));
-          return { timeLeft: newTimeLeft, isFinished: false };
+          return { timeLeft: newTimeLeft };
         }
         const newTimeLeft = state.timeLeft > 0 ? state.timeLeft - 1 : 0;
         return {
@@ -132,6 +132,8 @@ export const useExamStore = create<ExamState>()(
         questions: [],
         answers: {},
         doubtStatus: {},
+        currentIndex: 0,
+        timeLeft: 0,
         isStarted: false,
         isFinished: false,
         serverEndTime: null,

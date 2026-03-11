@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 import uuid
 import logging
+import traceback
 from datetime import datetime, timezone, timedelta
 from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
@@ -92,7 +93,36 @@ async def start_exam(
                 detail="Akses Anda ke paket ini telah kedaluwarsa."
             )
 
-    # 2. Create session in DB
+    # 2. Check for duplicate "ongoing" session
+    existing_result = await db.execute(
+        select(ExamSession).where(
+            ExamSession.user_id == current_user.id,
+            ExamSession.package_id == package_id,
+            ExamSession.status == "ongoing"
+        )
+    )
+    existing_session = existing_result.scalar_one_or_none()
+    
+    # --- TAMBAHKAN HELPER FUNCTION INI ---
+    async def populate_valid_options(sess_id: uuid.UUID):
+        valid_options_key = f"valid_options:{sess_id}"
+        valid_ids = [str(opt.id) for q in package.questions for opt in q.options]
+        if valid_ids:
+            await redis_service.redis.sadd(valid_options_key, *valid_ids)
+            await redis_service.redis.expire(valid_options_key, 10800)
+    # -------------------------------------
+
+    if existing_session:
+        # PANGGIL HELPER DI SINI AGAR REDIS SET TERISI SAAT RESUME
+        await populate_valid_options(existing_session.id)
+        
+        return {
+            "session_id": existing_session.id,
+            "package": package,
+            "end_time": existing_session.end_time.replace(tzinfo=timezone.utc)
+        }
+
+    # 3. Create session in DB
     # Standard SKD time is 100 minutes
     start_time = datetime.now(timezone.utc).replace(tzinfo=None)  # naive UTC
     end_time = start_time + timedelta(minutes=100)
@@ -109,6 +139,9 @@ async def start_exam(
     await db.commit()
     await db.refresh(session)
 
+    # PANGGIL HELPER DI SINI UNTUK SESI BARU
+    await populate_valid_options(session.id)
+
     session_meta_key = f"session_meta:{session.id}"
     # FIX: end_time is naive UTC. We MUST attach timezone before calling timestamp()
     # Otherwise Python assumes local timezone and gives the wrong epoch.
@@ -117,7 +150,7 @@ async def start_exam(
     return {
         "session_id": session.id,
         "package": package,
-        "end_time": end_time
+        "end_time": end_time.replace(tzinfo=timezone.utc)  # aware for JSON response
     }
 
 @router.post("/autosave/{session_id}")
@@ -128,7 +161,19 @@ async def autosave_answer(
     db: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_user)
 ):
-    # Fix #16: Redis-based rate limiting (max 10 requests per 5 seconds per user)
+    # 1. Validation - Ownership & duplicate limit
+    session_result = await db.execute(
+        select(ExamSession).where(
+            ExamSession.id == session_id,
+            ExamSession.user_id == current_user.id,
+            ExamSession.status == "ongoing"
+        )
+    )
+    session = session_result.scalar_one_or_none()
+    if not session:
+        raise HTTPException(status_code=404, detail="Sesi ujian tidak ditemukan atau bukan milik Anda")
+
+    # 2. Redis-based rate limiting (max 10 requests per 5 seconds per user)
     rate_key = f"rate_limit:autosave:{current_user.id}"
     current_count = await redis_service.redis.incr(rate_key)
     if current_count == 1:
@@ -139,35 +184,32 @@ async def autosave_answer(
             detail="Terlalu banyak permintaan. Coba lagi dalam beberapa detik."
         )
 
-    # 1. Validasi Batas Waktu dari Redis
+    # 3. Validasi Batas Waktu dari Redis
     session_meta_key = f"session_meta:{session_id}"
     end_time_ts = await redis_service.redis.get(session_meta_key)
     
     if not end_time_ts:
-        # Fallback to DB check to ensure session validity and restore cache
-        result = await db.execute(
-            select(ExamSession).where(
-                ExamSession.id == session_id,
-                ExamSession.user_id == current_user.id
-            )
-        )
-        session = result.scalar_one_or_none()
-        if not session or session.status != "ongoing":
-            raise HTTPException(status_code=404, detail="Sesi ujian tidak ditemukan atau sudah ditutup.")
-            
-        # Restore cache logic
+        # Session valid tapi Redis cache expired — restore dari DB
         if session.end_time:
             end_time_ts_val = session.end_time.replace(tzinfo=timezone.utc).timestamp()
             await redis_service.redis.setex(session_meta_key, 10800, str(end_time_ts_val))
             end_time_ts = str(end_time_ts_val)
         else:
-            raise HTTPException(status_code=404, detail="Waktu ujian tidak ditemukan.")
+            raise HTTPException(status_code=500, detail="Data waktu ujian tidak ditemukan")
 
     now_ts = datetime.now(timezone.utc).timestamp()
     if now_ts > float(end_time_ts):
         raise HTTPException(status_code=403, detail="Waktu ujian telah habis. Jawaban tidak dapat disimpan.")
 
-    # 2. Proses simpan jika waktu masih ada
+    # 4. Validation - Option integrity (Redis Set for Performance & Security)
+    valid_options_key = f"valid_options:{session_id}"
+    is_valid = await redis_service.redis.sismember(valid_options_key, str(option_id))
+    
+    if not is_valid:
+        # HAPUS FALLBACK DB. Langsung tolak jika ID opsi ngawur.
+        raise HTTPException(status_code=400, detail="Pilihan jawaban tidak valid atau bukan dari paket soal ini")
+
+    # 5. Proses simpan jika waktu masih ada
     # Rule: Always save to Redis first for anti-lag
     # Key format: exam_answers:{user_id}:{session_id}
     # Using Hash to store question_id -> option_id mapping
@@ -218,7 +260,7 @@ async def finish_exam(
     now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
     if session.end_time and now_utc > session.end_time:
         # Time already expired — force-close regardless of client state
-        pass  # Fall through to scoring
+        logger.info(f"Session {session_id} force-closed due to server-side time expiry")
 
     # PREVENT DEADLOCK: Commit the 'processing' status and release the FOR UPDATE lock
     # BEFORE we execute calculate_exam_score or async_run_scoring
@@ -255,8 +297,12 @@ async def finish_exam(
                 "score_tkp": scoring_result.get('score_tkp', getattr(session, 'score_tkp', 0)) or 0
             }
         except Exception as fallback_error:
-            logger.error(f"Synchronous fallback scoring failed: {fallback_error}")
-            import traceback
+            # Revert status agar user bisa retry
+            try:
+                session.status = "ongoing"
+                await db.commit()
+            except Exception:
+                pass  # DB mungkin juga down, tidak bisa berbuat banyak
             logger.error(traceback.format_exc())
             raise HTTPException(status_code=500, detail=f"Gagal menghitung nilai ujian: {str(fallback_error)}")
 
@@ -320,8 +366,11 @@ async def get_leaderboard(
         display_name = user.profile.full_name if user and user.profile else email
         # Mask email if no profile
         if not user or not user.profile:
-            parts = email.split("@")
-            display_name = parts[0][:3] + "***@" + parts[1]
+            if "@" in email:
+                parts = email.split("@")
+                display_name = parts[0][:3] + "***@" + parts[1]
+            else:
+                display_name = email[:3] + "***"
 
         leaderboard.append({
             "name": display_name,

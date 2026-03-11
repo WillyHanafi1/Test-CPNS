@@ -11,6 +11,7 @@ import {
   ShieldCheck, Lock, CreditCard, Loader2, AlertTriangle, Zap
 } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'react-hot-toast';
 
 interface Package {
   id: string;
@@ -32,6 +33,8 @@ const FEATURES = [
   'Bisa diulang tanpa batas',
 ];
 
+type AccessState = 'idle' | 'loading' | 'granted' | 'denied';
+
 export default function PackageDetailPage() {
   const params = useParams();
   // Safe extraction: useParams can return string | string[] in Next.js
@@ -41,9 +44,8 @@ export default function PackageDetailPage() {
 
   const [pkg, setPkg] = useState<Package | null>(null);
   const [loading, setLoading] = useState(true);
-  // null = checking, true = has access, false = no access
-  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
-  const [accessLoading, setAccessLoading] = useState(false);
+  
+  const [accessState, setAccessState] = useState<AccessState>('idle');
 
   // Fetch package info
   useEffect(() => {
@@ -69,31 +71,26 @@ export default function PackageDetailPage() {
 
     // Free packages: always accessible
     if (!pkg.is_premium || pkg.price === 0) {
-      setHasAccess(true);
+      setAccessState('granted');
       return;
     }
 
     // Premium package: check transaction
     const checkAccess = async () => {
-      setAccessLoading(true);
+      setAccessState('loading');
       try {
         const res = await fetch(`${API_URL}/api/v1/packages/${id}/access`, {
           credentials: 'include',
         });
         if (res.ok) {
           const data = await res.json();
-          setHasAccess(data.has_access === true);
-        } else if (res.status === 401) {
-          // Not logged in — should not happen since user is set
-          setHasAccess(false);
+          setAccessState(data.has_access ? 'granted' : 'denied');
         } else {
-          // Endpoint might not exist yet — default to no access for premium
-          setHasAccess(false);
+          // Endpoint might not exist yet or unauthorized 
+          setAccessState('denied');
         }
       } catch {
-        setHasAccess(false);
-      } finally {
-        setAccessLoading(false);
+        setAccessState('denied');
       }
     };
 
@@ -103,7 +100,11 @@ export default function PackageDetailPage() {
   const handleBuyNow = () => {
     // TODO: integrate Midtrans Snap here
     // midtrans.snap.pay(snapToken, { ... })
-    alert('Integrasi Midtrans akan segera tersedia! Hubungi admin untuk akses premium.');
+    // Replaced alert with a visually less obstructive approach, though a real toast is best.
+    toast.error('Pembayaran sedang dalam pemeliharaan. Silakan hubungi Admin.', {
+      duration: 4000,
+      position: 'top-center',
+    });
   };
 
   if (loading) {
@@ -233,12 +234,12 @@ export default function PackageDetailPage() {
                         Login untuk Mulai
                       </Button>
                     </div>
-                  ) : accessLoading || hasAccess === null ? (
+                  ) : accessState === 'idle' || accessState === 'loading' ? (
                     // Checking access
                     <Button disabled className="w-full h-12 rounded-xl">
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Memeriksa akses...
                     </Button>
-                  ) : hasAccess ? (
+                  ) : accessState === 'granted' ? (
                     // HAS ACCESS — show start button
                     <Link href={`/exam/${pkg.id}`} className="block">
                       <Button className="w-full bg-indigo-600 hover:bg-indigo-500 text-white h-12 text-base font-bold rounded-xl shadow-lg shadow-indigo-600/20 group">

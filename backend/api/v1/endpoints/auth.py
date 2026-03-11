@@ -12,11 +12,8 @@ from backend.schemas.token import Token
 from sqlalchemy.orm import selectinload
 from backend.core.security import verify_password, get_password_hash, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM, SECRET_KEY
 from backend.config import settings as app_settings
-from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 # Cookie removed
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
 
 async def get_current_user(
     request: Request,
@@ -53,7 +50,9 @@ async def get_current_user(
     )
     user = result.scalar_one_or_none()
     if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=401, detail="User not found or deleted")
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="Account is inactive")
     return user
 
 async def get_current_admin(
@@ -113,6 +112,8 @@ async def login(
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="Account is inactive")
     
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(

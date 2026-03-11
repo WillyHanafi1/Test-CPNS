@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict
 from backend.db.session import get_async_session
 from backend.models.models import Package, Question, User
 from backend.api.v1.endpoints.auth import get_current_admin
+from backend.core.redis_service import redis_service
 
 router = APIRouter(prefix="/admin/packages", tags=["admin-packages"])
 
@@ -132,6 +133,10 @@ async def update_package_admin(
     q_count_result = await db.execute(select(func.count(Question.id)).where(Question.package_id == package_id))
     package.question_count = q_count_result.scalar() or 0
     
+    # Invalidate Cache
+    await redis_service.clear_pattern("packages:*")
+    await redis_service.clear_pattern("package_public:*")
+
     return package
 
 @router.delete("/{package_id}")
@@ -159,4 +164,9 @@ async def delete_package_admin(
     
     await db.delete(package)
     await db.commit()
+    
+    # Invalidate Cache
+    await redis_service.clear_pattern("packages:*")
+    await redis_service.clear_pattern("package_public:*")
+    
     return {"message": "Package deleted successfully"}

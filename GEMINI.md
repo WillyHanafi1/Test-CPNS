@@ -61,8 +61,3 @@ Rancangan tabel utama (*Entity Relationship*):
 
 *Catatan: File gambar (figural) harus disimpan di Cloud Storage (S3/GCS), database hanya menyimpan URL string.*
 
-## 5. Development Rules for AI Agent
-- **DO NOT** execute blocking synchronous SQL queries. Use async SQLAlchemy.
-- **DO NOT** save per-question user clicks to PostgreSQL during the exam. ALWAYS use Redis for temporary autosave.
-- **DO NOT** trust client-side timestamps for exam validation.
-- Focus on zero UI-freezes during the exam via efficient state management.

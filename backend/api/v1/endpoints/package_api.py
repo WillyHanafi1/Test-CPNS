@@ -124,36 +124,4 @@ async def check_package_access(
     return {"has_access": True}
 
 
-# ── Admin Endpoints ─────────────────────────────────────────────────────────
-
-@router.post("/", response_model=PackageSchema, status_code=status.HTTP_201_CREATED)
-async def create_package(package_in: PackageCreate, db: AsyncSession = Depends(get_async_session)):
-    new_package = Package(**package_in.model_dump())
-    db.add(new_package)
-    await db.commit()
-    await db.refresh(new_package)
-
-    # Use SCAN-based invalidation (avoids blocking KEYS command in production Redis)
-    # Clears both the list cache and any package_public caches
-    await redis_service.clear_pattern("packages:*")
-    await redis_service.clear_pattern("package_public:*")
-
-    return new_package
-
-@router.post("/{package_id}/questions", response_model=QuestionSchema, status_code=status.HTTP_201_CREATED)
-async def create_question(
-    package_id: uuid.UUID,
-    question_in: QuestionCreate,
-    db: AsyncSession = Depends(get_async_session)
-):
-    result = await db.execute(select(Package).where(Package.id == package_id))
-    package = result.scalar_one_or_none()
-    if not package:
-        raise HTTPException(status_code=404, detail="Package not found")
-
-    new_question = Question(**question_in.dict(), package_id=package_id)
-    db.add(new_question)
-    await db.commit()
-    await db.refresh(new_question)
-
-    return new_question
+# ── Admin Endpoints have been moved to admin/packages.py and admin/questions.py ──
