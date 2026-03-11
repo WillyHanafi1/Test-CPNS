@@ -21,8 +21,10 @@ export default function ResultPage() {
   const { sessionId, resetExam } = useExamStore();
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const abortRef = useRef<AbortController | null>(null); // prevents setState on unmounted component
+  const retryCountRef = useRef(0);
 
   useEffect(() => {
     if (!sessionId) {
@@ -82,7 +84,10 @@ export default function ResultPage() {
       } catch (error: any) {
         if (error.name === 'AbortError') return; // Component unmounted — ignore
         console.error("Fetch result error:", error);
-        if (!controller.signal.aborted) setLoading(false);
+        if (!controller.signal.aborted) {
+          setErrorMsg(error.message || 'Gagal menghubungi server');
+          setLoading(false);
+        }
       }
     };
 
@@ -104,13 +109,54 @@ export default function ResultPage() {
     );
   }
 
-  if (!result || (result.total_score === undefined && result.status !== 'already finished')) {
+  if (errorMsg || (!result || (result.total_score === undefined && result.status !== 'already finished'))) {
+    const handleRetry = () => {
+      retryCountRef.current += 1;
+      setErrorMsg(null);
+      setLoading(true);
+      // Re-trigger by resetting state — useEffect depends on sessionId which hasn't changed,
+      // so we force re-render by toggling loading
+      const ctrl = new AbortController();
+      abortRef.current = ctrl;
+      (async () => {
+        try {
+          const response = await fetch(`${API_URL}/api/v1/exam/finish/${sessionId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({}),
+            signal: ctrl.signal
+          });
+          if (!response.ok) throw new Error(`Server error: ${response.status}`);
+          const data = await response.json();
+          setResult(data);
+          setLoading(false);
+        } catch (err: any) {
+          if (err.name === 'AbortError') return;
+          setErrorMsg(err.message || 'Gagal menghubungi server');
+          setLoading(false);
+        }
+      })();
+    };
+
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white p-4 text-center">
         <XCircle className="w-16 h-16 text-rose-500 mb-4" />
         <h1 className="text-2xl font-bold mb-2">Ups! Terjadi Kesalahan</h1>
-        <p className="text-slate-400 mb-8">Gagal memproses hasil ujian Anda. Silakan cek riwayat nilai di Dashboard.</p>
-        <Button onClick={() => router.push('/history')} className="bg-indigo-600">Lihat Riwayat Nilai</Button>
+        <p className="text-slate-400 mb-4">Gagal memproses hasil ujian Anda.</p>
+        {errorMsg && (
+          <p className="text-xs text-slate-600 mb-6 font-mono bg-slate-900 px-4 py-2 rounded-xl border border-slate-800">
+            {errorMsg}
+          </p>
+        )}
+        <div className="flex gap-3">
+          <Button onClick={handleRetry} className="bg-indigo-600 hover:bg-indigo-500">
+            Coba Lagi {retryCountRef.current > 0 && `(${retryCountRef.current})`}
+          </Button>
+          <Button variant="outline" onClick={() => router.push('/dashboard')} className="border-slate-700 text-slate-300">
+            Ke Dashboard
+          </Button>
+        </div>
       </div>
     );
   }

@@ -135,6 +135,10 @@ User klik Detail Paket → Frontend cek /access →
 | `datetime.utcnow()` deprecated | `exam.py`, `tasks.py`, `package_api.py` | Error di Python 3.12+ | Ganti ke `datetime.now(timezone.utc)` |
 | Memory leak di polling | `result/page.tsx` | `setState` di unmounted component | `AbortController` abort saat cleanup |
 | `useParams()` tidak type-safe | 4 halaman | Array ID bisa crash | `Array.isArray(id) ? id[0] : id` |
+| `calculate_exam_score.delay()` unhandled | `exam.py` | 500 error jika Celery worker mati | `try/except` + fallback synchronous scoring |
+| `end_time.timestamp()` naive UTC | `exam.py` | 403 Forbidden di `/autosave` karena timezone local | `.replace(tzinfo=timezone.utc).timestamp()` |
+| Missing fallback import `async_run_scoring` | `exam.py` | 500 unhandled error saat Celery mati | Tambahkan impor dari `backend.core.tasks` + try/except log |
+| `DuplicatePreparedStatementError` 500 API Crash | `tasks.py` | 500 error no CORS header saat endpoint `finish` dijalankan | Set `async_run_scoring` untuk menggunakan global `async_session_maker` yg dikonfigurasi `statement_cache_size: 0` khusus PgBouncer (Supabase) |
 
 ---
 

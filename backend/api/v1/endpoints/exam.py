@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 import uuid
+import logging
 from datetime import datetime, timezone, timedelta
 from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
@@ -12,6 +13,9 @@ from backend.models.models import Package, Question, ExamSession, User, Answer, 
 from backend.api.v1.endpoints.auth import get_current_user
 from backend.core.redis_service import redis_service
 from backend.schemas.exam import ExamSessionListItem
+from backend.core.tasks import calculate_exam_score, async_run_scoring
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/exam", tags=["exam"])
 
@@ -81,8 +85,9 @@ async def start_exam(
     await db.refresh(session)
 
     session_meta_key = f"session_meta:{session.id}"
-    # Use str() for the timestamp to be safe with Redis
-    await redis_service.redis.setex(session_meta_key, 10800, str(end_time.timestamp()))
+    # FIX: end_time is naive UTC. We MUST attach timezone before calling timestamp()
+    # Otherwise Python assumes local timezone and gives the wrong epoch.
+    await redis_service.redis.setex(session_meta_key, 10800, str(end_time.replace(tzinfo=timezone.utc).timestamp()))
 
     return {
         "session_id": session.id,
@@ -121,7 +126,10 @@ async def autosave_answer(
     
     return {"status": "saved"}
 
-from backend.core.tasks import calculate_exam_score
+from backend.core.tasks import calculate_exam_score, async_run_scoring
+import logging
+
+logger = logging.getLogger(__name__)
 
 @router.post("/finish/{session_id}")
 async def finish_exam(
@@ -156,25 +164,44 @@ async def finish_exam(
     now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
     if session.end_time and now_utc > session.end_time:
         # Time already expired — force-close regardless of client state
-        pass  # Fall through to Celery task trigger
+        pass  # Fall through to scoring
 
-    # 2. Trigger Celery Task
-    # Send as strings to avoid serialization issues
-    calculate_exam_score.delay(
-        str(session_id), 
-        str(current_user.id),
-        current_user.email
-    )
-    
-    # 3. Update status to processing
-    session.status = "processing"
-    await db.commit()
-    
-    return {
-        "status": "processing",
-        "message": "Ujian telah selesai. Skor sedang dihitung di latar belakang.",
-        "total_score": 0
-    }
+    # 2. Try Celery background task first, fallback to synchronous scoring
+    try:
+        calculate_exam_score.delay(
+            str(session_id), 
+            str(current_user.id),
+            current_user.email
+        )
+        # Celery accepted the task — return processing status
+        session.status = "processing"
+        await db.commit()
+        return {
+            "status": "processing",
+            "message": "Ujian telah selesai. Skor sedang dihitung di latar belakang.",
+            "total_score": 0
+        }
+    except Exception as e:
+        # Celery worker/broker not available — score synchronously as fallback
+        logger.warning(f"Celery unavailable ({e}), falling back to synchronous scoring")
+        try:
+            scoring_result = await async_run_scoring(
+                str(session_id), str(current_user.id), current_user.email
+            )
+            # Re-fetch session to get updated scores from the scoring function
+            await db.refresh(session)
+            return {
+                "status": "finished",
+                "total_score": getattr(session, 'total_score', 0) or 0,
+                "score_twk": getattr(session, 'score_twk', 0) or 0,
+                "score_tiu": getattr(session, 'score_tiu', 0) or 0,
+                "score_tkp": getattr(session, 'score_tkp', 0) or 0
+            }
+        except Exception as fallback_error:
+            logger.error(f"Synchronous fallback scoring failed: {fallback_error}")
+            import traceback
+            logger.error(traceback.format_exc())
+            raise HTTPException(status_code=500, detail=f"Gagal menghitung nilai ujian: {str(fallback_error)}")
 
 @router.get("/national-leaderboard")
 async def get_leaderboard(

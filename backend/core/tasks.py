@@ -15,15 +15,12 @@ from backend.config import settings
 
 async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: str):
     print(f"DEBUG: Starting scoring for session {session_id_str}")
-    # Create isolated engine for this task process/loop
-    engine = create_async_engine(settings.DATABASE_URL)
-    local_session_maker = async_sessionmaker(engine, expire_on_commit=False)
     
     try:
         session_id = uuid.UUID(session_id_str)
         user_id = uuid.UUID(user_id_str)
         
-        async with local_session_maker() as db:
+        async with async_session_maker() as db:
             # 1. Fetch Session
             print(f"DEBUG: Fetching session from DB")
             result = await db.execute(
@@ -130,9 +127,6 @@ async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: s
         print(f"ERROR: Scoring failed for session {session_id_str}")
         print(traceback.format_exc())
         return {"status": "error", "message": str(e)}
-    finally:
-        await engine.dispose()
-        print(f"DEBUG: Engine disposed for session {session_id_str}")
 
 @celery_app.task(name="backend.core.tasks.calculate_exam_score")
 def calculate_exam_score(session_id: str, user_id: str, user_email: str):
