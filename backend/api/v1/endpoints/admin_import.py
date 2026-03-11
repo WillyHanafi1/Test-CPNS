@@ -19,6 +19,8 @@ async def import_questions(
     db: AsyncSession = Depends(get_async_session),
     admin: User = Depends(get_current_admin)
 ):
+    MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+    
     # Check if package exists
     result = await db.execute(select(Package).where(Package.id == package_id))
     package = result.scalar_one_or_none()
@@ -26,6 +28,8 @@ async def import_questions(
         raise HTTPException(status_code=404, detail="Package not found")
 
     content = await file.read()
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail="File terlalu besar (maks 5MB)")
     
     try:
         if file.filename.endswith('.csv'):
@@ -48,20 +52,38 @@ async def import_questions(
         if col not in df.columns:
             raise HTTPException(status_code=400, detail=f"Missing required column: {col}")
 
+    # Prefetch existing question numbers in the package to prevent duplicates
+    from sqlalchemy import select
+    existing_nums_result = await db.execute(select(Question.number).where(Question.package_id == package_id))
+    existing_nums = {row[0] for row in existing_nums_result.all()}
+    
+    # Check duplicates within the file itself
+    if df['number'].duplicated().any():
+        raise HTTPException(status_code=400, detail="Terdapat duplikasi nomor soal di dalam file unggahan")
+        
+    for num in df['number']:
+        if int(num) in existing_nums:
+            raise HTTPException(status_code=409, detail=f"Nomor soal {int(num)} sudah digunakan di paket ini")
+
     questions_added = 0
     
-    for _, row in df.iterrows():
-        # Create Question
-        new_question = Question(
-            package_id=package_id,
-            content=str(row['content']),
-            segment=str(row['segment']),
-            number=int(row['number']),
-            image_url=str(row['image_url']) if 'image_url' in df.columns and pd.notna(row['image_url']) else None,
-            discussion=str(row['discussion']) if 'discussion' in df.columns and pd.notna(row['discussion']) else None
-        )
-        db.add(new_question)
-        await db.flush()
+    try:
+        for _, row in df.iterrows():
+            # Extract safe values
+            image_url = str(row['image_url']).strip() if 'image_url' in df.columns else ""
+            discussion = str(row['discussion']).strip() if 'discussion' in df.columns else ""
+            
+            # Create Question
+            new_question = Question(
+                package_id=package_id,
+                content=str(row['content']),
+                segment=str(row['segment']),
+                number=int(row['number']),
+                image_url=image_url if image_url else None,
+                discussion=discussion if discussion else None
+            )
+            db.add(new_question)
+            await db.flush()
 
         # Create Options
         labels = ['A', 'B', 'C', 'D', 'E']
@@ -89,5 +111,9 @@ async def import_questions(
         
         questions_added += 1
 
-    await db.commit()
-    return {"message": f"Successfully imported {questions_added} questions", "count": questions_added}
+        await db.commit()
+        return {"message": f"Successfully imported {questions_added} questions", "count": questions_added}
+        
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=422, detail=f"Import gagal di baris {questions_added + 1}: {str(e)}")

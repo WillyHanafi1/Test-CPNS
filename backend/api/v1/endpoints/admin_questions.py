@@ -9,6 +9,8 @@ from backend.models.models import Question, QuestionOption, Package, User
 from backend.api.v1.endpoints.auth import get_current_admin
 from pydantic import BaseModel, ConfigDict
 
+from pydantic import BaseModel, ConfigDict, field_validator
+
 router = APIRouter(prefix="/admin/questions", tags=["admin-questions"])
 
 class OptionCreate(BaseModel):
@@ -24,6 +26,41 @@ class QuestionCreate(BaseModel):
     image_url: Optional[str] = None
     discussion: Optional[str] = None
     options: List[OptionCreate]
+    
+    @field_validator('options')
+    @classmethod
+    def validate_options(cls, v):
+        if len(v) < 2:
+            raise ValueError('Minimal 2 opsi jawaban diperlukan')
+        return v
+
+class OptionUpdate(BaseModel):
+    id: Optional[uuid.UUID] = None
+    label: str
+    content: str
+    score: int
+
+class QuestionUpdate(BaseModel):
+    content: Optional[str] = None
+    segment: Optional[str] = None
+    number: Optional[int] = None
+    image_url: Optional[str] = None
+    discussion: Optional[str] = None
+    options: Optional[List[OptionUpdate]] = None
+    
+    @field_validator('options')
+    @classmethod
+    def validate_options(cls, v):
+        if v is not None and len(v) < 2:
+            raise ValueError('Minimal 2 opsi jawaban diperlukan')
+        return v
+
+class OptionResponse(BaseModel):
+    id: uuid.UUID
+    label: str
+    content: str
+    score: int
+    model_config = ConfigDict(from_attributes=True)
 
 class QuestionResponse(BaseModel):
     id: uuid.UUID
@@ -33,6 +70,7 @@ class QuestionResponse(BaseModel):
     number: int
     image_url: Optional[str] = None
     discussion: Optional[str] = None
+    options: List[OptionResponse] = []
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -41,6 +79,8 @@ class PaginatedQuestionResponse(BaseModel):
     total: int
     page: int
     size: int
+
+from sqlalchemy.orm import selectinload
 
 @router.get("/", response_model=PaginatedQuestionResponse)
 async def list_questions(
@@ -52,7 +92,7 @@ async def list_questions(
     db: AsyncSession = Depends(get_async_session),
     admin: User = Depends(get_current_admin)
 ):
-    query = select(Question)
+    query = select(Question).options(selectinload(Question.options))
     if package_id:
         query = query.where(Question.package_id == package_id)
     if segment:
@@ -88,6 +128,16 @@ async def create_question(
     package = result.scalar_one_or_none()
     if not package:
         raise HTTPException(status_code=404, detail="Package not found")
+        
+    # Check duplicate number in the same package
+    existing = await db.scalar(
+        select(func.count(Question.id)).where(
+            Question.package_id == question_in.package_id,
+            Question.number == question_in.number
+        )
+    )
+    if existing:
+        raise HTTPException(status_code=409, detail="Nomor soal sudah digunakan di paket ini")
 
     new_question = Question(
         package_id=question_in.package_id,
@@ -111,7 +161,69 @@ async def create_question(
     
     await db.commit()
     await db.refresh(new_question)
-    return new_question
+    
+    # Needs to eagerly load options after commit
+    result_q = await db.execute(select(Question).options(selectinload(Question.options)).where(Question.id == new_question.id))
+    return result_q.scalar_one()
+
+@router.put("/{question_id}", response_model=QuestionResponse)
+async def update_question(
+    question_id: uuid.UUID,
+    question_in: QuestionUpdate,
+    db: AsyncSession = Depends(get_async_session),
+    admin: User = Depends(get_current_admin)
+):
+    # Retrieve the question
+    result = await db.execute(
+        select(Question)
+        .options(selectinload(Question.options))
+        .where(Question.id == question_id)
+    )
+    question = result.scalar_one_or_none()
+    if not question:
+        raise HTTPException(status_code=404, detail="Question not found")
+        
+    # Check duplicate number if number is being mapped
+    if question_in.number is not None and question_in.number != question.number:
+        existing = await db.scalar(
+            select(func.count(Question.id)).where(
+                Question.package_id == question.package_id,
+                Question.number == question_in.number
+            )
+        )
+        if existing:
+            raise HTTPException(status_code=409, detail="Nomor soal sudah digunakan di paket ini")
+            
+    # Update primitive fields
+    update_data = question_in.model_dump(exclude_unset=True, exclude={"options"})
+    for key, value in update_data.items():
+        setattr(question, key, value)
+        
+    # Update options logic (delete-recreate strategy)
+    if question_in.options is not None:
+        # Delete old options
+        await db.execute(
+            select(QuestionOption).where(QuestionOption.question_id == question_id).execution_options(synchronize_session=False)
+        ) # This returns a scalar, need delete actually:
+        from sqlalchemy import delete
+        await db.execute(delete(QuestionOption).where(QuestionOption.question_id == question_id))
+        
+        # Insert new options
+        for opt in question_in.options:
+            new_opt = QuestionOption(
+                question_id=question.id,
+                label=opt.label,
+                content=opt.content,
+                score=opt.score
+            )
+            db.add(new_opt)
+            
+    await db.commit()
+    await db.refresh(question)
+    
+    # Need to query it again for clean loading
+    result_q = await db.execute(select(Question).options(selectinload(Question.options)).where(Question.id == question.id))
+    return result_q.scalar_one()
 
 @router.delete("/{question_id}")
 async def delete_question(
