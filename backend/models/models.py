@@ -25,7 +25,7 @@ class UserProfile(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
     full_name: Mapped[str] = mapped_column(String(255))
     phone_number: Mapped[str] = mapped_column(String(20), nullable=True)
-    target_agency: Mapped[str] = mapped_column(String(255), nullable=True)
+    target_instansi: Mapped[str] = mapped_column(String(255), nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="profile")
 

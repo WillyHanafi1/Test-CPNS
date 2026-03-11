@@ -27,7 +27,7 @@ class User(UserBase):
 class UserProfile(BaseModel):
     full_name: str
     phone_number: Optional[str] = None
-    target_agency: Optional[str] = None
+    target_instansi: Optional[str] = None
 
     class Config:
         from_attributes = True

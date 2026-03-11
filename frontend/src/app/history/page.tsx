@@ -79,10 +79,8 @@ export default function HistoryPage() {
    */
   const handleViewResult = (session: ExamSession) => {
     if (session.status !== 'finished') return;
-    // Restore sessionId in Zustand so result page can fetch it
-    // (We only need sessionId; questions + answers are not needed for the result page)
-    useExamStore.setState({ sessionId: session.id, packageId: session.package_id });
-    router.push(`/exam/${session.package_id}/result`);
+    // The result page now fetches the result using sessionId from the URL
+    router.push(`/exam/${session.id}/result`);
   };
 
   const finishedSessions = sessions.filter(s => s.status === 'finished');

@@ -18,72 +18,51 @@ export default function ResultPage() {
   // Safe extraction: useParams can return string | string[] in Next.js
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const router = useRouter();
-  const { sessionId, resetExam } = useExamStore();
+  const { resetExam } = useExamStore();
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const pollRef = useRef<NodeJS.Timeout | null>(null);
-  const abortRef = useRef<AbortController | null>(null); // prevents setState on unmounted component
+  const [retryTrigger, setRetryTrigger] = useState(0);
   const retryCountRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    if (!sessionId) {
+    if (!id) {
       router.replace('/dashboard');
       return;
     }
 
-    // Create a new AbortController for this effect lifecycle
     const controller = new AbortController();
     abortRef.current = controller;
+    let pollTimeout: NodeJS.Timeout | null = null;
+    let startTime = Date.now();
+    const MAX_POLL_TIME = 15000; // 15 detik timeout
 
-    const finishAndPoll = async () => {
+    const fetchResult = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/v1/exam/finish/${sessionId}`, {
+        const response = await fetch(`${API_URL}/api/v1/exam/finish/${id}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({}),
-          signal: controller.signal  // abort on unmount
+          signal: controller.signal
         });
 
-        if (!response.ok) throw new Error("Gagal mengambil hasil");
+        if (!response.ok) throw new Error("Gagal memproses hasil ujian");
 
         const data = await response.json();
-        if (!controller.signal.aborted) setResult(data);
 
         if (data.status === 'processing') {
           if (!controller.signal.aborted) setLoading(true);
-          pollRef.current = setInterval(async () => {
-            if (controller.signal.aborted) {
-              if (pollRef.current) clearInterval(pollRef.current);
-              return;
-            }
-            try {
-              const pollRes = await fetch(`${API_URL}/api/v1/exam/finish/${sessionId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({}),
-                signal: controller.signal
-              });
-              const pollData = await pollRes.json();
-              if (pollData.status === 'finished' || pollData.status === 'already finished') {
-                if (!controller.signal.aborted) {
-                  setResult(pollData);
-                  setLoading(false);
-                }
-                if (pollRef.current) clearInterval(pollRef.current);
-              }
-            } catch (err: any) {
-              if (err.name !== 'AbortError') console.error("Polling error:", err);
-            }
-          }, 2000);
+          pollResult();
         } else {
-          if (!controller.signal.aborted) setLoading(false);
+          if (!controller.signal.aborted) {
+            setResult(data);
+            setLoading(false);
+          }
         }
       } catch (error: any) {
-        if (error.name === 'AbortError') return; // Component unmounted — ignore
-        console.error("Fetch result error:", error);
+        if (error.name === 'AbortError') return;
         if (!controller.signal.aborted) {
           setErrorMsg(error.message || 'Gagal menghubungi server');
           setLoading(false);
@@ -91,13 +70,52 @@ export default function ResultPage() {
       }
     };
 
-    finishAndPoll();
+    const pollResult = () => {
+      if (Date.now() - startTime > MAX_POLL_TIME) {
+        if (!controller.signal.aborted) {
+          setErrorMsg('Waktu pemrosesan terlalu lama (timeout). Pekerja latar belakang mungkin sibuk.');
+          setLoading(false);
+        }
+        return;
+      }
+      
+      pollTimeout = setTimeout(async () => {
+            if (controller.signal.aborted) return;
+            try {
+              const pollRes = await fetch(`${API_URL}/api/v1/exam/result/${id}`, {
+                method: 'GET',
+                credentials: 'include',
+                signal: controller.signal
+              });
+              if (!pollRes.ok) throw new Error("Gagal mengambil hasil");
+              
+              const pollData = await pollRes.json();
+              if (pollData.status === 'finished' || pollData.status === 'already finished') {
+                if (!controller.signal.aborted) {
+                  setResult(pollData);
+                  setLoading(false);
+                }
+              } else if (pollData.status === 'processing') {
+                 // Keep polling
+                 if (!controller.signal.aborted) pollResult();   
+              }
+            } catch (err: any) {
+               if (err.name === 'AbortError') return;
+               if (!controller.signal.aborted) {
+                 setErrorMsg(err.message || "Gagal mengambil hasil");
+                 setLoading(false);
+               }
+            }
+          }, 2000);
+    };
+
+    fetchResult();
 
     return () => {
-      controller.abort(); // Cancel any in-flight fetch
-      if (pollRef.current) clearInterval(pollRef.current);
+      controller.abort();
+      if (pollTimeout) clearTimeout(pollTimeout);
     };
-  }, [sessionId, router]);
+  }, [id, router, retryTrigger]);
 
   if (loading) {
     return (
@@ -109,34 +127,12 @@ export default function ResultPage() {
     );
   }
 
-  if (errorMsg || (!result || (result.total_score === undefined && result.status !== 'already finished'))) {
+  if (errorMsg || !result || (result.total_score == null && result.status !== 'already finished')) {
     const handleRetry = () => {
       retryCountRef.current += 1;
       setErrorMsg(null);
       setLoading(true);
-      // Re-trigger by resetting state — useEffect depends on sessionId which hasn't changed,
-      // so we force re-render by toggling loading
-      const ctrl = new AbortController();
-      abortRef.current = ctrl;
-      (async () => {
-        try {
-          const response = await fetch(`${API_URL}/api/v1/exam/finish/${sessionId}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({}),
-            signal: ctrl.signal
-          });
-          if (!response.ok) throw new Error(`Server error: ${response.status}`);
-          const data = await response.json();
-          setResult(data);
-          setLoading(false);
-        } catch (err: any) {
-          if (err.name === 'AbortError') return;
-          setErrorMsg(err.message || 'Gagal menghubungi server');
-          setLoading(false);
-        }
-      })();
+      setRetryTrigger(prev => prev + 1);
     };
 
     return (

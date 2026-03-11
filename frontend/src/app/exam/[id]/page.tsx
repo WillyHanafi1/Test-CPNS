@@ -80,10 +80,11 @@ export default function ExamPage() {
   useEffect(() => {
     if (isFinished && !hasAutoFinished.current) {
       hasAutoFinished.current = true;
+      const currentSessionId = sessionId; // Capture before delay
       const autoFinish = async () => {
         // Delay to allow the "Ujian Selesai!" UI to be read by the user
         await new Promise(resolve => setTimeout(resolve, 1500));
-        router.push(packageId ? `/exam/${packageId}/result` : '/dashboard');
+        router.push(currentSessionId ? `/exam/${currentSessionId}/result` : '/dashboard');
       };
       autoFinish();
     }

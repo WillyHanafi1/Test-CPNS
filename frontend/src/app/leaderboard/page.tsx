@@ -11,24 +11,30 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 export default function LeaderboardPage() {
   const router = useRouter();
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
+  const [myRank, setMyRank] = useState<{ rank: number | null, score: number } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchLeaderboard = async () => {
+    const fetchData = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/v1/exam/national-leaderboard`, {
-          credentials: 'include'
-        });
-        const data = await response.json();
-        setLeaderboard(data);
+        const [lbRes, rankRes] = await Promise.all([
+          fetch(`${API_URL}/api/v1/exam/national-leaderboard?limit=100`, { credentials: 'include' }),
+          fetch(`${API_URL}/api/v1/exam/my-rank`, { credentials: 'include' })
+        ]);
+        
+        const lbData = await lbRes.json();
+        const rankData = await rankRes.json();
+        
+        setLeaderboard(lbData);
+        setMyRank(rankData);
       } catch (error) {
-        console.error("Fetch leaderboard error:", error);
+        console.error("Fetch error:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchLeaderboard();
+    fetchData();
   }, []);
 
   if (loading) {
@@ -64,8 +70,29 @@ export default function LeaderboardPage() {
           <h1 className="text-6xl font-black italic tracking-tighter bg-clip-text text-transparent bg-gradient-to-br from-white via-indigo-200 to-slate-600">
             LEADERBOARD
           </h1>
-          <p className="text-slate-500 font-bold uppercase tracking-[0.4em] text-xs">Top 50 Peringkat Nasional</p>
+          <p className="text-slate-500 font-bold uppercase tracking-[0.4em] text-xs">Top 100 Peringkat Nasional</p>
         </div>
+
+        {/* My Rank Card */}
+        {myRank && myRank.rank && (
+          <Card className="bg-indigo-600/10 border-indigo-500/30 rounded-[2rem] overflow-hidden border-2 shadow-2xl shadow-indigo-500/5">
+            <CardContent className="p-6 md:p-8 flex items-center justify-between">
+              <div className="flex items-center space-x-6">
+                <div className="w-16 h-16 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-600/40">
+                  <span className="text-2xl font-black text-white italic">#{myRank.rank}</span>
+                </div>
+                <div>
+                  <h3 className="font-bold text-indigo-400 uppercase tracking-widest text-xs mb-1">Peringkat Saya</h3>
+                  <p className="text-xl font-black text-white tracking-tight">Anda berada di posisi 100 besar nasional!</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-4xl font-black text-white italic tracking-tighter">{myRank.score}</div>
+                <div className="text-[10px] text-indigo-400 font-black uppercase tracking-tighter">Total Points</div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Top 3 Podium */}
         {leaderboard.length > 0 && (

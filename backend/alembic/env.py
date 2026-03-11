@@ -21,6 +21,7 @@ if config.config_file_name is not None:
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backend.db.session import Base
+from backend.models import models
 from backend.config import settings
 
 target_metadata = Base.metadata
@@ -66,7 +67,10 @@ def do_run_migrations(connection):
 
 async def run_migrations_online():
     """Run migrations in 'online' mode."""
-    connectable = create_async_engine(settings.DATABASE_URL)
+    connectable = create_async_engine(
+        settings.DATABASE_URL,
+        connect_args={"statement_cache_size": 0}
+    )
 
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)

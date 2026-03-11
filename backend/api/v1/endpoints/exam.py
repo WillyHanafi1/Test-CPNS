@@ -100,6 +100,7 @@ async def autosave_answer(
     session_id: uuid.UUID,
     question_id: uuid.UUID = Body(...),
     option_id: uuid.UUID = Body(...),
+    db: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_user)
 ):
     # 1. Validasi Batas Waktu dari Redis
@@ -107,8 +108,25 @@ async def autosave_answer(
     end_time_ts = await redis_service.redis.get(session_meta_key)
     
     if not end_time_ts:
-        raise HTTPException(status_code=404, detail="Sesi ujian tidak ditemukan atau sudah ditutup.")
-        
+        # Fallback to DB check to ensure session validity and restore cache
+        result = await db.execute(
+            select(ExamSession).where(
+                ExamSession.id == session_id,
+                ExamSession.user_id == current_user.id
+            )
+        )
+        session = result.scalar_one_or_none()
+        if not session or session.status != "ongoing":
+            raise HTTPException(status_code=404, detail="Sesi ujian tidak ditemukan atau sudah ditutup.")
+            
+        # Restore cache logic
+        if session.end_time:
+            end_time_ts_val = session.end_time.replace(tzinfo=timezone.utc).timestamp()
+            await redis_service.redis.setex(session_meta_key, 10800, str(end_time_ts_val))
+            end_time_ts = str(end_time_ts_val)
+        else:
+            raise HTTPException(status_code=404, detail="Waktu ujian tidak ditemukan.")
+
     now_ts = datetime.now(timezone.utc).timestamp()
     if now_ts > float(end_time_ts):
         raise HTTPException(status_code=403, detail="Waktu ujian telah habis. Jawaban tidak dapat disimpan.")
@@ -137,10 +155,14 @@ async def finish_exam(
     db: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_user)
 ):
-    # 1. Fetch session
+    # 1. Fetch session with row-level locking to prevent race conditions (double submission)
     result = await db.execute(
         select(ExamSession)
-        .where(ExamSession.id == session_id, ExamSession.user_id == current_user.id)
+        .where(
+            ExamSession.id == session_id, 
+            ExamSession.user_id == current_user.id
+        )
+        .with_for_update()
     )
     session = result.scalar_one_or_none()
     if not session:
@@ -166,6 +188,11 @@ async def finish_exam(
         # Time already expired — force-close regardless of client state
         pass  # Fall through to scoring
 
+    # PREVENT DEADLOCK: Commit the 'processing' status and release the FOR UPDATE lock
+    # BEFORE we execute calculate_exam_score or async_run_scoring
+    session.status = "processing"
+    await db.commit()
+
     # 2. Try Celery background task first, fallback to synchronous scoring
     try:
         calculate_exam_score.delay(
@@ -173,9 +200,7 @@ async def finish_exam(
             str(current_user.id),
             current_user.email
         )
-        # Celery accepted the task — return processing status
-        session.status = "processing"
-        await db.commit()
+        # Celery accepted the task
         return {
             "status": "processing",
             "message": "Ujian telah selesai. Skor sedang dihitung di latar belakang.",
@@ -193,9 +218,9 @@ async def finish_exam(
             return {
                 "status": "finished",
                 "total_score": getattr(session, 'total_score', 0) or 0,
-                "score_twk": getattr(session, 'score_twk', 0) or 0,
-                "score_tiu": getattr(session, 'score_tiu', 0) or 0,
-                "score_tkp": getattr(session, 'score_tkp', 0) or 0
+                "score_twk": scoring_result.get('score_twk', getattr(session, 'score_twk', 0)) or 0,
+                "score_tiu": scoring_result.get('score_tiu', getattr(session, 'score_tiu', 0)) or 0,
+                "score_tkp": scoring_result.get('score_tkp', getattr(session, 'score_tkp', 0)) or 0
             }
         except Exception as fallback_error:
             logger.error(f"Synchronous fallback scoring failed: {fallback_error}")
@@ -203,26 +228,62 @@ async def finish_exam(
             logger.error(traceback.format_exc())
             raise HTTPException(status_code=500, detail=f"Gagal menghitung nilai ujian: {str(fallback_error)}")
 
+@router.get("/result/{session_id}")
+async def get_exam_result(
+    session_id: uuid.UUID,
+    db: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(get_current_user)
+):
+    # Fetch session without locking (pure read-only for polling)
+    result = await db.execute(
+        select(ExamSession)
+        .where(
+            ExamSession.id == session_id, 
+            ExamSession.user_id == current_user.id
+        )
+    )
+    session = result.scalar_one_or_none()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    return {
+        "status": session.status,
+        "total_score": getattr(session, 'total_score', 0) or 0,
+        "score_twk": getattr(session, 'score_twk', 0) or 0,
+        "score_tiu": getattr(session, 'score_tiu', 0) or 0,
+        "score_tkp": getattr(session, 'score_tkp', 0) or 0
+    }
+
 @router.get("/national-leaderboard")
 async def get_leaderboard(
+    limit: int = 50,
     db: AsyncSession = Depends(get_async_session)
 ):
-    # 1. Fetch from Redis ZSET (Top 50)
-    raw_leaderboard = await redis_service.redis.zrevrange("leaderboard:national", 0, 49, withscores=True)
+    # Ensure limit is reasonable
+    limit = max(1, min(limit, 100))
     
+    # 1. Fetch from Redis ZSET
+    raw_leaderboard = await redis_service.redis.zrevrange("leaderboard:national", 0, limit - 1, withscores=True)
+    
+    if not raw_leaderboard:
+        return []
+
+    # Map members to their scores (ensuring scores are ints)
+    score_map = {member if isinstance(member, str) else member.decode('utf-8'): int(score) for member, score in raw_leaderboard}
+    emails = list(score_map.keys())
+
+    # 2. Batch fetch user profiles from DB
+    result = await db.execute(
+        select(User)
+        .options(selectinload(User.profile))
+        .where(User.email.in_(emails))
+    )
+    users = {user.email: user for user in result.scalars().all()}
+    
+    # 3. Build response maintaining Redis order
     leaderboard = []
-    for member, score in raw_leaderboard:
-        email = member
-        if isinstance(email, bytes):
-            email = email.decode('utf-8')
-            
-        # 2. Get full name from DB for display
-        result = await db.execute(
-            select(User)
-            .options(selectinload(User.profile))
-            .where(User.email == email)
-        )
-        user = result.scalar_one_or_none()
+    for email in emails:
+        user = users.get(email)
         
         display_name = user.profile.full_name if user and user.profile else email
         # Mask email if no profile
@@ -232,13 +293,28 @@ async def get_leaderboard(
 
         leaderboard.append({
             "name": display_name,
-            "score": int(score),
-            "target": user.profile.target_agency if user and user.profile else "Umum"
+            "score": score_map[email],
+            "target": user.profile.target_instansi if user and user.profile else "Umum"
         })
         
     return leaderboard
 
-@router.get("/sessions/me", response_model=List[ExamSessionListItem])
+@router.get("/my-rank")
+async def get_my_rank(
+    current_user: User = Depends(get_current_user)
+):
+    # Get user's rank (0-indexed, so 0 is #1)
+    rank = await redis_service.redis.zrevrank("leaderboard:national", current_user.email)
+    score = await redis_service.redis.zscore("leaderboard:national", current_user.email)
+    
+    if rank is None:
+        return {"rank": None, "score": 0}
+        
+    return {
+        "rank": rank + 1, # Convert to 1-indexed
+        "score": int(score) if score is not None else 0
+    }
+
 async def get_my_sessions(
     db: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_user)

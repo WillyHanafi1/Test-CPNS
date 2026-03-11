@@ -32,7 +32,9 @@ export default function DashboardPage() {
   const { user, logout, loading } = useAuth();
   const router = useRouter();
   const [sessions, setSessions] = useState<RecentSession[]>([]);
+  const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(true);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -40,11 +42,19 @@ export default function DashboardPage() {
       return;
     }
     if (user) {
+      // Fetch sessions
       fetch(`${API_URL}/api/v1/exam/sessions/me`, { credentials: 'include' })
         .then(r => r.ok ? r.json() : [])
         .then(setSessions)
         .catch(() => setSessions([]))
         .finally(() => setStatsLoading(false));
+
+      // Fetch Top 5 Leaderboard
+      fetch(`${API_URL}/api/v1/exam/national-leaderboard?limit=5`, { credentials: 'include' })
+        .then(r => r.ok ? r.json() : [])
+        .then(setLeaderboard)
+        .catch(() => setLeaderboard([]))
+        .finally(() => setLeaderboardLoading(false));
     }
   }, [user, loading, router]);
 
@@ -155,11 +165,11 @@ export default function DashboardPage() {
           />
         </div>
 
-        {/* Latest Result + Quick Nav */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Latest Result + Leaderboard + Quick Nav */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           
           {/* Latest Session Result */}
-          <div className="lg:col-span-2 bg-slate-900/50 border border-slate-800 rounded-3xl p-8">
+          <div className="xl:col-span-2 bg-slate-900/50 border border-slate-800 rounded-3xl p-8">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-bold text-slate-100 flex items-center">
                 <TrendingUp className="w-5 h-5 mr-2 text-indigo-400" /> Skor Terakhir
@@ -213,7 +223,7 @@ export default function DashboardPage() {
                     </div>
                   ))}
                 </div>
-                <Link href={`/exam/${latestSession.package_id}/result`} className="block">
+                <Link href={`/exam/${latestSession.id}/result`} className="block">
                   <Button variant="outline" size="sm" className="w-full border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 rounded-xl">
                     Lihat Detail Hasil
                   </Button>
@@ -228,38 +238,70 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Quick Nav Cards */}
-          <div className="space-y-4">
-            <QuickNavCard
-              href="/catalog"
-              icon={<BookOpen className="w-6 h-6 text-indigo-400" />}
-              title="Katalog Ujian"
-              desc="Pilih paket SKD & SKB"
-              accent="indigo"
-            />
-            <QuickNavCard
-              href="/history"
-              icon={<History className="w-6 h-6 text-amber-400" />}
-              title="Riwayat Nilai"
-              desc="Lacak progres skor Anda"
-              accent="amber"
-            />
-            <QuickNavCard
-              href="/leaderboard"
-              icon={<Trophy className="w-6 h-6 text-emerald-400" />}
-              title="Leaderboard"
-              desc="Ranking nasional real-time"
-              accent="emerald"
-            />
-            <div className="bg-slate-900/30 border border-slate-800 rounded-2xl p-5">
-              <div className="flex items-center gap-2 mb-3">
-                <Clock className="w-4 h-4 text-slate-500" />
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Standar BKN</span>
+          <div className="space-y-6">
+            {/* Top 5 Leaderboard Preview */}
+            <div className="bg-slate-900/50 border border-slate-800 rounded-3xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-bold text-slate-100 flex items-center">
+                  <Trophy className="w-4 h-4 mr-2 text-amber-400" /> Peringkat Top 5
+                </h2>
+                <Link href="/leaderboard">
+                  <span className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 uppercase tracking-widest cursor-pointer">Lihat Semua</span>
+                </Link>
               </div>
-              <div className="space-y-1.5 text-sm text-slate-400">
-                <p>📝 TWK min. <span className="text-white font-bold">65</span> / 175</p>
-                <p>🧠 TIU min. <span className="text-white font-bold">80</span> / 175</p>
-                <p>💡 TKP min. <span className="text-white font-bold">166</span> / 225</p>
+              
+              <div className="space-y-2">
+                {leaderboardLoading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="h-12 bg-slate-800/40 rounded-xl animate-pulse" />
+                  ))
+                ) : leaderboard.length > 0 ? (
+                  leaderboard.slice(0, 5).map((player, i) => (
+                    <div key={i} className="flex items-center justify-between p-3 rounded-2xl bg-slate-800/30 border border-slate-800/50">
+                      <div className="flex items-center gap-3">
+                        <span className={`text-xs font-black ${i === 0 ? 'text-amber-400' : i === 1 ? 'text-slate-300' : i === 2 ? 'text-orange-400' : 'text-slate-600'}`}>
+                          #{i+1}
+                        </span>
+                        <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center border border-slate-700">
+                          <User className="w-3.5 h-3.5 text-slate-500" />
+                        </div>
+                        <span className="text-xs font-bold text-slate-300 truncate w-24">{player.name}</span>
+                      </div>
+                      <span className="text-sm font-black text-white italic">{player.score}</span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-[10px] text-slate-600 text-center py-4 uppercase font-bold tracking-widest">Belum ada data</p>
+                )}
+              </div>
+            </div>
+
+            {/* Quick Nav Cards */}
+            <div className="grid grid-cols-1 gap-3">
+              <QuickNavCard
+                href="/catalog"
+                icon={<BookOpen className="w-5 h-5 text-indigo-400" />}
+                title="Katalog Ujian"
+                desc="Pilih paket SKD & SKB"
+                accent="indigo"
+              />
+              <QuickNavCard
+                href="/history"
+                icon={<History className="w-5 h-5 text-amber-400" />}
+                title="Riwayat Nilai"
+                desc="Lacak progres skor Anda"
+                accent="amber"
+              />
+              <div className="bg-slate-900/30 border border-slate-800 rounded-2xl p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Clock className="w-4 h-4 text-slate-500" />
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Standar BKN</span>
+                </div>
+                <div className="space-y-1.5 text-sm text-slate-400">
+                  <p>📝 TWK min. <span className="text-white font-bold">65</span> / 175</p>
+                  <p>🧠 TIU min. <span className="text-white font-bold">80</span> / 175</p>
+                  <p>💡 TKP min. <span className="text-white font-bold">166</span> / 225</p>
+                </div>
               </div>
             </div>
           </div>
