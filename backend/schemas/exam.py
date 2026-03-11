@@ -13,6 +13,7 @@ class ExamSessionBase(BaseModel):
     score_tiu: int = 0
     score_tkp: int = 0
     status: str
+    is_passed: bool = False
     model_config = ConfigDict(from_attributes=True)
 
 class ExamSessionListItem(ExamSessionBase):

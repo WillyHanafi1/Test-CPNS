@@ -25,6 +25,7 @@ interface ExamSession {
   score_tiu: number;
   score_tkp: number;
   status: string;
+  is_passed: boolean;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
@@ -38,7 +39,7 @@ export default function HistoryPage() {
   const { resetExam, startExam: _startExam } = useExamStore();
 
   useEffect(() => {
-    const fetchHistory = async () => {
+    const fetchHistory = async (isPoll = false) => {
       if (authLoading) return;
       if (!user) { router.push('/login'); return; }
 
@@ -51,11 +52,22 @@ export default function HistoryPage() {
       } catch (error) {
         console.error("Failed to fetch history", error);
       } finally {
-        setLoading(false);
+        if (!isPoll) setLoading(false);
       }
     };
+
     fetchHistory();
-  }, [user, authLoading, router]);
+
+    // Polling logic for "processing" sessions
+    const interval = setInterval(() => {
+      const hasProcessing = sessions.some(s => s.status === 'processing');
+      if (hasProcessing) {
+        fetchHistory(true);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [user, authLoading, router, sessions.some(s => s.status === 'processing')]);
 
   if (authLoading || loading) {
     return (
@@ -66,10 +78,7 @@ export default function HistoryPage() {
     );
   }
 
-  const checkPass = (s: ExamSession) =>
-    s.score_twk >= PASSING_GRADES.TWK &&
-    s.score_tiu >= PASSING_GRADES.TIU &&
-    s.score_tkp >= PASSING_GRADES.TKP;
+  const checkPass = (s: ExamSession) => s.is_passed;
 
   /**
    * FIX: Redirect to result page using the session ID from the API list.

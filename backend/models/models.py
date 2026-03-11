@@ -82,6 +82,7 @@ class ExamSession(Base):
     score_tiu: Mapped[int] = mapped_column(Integer, default=0)
     score_tkp: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(20), default="ongoing")
+    is_passed: Mapped[bool] = mapped_column(Boolean, default=False)
 
     user: Mapped["User"] = relationship(back_populates="sessions")
     package: Mapped["Package"] = relationship(back_populates="sessions")

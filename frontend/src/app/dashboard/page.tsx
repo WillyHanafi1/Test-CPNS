@@ -23,6 +23,7 @@ interface RecentSession {
   score_tiu: number;
   score_tkp: number;
   status: string;
+  is_passed: boolean;
 }
 
 const PASSING_GRADES = { TWK: 65, TIU: 80, TKP: 166 };
@@ -32,6 +33,7 @@ export default function DashboardPage() {
   const { user, logout, loading } = useAuth();
   const router = useRouter();
   const [sessions, setSessions] = useState<RecentSession[]>([]);
+  const [stats, setStats] = useState({ total_sessions: 0, best_score: 0, total_passed: 0 });
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [statsLoading, setStatsLoading] = useState(true);
   const [leaderboardLoading, setLeaderboardLoading] = useState(true);
@@ -42,10 +44,16 @@ export default function DashboardPage() {
       return;
     }
     if (user) {
-      // Fetch sessions
+      // Fetch stats
+      fetch(`${API_URL}/api/v1/exam/sessions/me/stats`, { credentials: 'include' })
+        .then(r => r.ok ? r.json() : { total_sessions: 0, best_score: 0, total_passed: 0 })
+        .then(setStats)
+        .catch(() => setStats({ total_sessions: 0, best_score: 0, total_passed: 0 }));
+
+      // Fetch recent sessions (limit for UI)
       fetch(`${API_URL}/api/v1/exam/sessions/me`, { credentials: 'include' })
         .then(r => r.ok ? r.json() : [])
-        .then(setSessions)
+        .then(data => setSessions(data.slice(0, 5)))
         .catch(() => setSessions([]))
         .finally(() => setStatsLoading(false));
 
@@ -69,15 +77,7 @@ export default function DashboardPage() {
   if (!user) return null;
 
   const finishedSessions = sessions.filter(s => s.status === 'finished');
-  const bestScore = finishedSessions.length > 0
-    ? Math.max(...finishedSessions.map(s => s.total_score))
-    : null;
   const latestSession = finishedSessions[0] ?? null;
-  const passCount = finishedSessions.filter(s =>
-    s.score_twk >= PASSING_GRADES.TWK &&
-    s.score_tiu >= PASSING_GRADES.TIU &&
-    s.score_tkp >= PASSING_GRADES.TKP
-  ).length;
   const firstName = user.full_name?.split(' ')[0] || user.email.split('@')[0];
 
   return (
@@ -135,7 +135,7 @@ export default function DashboardPage() {
             loading={statsLoading}
             icon={<BookOpen className="w-5 h-5 text-indigo-400" />}
             label="Total Simulasi"
-            value={finishedSessions.length.toString()}
+            value={stats.total_sessions.toString()}
             sub="sesi selesai"
             color="indigo"
           />
@@ -143,7 +143,7 @@ export default function DashboardPage() {
             loading={statsLoading}
             icon={<Trophy className="w-5 h-5 text-amber-400" />}
             label="Skor Terbaik"
-            value={bestScore !== null ? bestScore.toString() : '—'}
+            value={stats.best_score > 0 ? stats.best_score.toString() : '—'}
             sub={`dari ${MAX_SCORE} poin`}
             color="amber"
           />
@@ -151,8 +151,8 @@ export default function DashboardPage() {
             loading={statsLoading}
             icon={<CheckCircle2 className="w-5 h-5 text-emerald-400" />}
             label="Lolos Passing Grade"
-            value={passCount.toString()}
-            sub={`dari ${finishedSessions.length} sesi`}
+            value={stats.total_passed.toString()}
+            sub={`dari ${stats.total_sessions} sesi`}
             color="emerald"
           />
           <StatCard
@@ -192,9 +192,7 @@ export default function DashboardPage() {
                     <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">Total Skor SKD</p>
                     <p className="text-6xl font-black tracking-tighter text-white">{latestSession.total_score}</p>
                   </div>
-                  {latestSession.score_twk >= PASSING_GRADES.TWK &&
-                    latestSession.score_tiu >= PASSING_GRADES.TIU &&
-                    latestSession.score_tkp >= PASSING_GRADES.TKP ? (
+                  {latestSession.is_passed ? (
                     <span className="flex items-center gap-1.5 text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-4 py-2 rounded-full text-sm font-bold">
                       <CheckCircle2 className="w-4 h-4" /> LULUS (P/L)
                     </span>

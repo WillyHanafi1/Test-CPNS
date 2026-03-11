@@ -16,10 +16,10 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7 # 7 days
 
     # CORS — comma-separated origins in .env, e.g. CORS_ORIGINS=http://localhost:3000,https://yourdomain.com
-    CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://localhost:3002,http://127.0.0.1:3001,http://127.0.0.1:3002"
+    CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://localhost:3002,http://127.0.0.1:3001,http://127.0.0.1:3002")
 
     # Cookie security — set to True when running behind HTTPS in production
-    COOKIE_SECURE: bool = False
+    COOKIE_SECURE: bool = os.getenv("ENV") == "production"
 
     @property
     def cors_origins_list(self) -> list[str]:
@@ -35,9 +35,9 @@ class Settings(BaseSettings):
 settings = Settings()
 
 # Issue #9: Warn if default SECRET_KEY is used
-if settings.SECRET_KEY == "your-secret-key-keep-it-secret":
+if settings.SECRET_KEY == "your-secret-key-keep-it-secret" and os.getenv("ENV") == "production":
     warnings.warn(
-        "\n⚠️  SECURITY WARNING: Anda menggunakan SECRET_KEY default!\n"
+        "\n⚠️  CRITICAL SECURITY WARNING: Anda menggunakan SECRET_KEY default di production!\n"
         "   Set SECRET_KEY di file .env dengan string acak yang kuat.\n"
         "   Contoh: openssl rand -hex 32",
         stacklevel=1,

@@ -97,10 +97,15 @@ async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: s
                 ))
 
             total_score = score_twk + score_tiu + score_tkp
+            
+            # Logic Passing Grade BKN
+            is_passed = (score_twk >= 65 and score_tiu >= 80 and score_tkp >= 166)
+
             session.score_twk = score_twk
             session.score_tiu = score_tiu
             session.score_tkp = score_tkp
             session.total_score = total_score
+            session.is_passed = is_passed
             session.status = "finished"
             session.end_time = datetime.now(timezone.utc).replace(tzinfo=None)
 
@@ -108,11 +113,20 @@ async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: s
             print(f"DEBUG: Committing to database")
             await db.commit()
 
-            # Update leaderboard
+            # Update leaderboard with Tie-Breaker (Absolute Integer Pattern)
+            # Format: [Total 3 digits][TKP 3 digits][TIU 3 digits][TWK 3 digits]
+            # Max possible score: 550225175175 (Safe for ZSET double precision)
+            tie_breaker_score = (
+                (total_score * 1000000000) + 
+                (score_tkp * 1000000) + 
+                (score_tiu * 1000) + 
+                score_twk
+            )
+
             redis_lb = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
             try:
                 # GT flag: only update if new score is Greater Than existing
-                await redis_lb.zadd("leaderboard:national", {user_email: total_score}, gt=True)
+                await redis_lb.zadd("leaderboard:national", {user_email: tie_breaker_score}, gt=True)
                 await redis_lb.delete(cache_key)
             finally:
                 await redis_lb.aclose()

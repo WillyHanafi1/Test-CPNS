@@ -15,6 +15,7 @@ from backend.api.v1.endpoints.auth import get_current_user
 from backend.core.redis_service import redis_service
 from backend.schemas.exam import ExamSessionListItem
 from backend.core.tasks import calculate_exam_score, async_run_scoring
+from sqlalchemy import func, case
 
 logger = logging.getLogger(__name__)
 
@@ -372,13 +373,39 @@ async def get_leaderboard(
             else:
                 display_name = email[:3] + "***"
 
+        # Potong 9 digit terakhir dengan membaginya menggunakan 10^9 (Integer Division)
+        # Misal: 400225100075 // 1000000000 = 400
         leaderboard.append({
             "name": display_name,
-            "score": score_map[email],
+            "score": int(score_map[email]) // 1000000000, # Decode integer shift
             "target": user.profile.target_instansi if user and user.profile else "Umum"
         })
         
     return leaderboard
+
+@router.get("/sessions/me/stats")
+async def get_my_stats(
+    db: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(get_current_user)
+):
+    # Aggregated stats for dashboard to avoid over-fetching
+    query = select(
+        func.count(ExamSession.id).label("total"),
+        func.max(ExamSession.total_score).label("best_score"),
+        func.count(case((ExamSession.is_passed == True, 1))).label("passed")
+    ).where(
+        ExamSession.user_id == current_user.id,
+        ExamSession.status == "finished"
+    )
+    
+    result = await db.execute(query)
+    stats = result.one()
+    
+    return {
+        "total_sessions": stats.total or 0,
+        "best_score": stats.best_score or 0,
+        "total_passed": stats.passed or 0
+    }
 
 @router.get("/my-rank")
 async def get_my_rank(
@@ -393,7 +420,7 @@ async def get_my_rank(
         
     return {
         "rank": rank + 1, # Convert to 1-indexed
-        "score": int(score) if score is not None else 0
+        "score": int(score) // 1000000000 if score is not None else 0
     }
 
 @router.get("/sessions/me", response_model=List[ExamSessionListItem])
@@ -422,7 +449,8 @@ async def get_my_sessions(
             score_twk=session.score_twk,
             score_tiu=session.score_tiu,
             score_tkp=session.score_tkp,
-            status=session.status
+            status=session.status,
+            is_passed=session.is_passed
         ))
     
     return sessions
