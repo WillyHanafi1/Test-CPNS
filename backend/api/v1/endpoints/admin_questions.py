@@ -5,7 +5,7 @@ from typing import List, Optional
 import uuid
 
 from backend.db.session import get_async_session
-from backend.models.models import Question, QuestionOption, Package
+from backend.models.models import Question, QuestionOption, Package, User
 from backend.api.v1.endpoints.auth import get_current_admin
 from pydantic import BaseModel, ConfigDict
 
@@ -46,16 +46,19 @@ class PaginatedQuestionResponse(BaseModel):
 async def list_questions(
     package_id: Optional[uuid.UUID] = None,
     segment: Optional[str] = None,
+    search: Optional[str] = None,
     page: int = 1,
     size: int = 20,
     db: AsyncSession = Depends(get_async_session),
-    admin: str = Depends(get_current_admin)
+    admin: User = Depends(get_current_admin)
 ):
     query = select(Question)
     if package_id:
         query = query.where(Question.package_id == package_id)
     if segment:
         query = query.where(Question.segment == segment)
+    if search:
+        query = query.where(Question.content.ilike(f"%{search}%"))
     
     # Count total
     count_query = select(func.count()).select_from(query.subquery())
@@ -78,7 +81,7 @@ async def list_questions(
 async def create_question(
     question_in: QuestionCreate,
     db: AsyncSession = Depends(get_async_session),
-    admin: str = Depends(get_current_admin)
+    admin: User = Depends(get_current_admin)
 ):
     # Check if package exists
     result = await db.execute(select(Package).where(Package.id == question_in.package_id))
@@ -114,7 +117,7 @@ async def create_question(
 async def delete_question(
     question_id: uuid.UUID,
     db: AsyncSession = Depends(get_async_session),
-    admin: str = Depends(get_current_admin)
+    admin: User = Depends(get_current_admin)
 ):
     result = await db.execute(select(Question).where(Question.id == question_id))
     question = result.scalar_one_or_none()

@@ -1,0 +1,300 @@
+# Implementation Plan: Admin Dashboard Pages
+
+Analisis mendalam dan rencana implementasi untuk 5 halaman admin yang masih kosong/belum ada:
+`/admin/questions` (sudah ada ✅), `/admin/packages`, `/admin/users`, `/admin/analytics`, `/admin/transactions`.
+
+---
+
+## 📊 Analisis Status Saat Ini
+
+### Apa yang SUDAH ADA
+
+| Layer | File | Status |
+|---|---|---|
+| **Admin Layout** | [layout.tsx](file:///d:/ProjectAI/Test-CPNS/frontend/src/app/admin/layout.tsx) | ✅ Sidebar 6 nav items, RBAC guard, responsive |
+| **Admin Overview** | [page.tsx](file:///d:/ProjectAI/Test-CPNS/frontend/src/app/admin/page.tsx) | ✅ Stats cards (hardcoded), chart placeholder |
+| **Bank Soal** | [questions/page.tsx](file:///d:/ProjectAI/Test-CPNS/frontend/src/app/admin/questions/page.tsx) | ✅ Table, pagination, import modal, filter |
+| **Backend: Packages** | [admin_packages.py](file:///d:/ProjectAI/Test-CPNS/backend/api/v1/endpoints/admin_packages.py) | ⚠️ Hanya LIST, CREATE, DELETE (belum ada UPDATE) |
+| **Backend: Questions** | [admin_questions.py](file:///d:/ProjectAI/Test-CPNS/backend/api/v1/endpoints/admin_questions.py) | ⚠️ Hanya LIST, CREATE, DELETE (belum ada UPDATE) |
+| **Backend: Import** | [admin_import.py](file:///d:/ProjectAI/Test-CPNS/backend/api/v1/endpoints/admin_import.py) | ✅ Excel/CSV import |
+
+### Apa yang BELUM ADA
+
+| Page | Frontend | Backend API |
+|---|---|---|
+| `/admin/packages` | ❌ Belum ada | ⚠️ Partial (perlu UPDATE endpoint) |
+| `/admin/users` | ❌ Belum ada | ❌ Belum ada endpoint admin users |
+| `/admin/analytics` | ❌ Belum ada | ❌ Belum ada endpoint analytics |
+| `/admin/transactions` | ❌ Belum ada | ❌ Belum ada endpoint admin transactions |
+
+---
+
+## 🎨 Analisis Design System & Frontend Best Practices
+
+### Design Tokens yang Sudah Digunakan (HARUS Konsisten)
+
+Berdasarkan analisis [dashboard/page.tsx](file:///d:/ProjectAI/Test-CPNS/frontend/src/app/dashboard/page.tsx), [admin/page.tsx](file:///d:/ProjectAI/Test-CPNS/frontend/src/app/admin/page.tsx), dan [questions/page.tsx](file:///d:/ProjectAI/Test-CPNS/frontend/src/app/admin/questions/page.tsx):
+
+```
+Background       : bg-slate-950 (utama), bg-slate-900/50 (card)
+Card Border      : border-slate-800, border-2
+Card Radius      : rounded-3xl atau rounded-[2.5rem]
+Heading          : text-4xl font-black tracking-tight
+Subheading       : text-xs font-bold text-slate-500 uppercase tracking-widest
+Table Header     : text-[10px] font-black uppercase tracking-widest text-slate-500
+Icon Library     : lucide-react (BUKAN heroicons atau font-awesome)
+Primary Color    : indigo-600/500 (buttons, active states)
+Badge Style      : rounded-xl, bg-{color}-500/10, text-{color}-400, border-none
+Button Style     : rounded-2xl, py-6, font-bold, shadow-xl shadow-indigo-600/20
+Pagination       : rounded-xl, bg-indigo-600 active page
+Animation        : animate-pulse (skeleton), animate-in slide-in / fade-in / zoom-in
+Empty State      : Icon besar (w-12 h-12 text-slate-800) + teks uppercase tracking-widest
+```
+
+### Pola Frontend yang HARUS Diikuti (Best Practice)
+
+| Pattern | Detail | Referensi |
+|---|---|---|
+| **Data Fetching** | [fetch()](file:///d:/ProjectAI/Test-CPNS/frontend/src/app/admin/questions/page.tsx#46-58) dengan `credentials: 'include'` (HTTP-only cookie) | AuthContext pattern |
+| **Loading State** | Skeleton pulses bukan spinner (kecuali full-page) | Questions page |
+| **Pagination** | Server-side, `page` + `size` params, response `{items, total, page, size}` | admin_questions.py |
+| **Filter Bar** | Di dalam Card rounded-[2rem] di atas tabel | Questions page |
+| **Table** | Dalam div `rounded-[2.5rem]` dengan overflow-hidden | Questions page |
+| **Actions Column** | Icon buttons: Edit, Delete, MoreVertical | Questions page |
+| **Modal** | Fixed overlay + backdrop-blur + Card zoom-in animation | Import modal |
+| **Toast/Message** | Inline alert di atas konten, bisa di-dismiss | Questions page |
+| **Empty State** | Centered icon + text di dalam tabel | Questions page |
+
+### Rekomendasi Tambahan Best Practice
+
+> [!IMPORTANT]
+> **Reusable Components** — Saat ini banyak pattern yang di-copy-paste (tabel, pagination, filter, modal). Sebaiknya buat komponen reusable:
+
+1. **`AdminDataTable`** — Komponen tabel reusable dengan sorting, skeleton loading, empty state
+2. **`AdminPagination`** — Komponen pagination terpisah  
+3. **`AdminFilterBar`** — Search + filter dropdown container
+4. **`ConfirmModal`** — Modal konfirmasi delete dengan danger styling
+5. **`AdminPageHeader`** — Header standar (title + subtitle + action buttons)
+
+> [!TIP]
+> **Charting Library** — Untuk analytics, gunakan **Recharts** (React-native, ringan, support dark theme). Alternative: **Chart.js** via react-chartjs-2.
+
+---
+
+## 📋 Proposed Changes
+
+### Component 1: Reusable Admin Components (Frontend)
+
+#### [NEW] [AdminDataTable.tsx](file:///d:/ProjectAI/Test-CPNS/frontend/src/components/admin/AdminDataTable.tsx)
+- Generic table component dengan props: `columns`, `data`, `loading`, `emptyIcon`, `emptyText`
+- Built-in skeleton loading (5 rows animate-pulse)
+- Hover row highlight `hover:bg-slate-900/30`
+
+#### [NEW] [AdminPagination.tsx](file:///d:/ProjectAI/Test-CPNS/frontend/src/components/admin/AdminPagination.tsx)
+- Props: `page`, `total`, `pageSize`, `onPageChange`
+- Menampilkan "Showing X to Y of Z" + prev/next buttons
+
+#### [NEW] [AdminPageHeader.tsx](file:///d:/ProjectAI/Test-CPNS/frontend/src/components/admin/AdminPageHeader.tsx)
+- Props: `title`, `subtitle`, `actions` (React nodes for buttons)
+
+#### [NEW] [ConfirmModal.tsx](file:///d:/ProjectAI/Test-CPNS/frontend/src/components/admin/ConfirmModal.tsx)
+- Props: `isOpen`, `onClose`, `onConfirm`, `title`, `description`, `variant: 'danger' | 'warning'`
+- Backdrop blur + zoom-in animation (consistent with import modal pattern)
+
+---
+
+### Component 2: `/admin/packages` — Paket Ujian
+
+#### Backend
+
+#### [MODIFY] [admin_packages.py](file:///d:/ProjectAI/Test-CPNS/backend/api/v1/endpoints/admin_packages.py)
+- **Tambah `PUT /{package_id}`** untuk update package (title, description, price, is_premium, category)
+- **Tambah pagination** pada GET `/` → response `{items, total, page, size}` (sama seperti questions)
+- **Tambah field `question_count`** di response list (via subquery count)
+- **Tambah field `transaction_count`** di response list
+
+#### Frontend
+
+#### [NEW] [packages/page.tsx](file:///d:/ProjectAI/Test-CPNS/frontend/src/app/admin/packages/page.tsx)
+- **Tampilan:** Tabel/Grid view dengan kolom: Title, Category (badge TWK/TIU/TKP/Mix), Price (formatted Rp), Premium (badge), Jumlah Soal, Aksi
+- **Fitur:** 
+  - Filter by category (TWK/TIU/TKP/Mix/Semua)
+  - Search by title
+  - Create modal (form: title, description, price, category, is_premium toggle)
+  - Edit modal (pre-filled form)
+  - Delete with confirmation modal
+- **UI:** Mengikuti pattern Questions page — tabel di dalam rounded card + pagination
+
+---
+
+### Component 3: `/admin/users` — Pengguna
+
+#### Backend
+
+#### [NEW] [admin_users.py](file:///d:/ProjectAI/Test-CPNS/backend/api/v1/endpoints/admin_users.py)
+- **`GET /admin/users`** — List users dengan pagination + search (by email/name) + filter (role, is_active)
+  - Join `users` + `user_profiles` untuk full_name & target_instansi
+  - Response: `{items: [{id, email, role, is_active, created_at, full_name, target_instansi, total_sessions, total_transactions}], total, page, size}`
+- **`GET /admin/users/{user_id}`** — Detail user tunggal (profile + exam history + transactions)
+- **`PUT /admin/users/{user_id}`** — Update role, is_active (ban/unban)
+- **`DELETE /admin/users/{user_id}`** — Soft delete / deactivate
+
+#### [MODIFY] [main.py](file:///d:/ProjectAI/Test-CPNS/backend/main.py) — Register router baru
+
+#### Frontend
+
+#### [NEW] [users/page.tsx](file:///d:/ProjectAI/Test-CPNS/frontend/src/app/admin/users/page.tsx)
+- **Tampilan:** Tabel dengan kolom: Avatar (initial), Email, Nama Lengkap, Role (badge admin/participant), Status (badge active/banned), Registered, Total Sesi, Aksi
+- **Fitur:**
+  - Search by email/nama
+  - Filter by role (admin/participant/semua) + status (active/inactive)
+  - Inline toggle untuk activate/deactivate user
+  - View detail modal (riwayat ujian + transaksi user)
+  - Change role dropdown
+- **UI:** Tabel pattern sama seperti questions, avatar menggunakan initial circle (consistent dengan leaderboard)
+
+---
+
+### Component 4: `/admin/analytics` — Analitik
+
+#### Backend
+
+#### [NEW] [admin_analytics.py](file:///d:/ProjectAI/Test-CPNS/backend/api/v1/endpoints/admin_analytics.py)
+- **`GET /admin/analytics/overview`** — Aggregated stats:
+  - Total users, total questions, total packages, total transactions (success), total revenue
+  - Users registered today/this week/this month
+  - Exam sessions today/this week/this month
+- **`GET /admin/analytics/exam-stats`** — Exam performance stats:
+  - Average scores (TWK, TIU, TKP, Total)
+  - Pass rate percentage
+  - Score distribution histogram data (buckets: 0-100, 101-200, 201-300, 301-400, 401-500, 501-575)
+- **`GET /admin/analytics/revenue`** — Revenue analytics:
+  - Daily/weekly/monthly revenue trend data (for chart)
+  - Transaction count trend
+  - Top selling packages
+- **`GET /admin/analytics/user-growth`** — User registration trend (daily/monthly)
+
+#### [MODIFY] [main.py](file:///d:/ProjectAI/Test-CPNS/backend/main.py) — Register router baru
+
+#### Frontend
+
+#### [NEW] [analytics/page.tsx](file:///d:/ProjectAI/Test-CPNS/frontend/src/app/admin/analytics/page.tsx)
+- **Layout:** Dashboard-style grid layout
+  - **Row 1:** Stats cards (Total Users, Total Revenue, Avg Score, Pass Rate) — gunakan pattern dari admin overview
+  - **Row 2:** Charts area (2 columns)
+    - Left: **Line Chart** — User registrations over time / Exam sessions trend
+    - Right: **Bar Chart** — Score distribution (histogram)
+  - **Row 3:** 
+    - Left: **Area Chart** — Revenue trend
+    - Right: **Table** — Top selling packages
+- **Library:** Install `recharts` untuk charting
+- **Fitur:** Date range filter (7 hari, 30 hari, 90 hari, custom)
+
+---
+
+### Component 5: `/admin/transactions` — Transaksi
+
+#### Backend
+
+#### [NEW] [admin_transactions.py](file:///d:/ProjectAI/Test-CPNS/backend/api/v1/endpoints/admin_transactions.py)
+- **`GET /admin/transactions`** — List transactions dengan pagination + filter:
+  - Filter: `payment_status` (pending/success/failed), date range, package_id
+  - Search: by user email
+  - Join `users` + [packages](file:///d:/ProjectAI/Test-CPNS/backend/api/v1/endpoints/admin_packages.py#31-38) untuk menampilkan email + package title
+  - Response: `{items: [{id, user_email, package_title, amount, payment_status, snap_token, created_at, access_expires_at}], total, page, size}`
+- **`GET /admin/transactions/summary`** — Aggregated: total revenue, count by status, daily trend
+- **`PUT /admin/transactions/{transaction_id}/status`** — Manual override status (admin only, untuk kasus edge)
+
+#### [MODIFY] [main.py](file:///d:/ProjectAI/Test-CPNS/backend/main.py) — Register router baru
+
+#### Frontend
+
+#### [NEW] [transactions/page.tsx](file:///d:/ProjectAI/Test-CPNS/frontend/src/app/admin/transactions/page.tsx)
+- **Tampilan:** Tabel dengan kolom: ID (short), User Email, Paket, Amount (Rp formatted), Status (badge colored: pending=yellow, success=green, failed=red), Tanggal, Aksi
+- **Fitur:**
+  - Search by email
+  - Filter: status (pending/success/failed/semua), date range picker
+  - Summary cards di atas tabel: Total Revenue, Jumlah Sukses, Jumlah Pending, Jumlah Gagal
+  - Export CSV (optional nice-to-have)
+  - Detail modal (snap_token, timestamps, user info)
+
+---
+
+### Component 6: Update Admin Overview (Dynamic Data)
+
+#### [MODIFY] [admin/page.tsx](file:///d:/ProjectAI/Test-CPNS/frontend/src/app/admin/page.tsx)
+- Ganti hardcoded stats dengan fetch dari analytics API
+- Render chart placeholder menjadi real chart (dari recharts)
+- Aktivitas terbaru: fetch dari recent transactions / exam sessions
+
+---
+
+## 📁 File yang Perlu Dicek Sebelum Eksekusi
+
+### Backend — Files to Review
+
+| File | Alasan Cek |
+|---|---|
+| [models.py](file:///d:/ProjectAI/Test-CPNS/backend/models/models.py) | Pastikan semua relasi model (User ↔ UserProfile, UserTransaction ↔ User/Package, ExamSession ↔ User) sudah benar untuk JOIN queries |
+| [auth.py](file:///d:/ProjectAI/Test-CPNS/backend/api/v1/endpoints/auth.py) | [get_current_admin](file:///d:/ProjectAI/Test-CPNS/backend/api/v1/endpoints/auth.py#59-68) dependency — pastikan pattern yang sama dipakai |
+| [admin_packages.py](file:///d:/ProjectAI/Test-CPNS/backend/api/v1/endpoints/admin_packages.py) | Base reference: perlu ditambah PUT + pagination |
+| [admin_questions.py](file:///d:/ProjectAI/Test-CPNS/backend/api/v1/endpoints/admin_questions.py) | Pattern pagination response: `{items, total, page, size}` — jadi reference |
+| [main.py](file:///d:/ProjectAI/Test-CPNS/backend/main.py) | Router registration — memastikan semua router baru didaftarkan |
+| [session.py](file:///d:/ProjectAI/Test-CPNS/backend/db/session.py) | Pastikan `get_async_session` masih sesuai |
+| [config.py](file:///d:/ProjectAI/Test-CPNS/backend/config.py) | Cek apakah ada config tambahan yang diperlukan |
+| [exam.py](file:///d:/ProjectAI/Test-CPNS/backend/api/v1/endpoints/exam.py) | Cek pattern yang digunakan untuk exam sessions query (untuk analytics reuse) |
+
+### Frontend — Files to Review
+
+| File | Alasan Cek |
+|---|---|
+| [admin/layout.tsx](file:///d:/ProjectAI/Test-CPNS/frontend/src/app/admin/layout.tsx) | Sidebar navigation sudah define 6 items — pastikan href cocok |
+| [admin/questions/page.tsx](file:///d:/ProjectAI/Test-CPNS/frontend/src/app/admin/questions/page.tsx) | Reference utama untuk style pattern tabel + pagination + modal |
+| [admin/page.tsx](file:///d:/ProjectAI/Test-CPNS/frontend/src/app/admin/page.tsx) | Overview cards pattern — perlu update ke dynamic |
+| [dashboard/page.tsx](file:///d:/ProjectAI/Test-CPNS/frontend/src/app/dashboard/page.tsx) | Reference StatCard pattern & leaderboard preview |
+| [AuthContext.tsx](file:///d:/ProjectAI/Test-CPNS/frontend/src/context/AuthContext.tsx) | Auth flow & API call pattern (credentials: 'include') |
+| [components/ui/*](file:///d:/ProjectAI/Test-CPNS/frontend/src/components/ui) | Existing UI primitives: button, card, badge, input |
+| [package.json](file:///d:/ProjectAI/Test-CPNS/frontend/package.json) | Cek apakah `recharts` perlu diinstall |
+| [globals.css](file:///d:/ProjectAI/Test-CPNS/frontend/src/app/globals.css) | Cek styling global / TailwindCSS config |
+
+### Konfigurasi & Infrastruktur
+
+| File | Alasan Cek |
+|---|---|
+| [.env.example](file:///d:/ProjectAI/Test-CPNS/.env.example) | Apakah ada env var baru yang diperlukan |
+| [requirements.txt](file:///d:/ProjectAI/Test-CPNS/backend/requirements.txt) | Dependencies yang mungkin perlu ditambah |
+| [GEMINI.md](file:///d:/ProjectAI/Test-CPNS/GEMINI.md) | Project rules — pastikan implementasi sesuai |
+
+---
+
+## ⚡ Prioritas Implementasi (Recommended Order)
+
+```mermaid
+graph LR
+    A[1. Reusable Components] --> B[2. /admin/packages]
+    B --> C[3. /admin/users]
+    C --> D[4. /admin/transactions]
+    D --> E[5. /admin/analytics]
+    E --> F[6. Update Overview]
+```
+
+> [!NOTE]
+> **Reasoning:** Packages → Users → Transactions → Analytics karena analytics membutuhkan data dari semua tabel lain untuk aggregasi. Reusable components dibuat duluan supaya semua page konsisten.
+
+---
+
+## ✅ Verification Plan
+
+### Automated Tests
+- Tidak ada test file yang sudah ada untuk admin endpoints (hanya [test_finish_endpoint.py](file:///d:/ProjectAI/Test-CPNS/backend/test_finish_endpoint.py), [test_score.py](file:///d:/ProjectAI/Test-CPNS/backend/test_score.py), [test_trigger.py](file:///d:/ProjectAI/Test-CPNS/backend/test_trigger.py) untuk exam logic)
+- **Rekomendasi:** Setelah implementasi, buat integration test per endpoint menggunakan `httpx.AsyncClient` + `pytest-asyncio`
+
+### Manual Verification
+1. **Login sebagai admin** → pastikan sidebar navigation berfungsi ke semua 5 halaman
+2. **Per halaman:** Cek loading skeleton → data fetching → pagination → create → edit → delete
+3. **RBAC:** Login sebagai `participant` → pastikan redirect ke `/dashboard` (sudah ada di layout)
+4. **Responsive:** Cek mobile view di browser DevTools (sidebar toggle, tabel horizontal scroll)
+5. **Browser DevTools Network tab:** Pastikan tidak ada API call yang gagal (4xx/5xx)
+
+> [!WARNING]
+> Verifikasi di **staging/development** dulu sebelum deploy ke production. Pastikan semua endpoint baru di-protect oleh [get_current_admin](file:///d:/ProjectAI/Test-CPNS/backend/api/v1/endpoints/auth.py#59-68) dependency.

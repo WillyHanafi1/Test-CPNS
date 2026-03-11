@@ -52,11 +52,10 @@ export default function ExamHeader({ onToggleSidebar }: ExamHeaderProps) {
 
         <div className="flex items-center space-x-3 md:space-x-6">
           {/* Timer */}
-          <div className={`flex items-center space-x-2 px-3 py-1.5 rounded-xl border transition-colors ${
-            isLowTime
+          <div className={`flex items-center space-x-2 px-3 py-1.5 rounded-xl border transition-colors ${isLowTime
               ? 'bg-red-500/10 border-red-500/50 text-red-400 animate-pulse'
               : 'bg-slate-900 border-slate-800 text-slate-200'
-          }`}>
+            }`}>
             <Clock className="w-4 h-4" />
             <span className="font-mono text-base md:text-lg font-bold tracking-wider">{formatTime(timeLeft)}</span>
           </div>
@@ -82,14 +81,14 @@ export default function ExamHeader({ onToggleSidebar }: ExamHeaderProps) {
               Apakah Anda yakin ingin mengakhiri ujian dan mengumpulkan jawaban sekarang? Anda tidak dapat mengubah jawaban setelah ini.
             </p>
             <div className="flex gap-3 justify-end">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => setShowConfirmModal(false)}
                 className="border-slate-700 bg-transparent text-slate-300 hover:bg-slate-800 hover:text-white"
               >
                 Batal
               </Button>
-              <Button 
+              <Button
                 onClick={handleConfirmFinish}
                 className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
               >

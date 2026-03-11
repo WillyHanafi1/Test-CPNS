@@ -7,6 +7,9 @@ from backend.api.v1.endpoints.exam import router as exam_router
 from backend.api.v1.endpoints.admin_questions import router as admin_questions_router
 from backend.api.v1.endpoints.admin_import import router as admin_import_router
 from backend.api.v1.endpoints.admin_packages import router as admin_packages_router
+from backend.api.v1.endpoints.admin_users import router as admin_users_router
+from backend.api.v1.endpoints.admin_transactions import router as admin_transactions_router
+from backend.api.v1.endpoints.admin_analytics import router as admin_analytics_router
 from backend.config import settings
 
 import logging
@@ -43,6 +46,9 @@ app.include_router(exam_router, prefix="/api/v1")
 app.include_router(admin_questions_router, prefix="/api/v1")
 app.include_router(admin_import_router, prefix="/api/v1")
 app.include_router(admin_packages_router, prefix="/api/v1")
+app.include_router(admin_users_router, prefix="/api/v1")
+app.include_router(admin_transactions_router, prefix="/api/v1")
+app.include_router(admin_analytics_router, prefix="/api/v1")
 
 @app.get("/")
 async def root():

@@ -110,36 +110,36 @@ export default function ResultPage() {
         }
         return;
       }
-      
+
       pollTimeout = setTimeout(async () => {
-            if (controller.signal.aborted) return;
-            try {
-              const pollRes = await fetch(`${API_URL}/api/v1/exam/result/${id}`, {
-                method: 'GET',
-                credentials: 'include',
-                signal: controller.signal
-              });
-              if (!pollRes.ok) throw new Error("Gagal mengambil hasil");
-              
-              const pollData = await pollRes.json();
-              if (pollData.status === 'finished' || pollData.status === 'already finished') {
-                if (!controller.signal.aborted) {
-                  setResult(pollData);
-                  setLoading(false);
-                }
-              } else if (pollData.status === 'processing') {
-                 // Keep polling with exponential backoff (max 10 seconds)
-                 pollDelay = Math.min(pollDelay * 1.5, 10000);
-                 if (!controller.signal.aborted) pollResult();   
-              }
-            } catch (err: any) {
-               if (err.name === 'AbortError') return;
-               if (!controller.signal.aborted) {
-                 setErrorMsg(err.message || "Gagal mengambil hasil");
-                 setLoading(false);
-               }
+        if (controller.signal.aborted) return;
+        try {
+          const pollRes = await fetch(`${API_URL}/api/v1/exam/result/${id}`, {
+            method: 'GET',
+            credentials: 'include',
+            signal: controller.signal
+          });
+          if (!pollRes.ok) throw new Error("Gagal mengambil hasil");
+
+          const pollData = await pollRes.json();
+          if (pollData.status === 'finished' || pollData.status === 'already finished') {
+            if (!controller.signal.aborted) {
+              setResult(pollData);
+              setLoading(false);
             }
-          }, pollDelay);
+          } else if (pollData.status === 'processing') {
+            // Keep polling with exponential backoff (max 10 seconds)
+            pollDelay = Math.min(pollDelay * 1.5, 10000);
+            if (!controller.signal.aborted) pollResult();
+          }
+        } catch (err: any) {
+          if (err.name === 'AbortError') return;
+          if (!controller.signal.aborted) {
+            setErrorMsg(err.message || "Gagal mengambil hasil");
+            setLoading(false);
+          }
+        }
+      }, pollDelay);
     };
 
     fetchResult();
@@ -211,11 +211,10 @@ export default function ResultPage() {
         </div>
 
         {/* Main Status Card */}
-        <div className={`relative p-8 md:p-12 rounded-[2.5rem] border-2 flex flex-col items-center text-center space-y-6 overflow-hidden transition-all duration-500 hover:shadow-2xl ${
-          isPass
+        <div className={`relative p-8 md:p-12 rounded-[2.5rem] border-2 flex flex-col items-center text-center space-y-6 overflow-hidden transition-all duration-500 hover:shadow-2xl ${isPass
             ? 'bg-emerald-500/5 border-emerald-500/30 hover:shadow-emerald-500/10'
             : 'bg-rose-500/5 border-rose-500/30 hover:shadow-rose-500/10'
-        }`}>
+          }`}>
           <div className={`absolute -top-24 -left-24 w-64 h-64 rounded-full blur-[100px] opacity-20 ${isPass ? 'bg-emerald-500' : 'bg-rose-500'}`} />
 
           <div className="relative">

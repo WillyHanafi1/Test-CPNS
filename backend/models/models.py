@@ -39,7 +39,7 @@ class Package(Base):
     is_premium: Mapped[bool] = mapped_column(Boolean, default=False)
     category: Mapped[str] = mapped_column(String(50)) # TWK, TIU, TKP, Mix
 
-    questions: Mapped[list["Question"]] = relationship(back_populates="package")
+    questions: Mapped[list["Question"]] = relationship(back_populates="package", cascade="all, delete-orphan")
     transactions: Mapped[list["UserTransaction"]] = relationship(back_populates="package")
 
 class Question(Base):

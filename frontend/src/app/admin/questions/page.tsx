@@ -21,6 +21,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { 
+  AdminPageHeader, 
+  AdminDataTable, 
+  AdminPagination, 
+  Column 
+} from '@/components/admin';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
@@ -40,8 +46,17 @@ export default function QuestionsAdmin() {
 
   useEffect(() => {
     fetchPackages();
-    fetchQuestions();
-  }, [page, selectedPackage]);
+  }, []);
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      // Hanya reset ke halaman 1 jika user mulai mencari
+      if (search !== '') setPage(1); 
+      fetchQuestions();
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [search, page, selectedPackage]);
 
   const fetchPackages = async () => {
     try {
@@ -61,6 +76,7 @@ export default function QuestionsAdmin() {
     try {
       let url = `${API_URL}/api/v1/admin/questions?page=${page}&size=10`;
       if (selectedPackage) url += `&package_id=${selectedPackage}`;
+      if (search) url += `&search=${encodeURIComponent(search)}`;
       
       const response = await fetch(url, { 
         headers: { 'Content-Type': 'application/json' },
@@ -108,29 +124,87 @@ export default function QuestionsAdmin() {
     }
   };
 
+  const columns: Column<any>[] = [
+    { 
+      header: 'No.', 
+      accessor: 'number',
+      className: 'w-20',
+      render: (q) => (
+        <span className="font-black text-slate-500 group-hover:text-indigo-400 transition-colors">{q.number}</span>
+      )
+    },
+    { 
+      header: 'Segment', 
+      render: (q) => (
+        <Badge className={`rounded-xl py-1 px-3 font-bold text-[10px] border-none tracking-widest ${
+          q.segment === 'TWK' ? 'bg-blue-500/10 text-blue-400' :
+          q.segment === 'TIU' ? 'bg-indigo-500/10 text-indigo-400' :
+          'bg-orange-500/10 text-orange-400'
+        }`}>
+          {q.segment}
+        </Badge>
+      )
+    },
+    { 
+      header: 'Konten Soal', 
+      className: 'max-w-md',
+      render: (q) => (
+        <p className="text-sm font-medium text-slate-200 line-clamp-2 leading-relaxed">{q.content}</p>
+      )
+    },
+    { 
+      header: 'Opsi / Jawaban', 
+      render: (q) => (
+        <div className="flex -space-x-2">
+          {[1,2,3,4,5].map(o => (
+            <div key={o} className="w-7 h-7 rounded-lg bg-slate-800 border-2 border-slate-900 flex items-center justify-center text-[10px] font-black text-slate-500">
+              {String.fromCharCode(64 + o)}
+            </div>
+          ))}
+        </div>
+      )
+    },
+    { 
+      header: 'Aksi', 
+      className: 'text-center',
+      render: (q) => (
+        <div className="flex items-center justify-center space-x-2">
+          <Button variant="ghost" size="icon" className="w-10 h-10 rounded-xl hover:bg-slate-800 hover:text-white transition-all">
+            <Edit className="w-4 h-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="w-10 h-10 rounded-xl hover:bg-rose-500/10 hover:text-rose-400 transition-all">
+            <Trash2 className="w-4 h-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="w-10 h-10 rounded-xl hover:bg-slate-800">
+            <MoreVertical className="w-4 h-4" />
+          </Button>
+        </div>
+      )
+    }
+  ];
+
   return (
     <div className="space-y-8 pb-20">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-4xl font-black tracking-tight mb-1">Bank Soal</h1>
-          <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Total {total} Soal Terdaftar</p>
-        </div>
-        <div className="flex items-center space-x-3">
-          <Button 
-            variant="outline" 
-            className="border-slate-800 bg-slate-900/50 hover:bg-slate-800 hover:text-white rounded-2xl py-6 px-6 font-bold"
-            onClick={() => setIsImportModalOpen(true)}
-          >
-            <Upload className="w-5 h-5 mr-2" />
-            Import Excel
-          </Button>
-          <Button className="bg-indigo-600 hover:bg-indigo-700 rounded-2xl py-6 px-10 font-bold shadow-xl shadow-indigo-600/20">
-            <Plus className="w-5 h-5 mr-2" />
-            Tambah Manual
-          </Button>
-        </div>
-      </div>
+      <AdminPageHeader 
+        title="Bank Soal" 
+        subtitle={`Total ${total} Soal Terdaftar`}
+        actions={
+          <>
+            <Button 
+              variant="outline" 
+              className="border-slate-800 bg-slate-900/50 hover:bg-slate-800 hover:text-white rounded-2xl py-6 px-6 font-bold"
+              onClick={() => setIsImportModalOpen(true)}
+            >
+              <Upload className="w-5 h-5 mr-2" />
+              Import Excel
+            </Button>
+            <Button className="bg-indigo-600 hover:bg-indigo-700 rounded-2xl py-6 px-10 font-bold shadow-xl shadow-indigo-600/20">
+              <Plus className="w-5 h-5 mr-2" />
+              Tambah Manual
+            </Button>
+          </>
+        }
+      />
 
       {message && (
         <div className={`p-4 rounded-2xl flex items-center space-x-3 animate-in slide-in-from-top-4 duration-500 ${
@@ -175,109 +249,20 @@ export default function QuestionsAdmin() {
         </CardContent>
       </Card>
 
-      {/* Table */}
-      <div className="bg-slate-900/20 border border-slate-800/40 rounded-[2.5rem] overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-900/50 border-b border-slate-800">
-                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-slate-500">No.</th>
-                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-slate-500">Segment</th>
-                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-slate-500">Konten Soal</th>
-                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-slate-500">Opsi / Jawaban</th>
-                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-slate-500 text-center">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/50">
-              {loading ? (
-                [1,2,3,4,5].map(i => (
-                  <tr key={i} className="animate-pulse">
-                    <td colSpan={5} className="px-8 py-8"><div className="h-4 bg-slate-800 rounded w-full" /></td>
-                  </tr>
-                ))
-              ) : questions.map((q) => (
-                <tr key={q.id} className="hover:bg-slate-900/30 transition-colors group">
-                  <td className="px-8 py-6">
-                    <span className="font-black text-slate-500 group-hover:text-indigo-400 transition-colors">{q.number}</span>
-                  </td>
-                  <td className="px-8 py-6">
-                    <Badge className={`rounded-xl py-1 px-3 font-bold text-[10px] border-none tracking-widest ${
-                      q.segment === 'TWK' ? 'bg-blue-500/10 text-blue-400' :
-                      q.segment === 'TIU' ? 'bg-indigo-500/10 text-indigo-400' :
-                      'bg-orange-500/10 text-orange-400'
-                    }`}>
-                      {q.segment}
-                    </Badge>
-                  </td>
-                  <td className="px-8 py-6 max-w-md">
-                    <p className="text-sm font-medium text-slate-200 line-clamp-2 leading-relaxed">{q.content}</p>
-                  </td>
-                  <td className="px-8 py-6">
-                     <div className="flex -space-x-2">
-                        {[1,2,3,4,5].map(o => (
-                          <div key={o} className="w-7 h-7 rounded-lg bg-slate-800 border-2 border-slate-900 flex items-center justify-center text-[10px] font-black text-slate-500">
-                            {String.fromCharCode(64 + o)}
-                          </div>
-                        ))}
-                     </div>
-                  </td>
-                  <td className="px-8 py-6">
-                    <div className="flex items-center justify-center space-x-2">
-                       <Button variant="ghost" size="icon" className="w-10 h-10 rounded-xl hover:bg-slate-800 hover:text-white transition-all">
-                          <Edit className="w-4 h-4" />
-                       </Button>
-                       <Button variant="ghost" size="icon" className="w-10 h-10 rounded-xl hover:bg-rose-500/10 hover:text-rose-400 transition-all">
-                          <Trash2 className="w-4 h-4" />
-                       </Button>
-                       <Button variant="ghost" size="icon" className="w-10 h-10 rounded-xl hover:bg-slate-800">
-                          <MoreVertical className="w-4 h-4" />
-                       </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {!loading && questions.length === 0 && (
-                <tr>
-                   <td colSpan={5} className="px-8 py-20 text-center">
-                      <BookOpen className="w-12 h-12 text-slate-800 mx-auto mb-4" />
-                      <p className="text-slate-600 font-bold uppercase tracking-widest text-xs">Belum ada soal ditemukan</p>
-                   </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+      <AdminDataTable 
+        columns={columns}
+        data={questions}
+        loading={loading}
+        emptyIcon={<BookOpen className="w-12 h-12 text-slate-800" />}
+        emptyText="Belum ada soal ditemukan"
+      />
 
-        {/* Pagination */}
-        <div className="bg-slate-900/50 px-8 py-6 flex items-center justify-between border-t border-slate-800">
-           <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">
-              Showing <span className="text-slate-300">{(page-1)*10+1}</span> to <span className="text-slate-300">{Math.min(page*10, total)}</span> of <span className="text-slate-300">{total}</span>
-           </p>
-           <div className="flex items-center space-x-2">
-              <Button 
-                variant="outline" 
-                size="icon" 
-                className="w-10 h-10 rounded-xl border-slate-800 bg-slate-950"
-                onClick={() => setPage(p => Math.max(1, p-1))}
-                disabled={page === 1}
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </Button>
-              <div className="bg-indigo-600 text-white w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black shadow-lg shadow-indigo-600/20">
-                {page}
-              </div>
-              <Button 
-                variant="outline" 
-                size="icon" 
-                className="w-10 h-10 rounded-xl border-slate-800 bg-slate-950"
-                onClick={() => setPage(p => p + 1)}
-                disabled={page*10 >= total}
-              >
-                <ChevronRight className="w-4 h-4" />
-              </Button>
-           </div>
-        </div>
-      </div>
+      <AdminPagination 
+        page={page}
+        total={total}
+        pageSize={10}
+        onPageChange={setPage}
+      />
 
       {/* Import Modal */}
       {isImportModalOpen && (

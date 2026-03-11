@@ -4,8 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { 
-  LogOut, User, BookOpen, History, Trophy, 
+import {
+  LogOut, User, BookOpen, History, Trophy,
   ChevronRight, TrendingUp, Target, Zap, Clock,
   CheckCircle2, XCircle, AlertCircle
 } from 'lucide-react';
@@ -69,8 +69,8 @@ export default function DashboardPage() {
   if (!user) return null;
 
   const finishedSessions = sessions.filter(s => s.status === 'finished');
-  const bestScore = finishedSessions.length > 0 
-    ? Math.max(...finishedSessions.map(s => s.total_score)) 
+  const bestScore = finishedSessions.length > 0
+    ? Math.max(...finishedSessions.map(s => s.total_score))
     : null;
   const latestSession = finishedSessions[0] ?? null;
   const passCount = finishedSessions.filter(s =>
@@ -106,7 +106,7 @@ export default function DashboardPage() {
       </nav>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10">
-        
+
         {/* Hero Welcome */}
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-900/50 via-slate-900 to-slate-900 border border-indigo-500/20 p-8 md:p-12">
           {/* Background glow */}
@@ -167,7 +167,7 @@ export default function DashboardPage() {
 
         {/* Latest Result + Leaderboard + Quick Nav */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          
+
           {/* Latest Session Result */}
           <div className="xl:col-span-2 bg-slate-900/50 border border-slate-800 rounded-3xl p-8">
             <div className="flex items-center justify-between mb-6">
@@ -193,8 +193,8 @@ export default function DashboardPage() {
                     <p className="text-6xl font-black tracking-tighter text-white">{latestSession.total_score}</p>
                   </div>
                   {latestSession.score_twk >= PASSING_GRADES.TWK &&
-                   latestSession.score_tiu >= PASSING_GRADES.TIU &&
-                   latestSession.score_tkp >= PASSING_GRADES.TKP ? (
+                    latestSession.score_tiu >= PASSING_GRADES.TIU &&
+                    latestSession.score_tkp >= PASSING_GRADES.TKP ? (
                     <span className="flex items-center gap-1.5 text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-4 py-2 rounded-full text-sm font-bold">
                       <CheckCircle2 className="w-4 h-4" /> LULUS (P/L)
                     </span>
@@ -249,7 +249,7 @@ export default function DashboardPage() {
                   <span className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 uppercase tracking-widest cursor-pointer">Lihat Semua</span>
                 </Link>
               </div>
-              
+
               <div className="space-y-2">
                 {leaderboardLoading ? (
                   Array.from({ length: 5 }).map((_, i) => (
@@ -260,7 +260,7 @@ export default function DashboardPage() {
                     <div key={i} className="flex items-center justify-between p-3 rounded-2xl bg-slate-800/30 border border-slate-800/50">
                       <div className="flex items-center gap-3">
                         <span className={`text-xs font-black ${i === 0 ? 'text-amber-400' : i === 1 ? 'text-slate-300' : i === 2 ? 'text-orange-400' : 'text-slate-600'}`}>
-                          #{i+1}
+                          #{i + 1}
                         </span>
                         <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center border border-slate-700">
                           <User className="w-3.5 h-3.5 text-slate-500" />
@@ -322,7 +322,7 @@ function StatCard({ icon, label, value, sub, color, loading }: {
 }) {
   const border = color === 'indigo' ? 'hover:border-indigo-500/40' :
     color === 'amber' ? 'hover:border-amber-500/40' :
-    color === 'emerald' ? 'hover:border-emerald-500/40' : 'hover:border-rose-500/40';
+      color === 'emerald' ? 'hover:border-emerald-500/40' : 'hover:border-rose-500/40';
 
   return (
     <div className={`bg-slate-900/50 border border-slate-800 ${border} rounded-2xl p-5 transition-all duration-300`}>

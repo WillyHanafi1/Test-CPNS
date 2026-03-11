@@ -7,7 +7,7 @@ import uuid
 from typing import List
 
 from backend.db.session import get_async_session
-from backend.models.models import Question, QuestionOption, Package
+from backend.models.models import Question, QuestionOption, Package, User
 from backend.api.v1.endpoints.auth import get_current_admin
 
 router = APIRouter(prefix="/admin/import", tags=["admin-import"])
@@ -17,7 +17,7 @@ async def import_questions(
     package_id: uuid.UUID,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_async_session),
-    admin: str = Depends(get_current_admin)
+    admin: User = Depends(get_current_admin)
 ):
     # Check if package exists
     result = await db.execute(select(Package).where(Package.id == package_id))
@@ -34,6 +34,9 @@ async def import_questions(
             df = pd.read_excel(io.BytesIO(content))
         else:
             raise HTTPException(status_code=400, detail="Invalid file format. Use CSV or Excel.")
+        
+        # FIX: Replace NaN with empty string to avoid "nan" string conversion
+        df.fillna('', inplace=True)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error parsing file: {str(e)}")
 
@@ -66,11 +69,14 @@ async def import_questions(
             col_name = f'option_{label.lower()}'
             score_col = f'score_{label.lower()}'
             
+            # Safer score conversion: handle empty strings and float-like strings from Pandas
             score = 0
-            if score_col in df.columns and pd.notna(row[score_col]):
-                score = int(row[score_col])
-            elif label == 'A': # Default score 5 for A if it was a simple correct/incorrect format? 
-                # Better to be explicit in CSV. 
+            if score_col in df.columns and str(row[score_col]).strip() != '':
+                try:
+                    score = int(float(row[score_col])) 
+                except (ValueError, TypeError):
+                    score = 0
+            elif label == 'A': 
                 pass
 
             new_opt = QuestionOption(
