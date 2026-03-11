@@ -128,7 +128,7 @@ async def check_package_access(
 
 @router.post("/", response_model=PackageSchema, status_code=status.HTTP_201_CREATED)
 async def create_package(package_in: PackageCreate, db: AsyncSession = Depends(get_async_session)):
-    new_package = Package(**package_in.dict())
+    new_package = Package(**package_in.model_dump())
     db.add(new_package)
     await db.commit()
     await db.refresh(new_package)

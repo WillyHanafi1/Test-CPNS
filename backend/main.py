@@ -7,6 +7,7 @@ from backend.api.v1.endpoints.exam import router as exam_router
 from backend.api.v1.endpoints.admin_questions import router as admin_questions_router
 from backend.api.v1.endpoints.admin_import import router as admin_import_router
 from backend.api.v1.endpoints.admin_packages import router as admin_packages_router
+from backend.config import settings
 
 import logging
 
@@ -19,17 +20,10 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Configure CORS for Next.js 16
+# Configure CORS — origins read from settings (configurable via .env CORS_ORIGINS)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000", 
-        "http://127.0.0.1:3000",
-        "http://localhost:3001",
-        "http://localhost:3002",
-        "http://127.0.0.1:3001",
-        "http://127.0.0.1:3002",
-    ],
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -38,8 +32,7 @@ app.add_middleware(
 @app.middleware("http")
 async def log_requests(request, call_next):
     logger.info(f"Incoming request: {request.method} {request.url}")
-    logger.info(f"Cookies: {request.cookies}")
-    logger.info(f"Authorization Header: {request.headers.get('Authorization')}")
+    # NOTE: Cookies and Authorization headers are NOT logged for security
     response = await call_next(request)
     logger.info(f"Response status: {response.status_code}")
     return response

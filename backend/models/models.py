@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import String, Boolean, DateTime, ForeignKey, Integer, Text, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.db.session import Base
@@ -12,7 +12,7 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     role: Mapped[str] = mapped_column(String(20), default="participant") # admin, participant
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     profile: Mapped["UserProfile"] = relationship(back_populates="user", uselist=False)
     sessions: Mapped[list["ExamSession"]] = relationship(back_populates="user")
@@ -73,7 +73,7 @@ class ExamSession(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
     package_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("packages.id"))
-    start_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    start_time: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     end_time: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     total_score: Mapped[int] = mapped_column(Integer, default=0)
     score_twk: Mapped[int] = mapped_column(Integer, default=0)
@@ -105,7 +105,7 @@ class UserTransaction(Base):
     amount: Mapped[int] = mapped_column(Integer)
     snap_token: Mapped[str] = mapped_column(String(255), nullable=True) # For Midtrans
     access_expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     user: Mapped["User"] = relationship(back_populates="transactions")
     package: Mapped["Package"] = relationship(back_populates="transactions")

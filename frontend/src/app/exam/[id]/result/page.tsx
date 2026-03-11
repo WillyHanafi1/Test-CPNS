@@ -36,10 +36,42 @@ export default function ResultPage() {
     abortRef.current = controller;
     let pollTimeout: NodeJS.Timeout | null = null;
     let startTime = Date.now();
-    const MAX_POLL_TIME = 15000; // 15 detik timeout
+    const MAX_POLL_TIME = 45000; // 45 detik timeout untuk skala tinggi
+    let pollDelay = 2000; // Mulai dengan jeda 2 detik
 
     const fetchResult = async () => {
       try {
+        // FIX #5: Try GET /result first (lightweight, no row lock)
+        // Only call POST /finish if the session is still 'ongoing'
+        const getRes = await fetch(`${API_URL}/api/v1/exam/result/${id}`, {
+          method: 'GET',
+          credentials: 'include',
+          signal: controller.signal
+        });
+
+        if (getRes.ok) {
+          const getData = await getRes.json();
+
+          if (getData.status === 'finished' || getData.status === 'already finished') {
+            // Already scored — show result immediately
+            if (!controller.signal.aborted) {
+              setResult(getData);
+              setLoading(false);
+            }
+            return;
+          }
+
+          if (getData.status === 'processing') {
+            // Scoring in progress — start polling
+            if (!controller.signal.aborted) setLoading(true);
+            pollResult();
+            return;
+          }
+
+          // Status is 'ongoing' — need to finish first
+        }
+
+        // Session is ongoing or GET failed — trigger finish
         const response = await fetch(`${API_URL}/api/v1/exam/finish/${id}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -96,7 +128,8 @@ export default function ResultPage() {
                   setLoading(false);
                 }
               } else if (pollData.status === 'processing') {
-                 // Keep polling
+                 // Keep polling with exponential backoff (max 10 seconds)
+                 pollDelay = Math.min(pollDelay * 1.5, 10000);
                  if (!controller.signal.aborted) pollResult();   
               }
             } catch (err: any) {
@@ -106,7 +139,7 @@ export default function ResultPage() {
                  setLoading(false);
                }
             }
-          }, 2000);
+          }, pollDelay);
     };
 
     fetchResult();

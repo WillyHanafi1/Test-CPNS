@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from sqlalchemy.pool import NullPool
 
 from backend.core.celery_app import celery_app
 from backend.models.models import ExamSession, Question, Answer
@@ -17,8 +18,8 @@ async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: s
     # ✅ KUNCI FIX: buat engine BARU setiap task, bukan pakai engine global
     engine = create_async_engine(
         settings.DATABASE_URL,
-        echo=True,
-        connect_args={"statement_cache_size": 0}
+        echo=False,
+        poolclass=NullPool
     )
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
@@ -43,7 +44,7 @@ async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: s
 
             # ✅ FIX REDIS: buat koneksi redis baru juga
             import redis.asyncio as aioredis
-            redis_client = aioredis.from_url("redis://localhost:6379/0")
+            redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
             try:
                 redis_answers = await redis_client.hgetall(cache_key)
             finally:
@@ -68,8 +69,6 @@ async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: s
                 selected_option_id_str = redis_answers.get(q_id_str)
                 if not selected_option_id_str:
                     continue
-                if isinstance(selected_option_id_str, bytes):
-                    selected_option_id_str = selected_option_id_str.decode('utf-8')
                 try:
                     selected_option_id = uuid.UUID(selected_option_id_str)
                 except ValueError:
@@ -110,9 +109,10 @@ async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: s
             await db.commit()
 
             # Update leaderboard
-            redis_lb = aioredis.from_url("redis://localhost:6379/0")
+            redis_lb = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
             try:
-                await redis_lb.zadd("leaderboard:national", {user_email: total_score})
+                # GT flag: only update if new score is Greater Than existing
+                await redis_lb.zadd("leaderboard:national", {user_email: total_score}, gt=True)
                 await redis_lb.delete(cache_key)
             finally:
                 await redis_lb.aclose()

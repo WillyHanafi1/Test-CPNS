@@ -11,6 +11,7 @@ from backend.schemas.user import UserCreate, User as UserSchema, UserWithProfile
 from backend.schemas.token import Token
 from sqlalchemy.orm import selectinload
 from backend.core.security import verify_password, get_password_hash, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM, SECRET_KEY
+from backend.config import settings as app_settings
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 # Cookie removed
@@ -117,7 +118,7 @@ async def login(
     access_token = create_access_token(
         data={"sub": user.email}, expires_delta=access_token_expires
     )
-    
+
     # Set HttpOnly Cookie
     response.set_cookie(
         key="access_token",
@@ -126,7 +127,7 @@ async def login(
         max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         expires=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         samesite="lax",
-        secure=False, # Set to True in production
+        secure=app_settings.COOKIE_SECURE,
     )
     
     return {"message": "Successfully logged in", "user_id": str(user.id), "email": user.email, "role": user.role}

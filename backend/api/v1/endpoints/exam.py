@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 
 from backend.db.session import get_async_session
-from backend.models.models import Package, Question, ExamSession, User, Answer, QuestionOption
+from backend.models.models import Package, Question, ExamSession, User, Answer, QuestionOption, UserTransaction
 from backend.api.v1.endpoints.auth import get_current_user
 from backend.core.redis_service import redis_service
 from backend.schemas.exam import ExamSessionListItem
@@ -67,6 +67,31 @@ async def start_exam(
     if not package:
         raise HTTPException(status_code=404, detail="Package not found")
 
+    # Fix #6: RBAC enforcement — verify user has access to premium packages
+    if package.is_premium and package.price > 0:
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        tx_result = await db.execute(
+            select(UserTransaction)
+            .where(
+                UserTransaction.user_id == current_user.id,
+                UserTransaction.package_id == package_id,
+                UserTransaction.payment_status == "success",
+            )
+            .order_by(UserTransaction.created_at.desc())
+            .limit(1)
+        )
+        transaction = tx_result.scalar_one_or_none()
+        if not transaction:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Anda belum memiliki akses ke paket ini. Silakan beli terlebih dahulu."
+            )
+        if transaction.access_expires_at and transaction.access_expires_at < now:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Akses Anda ke paket ini telah kedaluwarsa."
+            )
+
     # 2. Create session in DB
     # Standard SKD time is 100 minutes
     start_time = datetime.now(timezone.utc).replace(tzinfo=None)  # naive UTC
@@ -103,6 +128,17 @@ async def autosave_answer(
     db: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_user)
 ):
+    # Fix #16: Redis-based rate limiting (max 10 requests per 5 seconds per user)
+    rate_key = f"rate_limit:autosave:{current_user.id}"
+    current_count = await redis_service.redis.incr(rate_key)
+    if current_count == 1:
+        await redis_service.redis.expire(rate_key, 5)  # 5 second window
+    if current_count > 10:
+        raise HTTPException(
+            status_code=429,
+            detail="Terlalu banyak permintaan. Coba lagi dalam beberapa detik."
+        )
+
     # 1. Validasi Batas Waktu dari Redis
     session_meta_key = f"session_meta:{session_id}"
     end_time_ts = await redis_service.redis.get(session_meta_key)
@@ -144,10 +180,6 @@ async def autosave_answer(
     
     return {"status": "saved"}
 
-from backend.core.tasks import calculate_exam_score, async_run_scoring
-import logging
-
-logger = logging.getLogger(__name__)
 
 @router.post("/finish/{session_id}")
 async def finish_exam(
@@ -315,6 +347,7 @@ async def get_my_rank(
         "score": int(score) if score is not None else 0
     }
 
+@router.get("/sessions/me", response_model=List[ExamSessionListItem])
 async def get_my_sessions(
     db: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_user)

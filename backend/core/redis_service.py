@@ -35,8 +35,13 @@ class RedisService:
         await self.redis.delete(key)
 
     async def clear_pattern(self, pattern: str):
-        keys = await self.redis.keys(pattern)
-        if keys:
-            await self.redis.delete(*keys)
+        """SCAN-based pattern delete — safe for production (non-blocking)."""
+        cursor = 0
+        while True:
+            cursor, keys = await self.redis.scan(cursor=cursor, match=pattern, count=100)
+            if keys:
+                await self.redis.delete(*keys)
+            if cursor == 0:
+                break
 
 redis_service = RedisService()

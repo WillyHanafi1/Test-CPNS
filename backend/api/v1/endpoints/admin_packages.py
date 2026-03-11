@@ -42,7 +42,7 @@ async def create_package_admin(
     db: AsyncSession = Depends(get_async_session),
     admin: str = Depends(get_current_admin)
 ):
-    new_package = Package(**package_in.dict())
+    new_package = Package(**package_in.model_dump())
     db.add(new_package)
     await db.commit()
     await db.refresh(new_package)
