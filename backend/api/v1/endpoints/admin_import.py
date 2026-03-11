@@ -53,7 +53,6 @@ async def import_questions(
             raise HTTPException(status_code=400, detail=f"Missing required column: {col}")
 
     # Prefetch existing question numbers in the package to prevent duplicates
-    from sqlalchemy import select
     existing_nums_result = await db.execute(select(Question.number).where(Question.package_id == package_id))
     existing_nums = {row[0] for row in existing_nums_result.all()}
     
@@ -98,8 +97,6 @@ async def import_questions(
                         score = int(float(row[score_col])) 
                     except (ValueError, TypeError):
                         score = 0
-                elif label == 'A': 
-                    pass
     
                 new_opt = QuestionOption(
                     question_id=new_question.id,
@@ -114,6 +111,8 @@ async def import_questions(
         await db.commit()
         return {"message": f"Successfully imported {questions_added} questions", "count": questions_added}
         
+    except HTTPException:
+        raise
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=422, detail=f"Import gagal di baris {questions_added + 1}: {str(e)}")

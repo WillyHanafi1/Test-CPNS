@@ -9,6 +9,7 @@ from backend.models.models import Question, QuestionOption, Package, User
 from backend.api.v1.endpoints.auth import get_current_admin
 from pydantic import BaseModel, ConfigDict, field_validator
 from sqlalchemy.orm import selectinload
+from sqlalchemy import delete
 
 router = APIRouter(prefix="/admin/questions", tags=["admin-questions"])
 
@@ -199,7 +200,6 @@ async def update_question(
     # Update options logic (delete-recreate strategy)
     if question_in.options is not None:
         # Delete old options
-        from sqlalchemy import delete
         await db.execute(delete(QuestionOption).where(QuestionOption.question_id == question_id))
         
         # Insert new options
