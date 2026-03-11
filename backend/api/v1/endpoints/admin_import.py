@@ -12,6 +12,8 @@ from backend.api.v1.endpoints.auth import get_current_admin
 
 router = APIRouter(prefix="/admin/import", tags=["admin-import"])
 
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+
 @router.post("/questions")
 async def import_questions(
     package_id: uuid.UUID,
@@ -19,8 +21,6 @@ async def import_questions(
     db: AsyncSession = Depends(get_async_session),
     admin: User = Depends(get_current_admin)
 ):
-    MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
-    
     # Check if package exists
     result = await db.execute(select(Package).where(Package.id == package_id))
     package = result.scalar_one_or_none()
@@ -85,31 +85,31 @@ async def import_questions(
             db.add(new_question)
             await db.flush()
 
-        # Create Options
-        labels = ['A', 'B', 'C', 'D', 'E']
-        for label in labels:
-            col_name = f'option_{label.lower()}'
-            score_col = f'score_{label.lower()}'
+            # Create Options
+            labels = ['A', 'B', 'C', 'D', 'E']
+            for label in labels:
+                col_name = f'option_{label.lower()}'
+                score_col = f'score_{label.lower()}'
+                
+                # Safer score conversion: handle empty strings and float-like strings from Pandas
+                score = 0
+                if score_col in df.columns and str(row[score_col]).strip() != '':
+                    try:
+                        score = int(float(row[score_col])) 
+                    except (ValueError, TypeError):
+                        score = 0
+                elif label == 'A': 
+                    pass
+    
+                new_opt = QuestionOption(
+                    question_id=new_question.id,
+                    label=label,
+                    content=str(row[col_name]),
+                    score=score
+                )
+                db.add(new_opt)
             
-            # Safer score conversion: handle empty strings and float-like strings from Pandas
-            score = 0
-            if score_col in df.columns and str(row[score_col]).strip() != '':
-                try:
-                    score = int(float(row[score_col])) 
-                except (ValueError, TypeError):
-                    score = 0
-            elif label == 'A': 
-                pass
-
-            new_opt = QuestionOption(
-                question_id=new_question.id,
-                label=label,
-                content=str(row[col_name]),
-                score=score
-            )
-            db.add(new_opt)
-        
-        questions_added += 1
+            questions_added += 1
 
         await db.commit()
         return {"message": f"Successfully imported {questions_added} questions", "count": questions_added}

@@ -7,9 +7,8 @@ import uuid
 from backend.db.session import get_async_session
 from backend.models.models import Question, QuestionOption, Package, User
 from backend.api.v1.endpoints.auth import get_current_admin
-from pydantic import BaseModel, ConfigDict
-
 from pydantic import BaseModel, ConfigDict, field_validator
+from sqlalchemy.orm import selectinload
 
 router = APIRouter(prefix="/admin/questions", tags=["admin-questions"])
 
@@ -80,8 +79,6 @@ class PaginatedQuestionResponse(BaseModel):
     page: int
     size: int
 
-from sqlalchemy.orm import selectinload
-
 @router.get("/", response_model=PaginatedQuestionResponse)
 async def list_questions(
     package_id: Optional[uuid.UUID] = None,
@@ -117,7 +114,7 @@ async def list_questions(
         "size": size
     }
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=QuestionResponse, status_code=status.HTTP_201_CREATED)
 async def create_question(
     question_in: QuestionCreate,
     db: AsyncSession = Depends(get_async_session),
@@ -202,9 +199,6 @@ async def update_question(
     # Update options logic (delete-recreate strategy)
     if question_in.options is not None:
         # Delete old options
-        await db.execute(
-            select(QuestionOption).where(QuestionOption.question_id == question_id).execution_options(synchronize_session=False)
-        ) # This returns a scalar, need delete actually:
         from sqlalchemy import delete
         await db.execute(delete(QuestionOption).where(QuestionOption.question_id == question_id))
         
