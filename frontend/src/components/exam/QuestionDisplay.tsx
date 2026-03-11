@@ -8,12 +8,12 @@ import { Check, Info, Flag } from 'lucide-react';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
 export default function QuestionDisplay() {
-  const { 
-    questions, 
-    currentIndex, 
-    answers, 
-    selectOption, 
-    doubtStatus, 
+  const {
+    questions,
+    currentIndex,
+    answers,
+    selectOption,
+    doubtStatus,
     toggleDoubt,
     sessionId,
     setCurrentIndex
@@ -29,7 +29,8 @@ export default function QuestionDisplay() {
     // Optimistic UI Update
     selectOption(question.id, optionId);
 
-    // Background Autosave to Redis
+    // Background Autosave to Redis (only if sessionId is available)
+    if (!sessionId) return;
     try {
       fetch(`${API_URL}/api/v1/exam/autosave/${sessionId}`, {
         method: 'POST',
@@ -57,8 +58,8 @@ export default function QuestionDisplay() {
             {question.segment}
           </span>
         </div>
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           onClick={() => toggleDoubt(question.id)}
           className={`border-slate-800 ${isDoubt ? 'bg-amber-500/20 border-amber-500 text-amber-500 hover:bg-amber-500/30' : 'hover:bg-slate-900 text-slate-400'}`}
         >
@@ -72,7 +73,7 @@ export default function QuestionDisplay() {
         <p className="text-xl md:text-2xl font-medium leading-relaxed text-slate-200">
           {question.content}
         </p>
-        
+
         {question.image_url && (
           <div className="rounded-2xl overflow-hidden border border-slate-800 max-w-2xl">
             <img src={question.image_url} alt="Question Diagram" className="w-full h-auto" />
@@ -86,15 +87,13 @@ export default function QuestionDisplay() {
           <button
             key={option.id}
             onClick={() => handleSelectOption(option.id)}
-            className={`flex items-center p-5 rounded-2xl border transition-all duration-200 text-left group ${
-              selectedOptionId === option.id
+            className={`flex items-center p-5 rounded-2xl border transition-all duration-200 text-left group ${selectedOptionId === option.id
                 ? 'bg-indigo-600/20 border-indigo-500 ring-1 ring-indigo-500'
                 : 'bg-slate-900/50 border-slate-800 hover:border-slate-700 hover:bg-slate-900'
-            }`}
+              }`}
           >
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold mr-4 transition-colors ${
-              selectedOptionId === option.id ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-400 group-hover:bg-slate-700'
-            }`}>
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold mr-4 transition-colors ${selectedOptionId === option.id ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-400 group-hover:bg-slate-700'
+              }`}>
               {option.label}
             </div>
             <span className={`flex-1 text-lg ${selectedOptionId === option.id ? 'text-white' : 'text-slate-300'}`}>
@@ -107,8 +106,8 @@ export default function QuestionDisplay() {
 
       {/* Navigation Footer */}
       <div className="pt-8 flex items-center justify-between border-t border-slate-900">
-        <Button 
-          variant="ghost" 
+        <Button
+          variant="ghost"
           disabled={currentIndex === 0}
           onClick={() => setCurrentIndex(currentIndex - 1)}
           className="text-slate-400 hover:text-white"
@@ -119,7 +118,7 @@ export default function QuestionDisplay() {
           <Info className="w-4 h-4 mr-2" />
           Klik opsi jawaban untuk menyimpan secara otomatis
         </div>
-        <Button 
+        <Button
           disabled={currentIndex === questions.length - 1}
           onClick={() => setCurrentIndex(currentIndex + 1)}
           className="bg-slate-800 hover:bg-slate-700 text-white"

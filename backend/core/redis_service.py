@@ -7,7 +7,13 @@ from backend.config import settings
 
 class RedisService:
     def __init__(self):
-        self.redis = redis.from_url(settings.REDIS_URL, decode_responses=True)
+        self._redis = None
+
+    @property
+    def redis(self):
+        if self._redis is None:
+            self._redis = redis.from_url(settings.REDIS_URL, decode_responses=True)
+        return self._redis
 
     async def set_cache(self, key: str, value: Any, expire: int = 3600):
         def json_serial(obj):

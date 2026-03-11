@@ -1,83 +1,316 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { LogOut, User } from 'lucide-react';
+import { 
+  LogOut, User, BookOpen, History, Trophy, 
+  ChevronRight, TrendingUp, Target, Zap, Clock,
+  CheckCircle2, XCircle, AlertCircle
+} from 'lucide-react';
 import Link from 'next/link';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+
+interface RecentSession {
+  id: string;
+  package_id: string;
+  package_title: string;
+  start_time: string;
+  total_score: number;
+  score_twk: number;
+  score_tiu: number;
+  score_tkp: number;
+  status: string;
+}
+
+const PASSING_GRADES = { TWK: 65, TIU: 80, TKP: 166 };
+const MAX_SCORE = 175 + 175 + 225; // 575 total max
 
 export default function DashboardPage() {
   const { user, logout, loading } = useAuth();
+  const router = useRouter();
+  const [sessions, setSessions] = useState<RecentSession[]>([]);
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace('/login');
+      return;
+    }
+    if (user) {
+      fetch(`${API_URL}/api/v1/exam/sessions/me`, { credentials: 'include' })
+        .then(r => r.ok ? r.json() : [])
+        .then(setSessions)
+        .catch(() => setSessions([]))
+        .finally(() => setStatsLoading(false));
+    }
+  }, [user, loading, router]);
 
   if (loading) {
-    return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">Loading...</div>;
-  }
-
-  if (!user) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white p-4">
-        <h1 className="text-2xl font-bold mb-4">Not Authenticated</h1>
-        <p className="mb-8 text-slate-400">Please log in to access the dashboard.</p>
-        <Button onClick={() => window.location.href = '/login'}>Go to Login</Button>
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
+  if (!user) return null;
+
+  const finishedSessions = sessions.filter(s => s.status === 'finished');
+  const bestScore = finishedSessions.length > 0 
+    ? Math.max(...finishedSessions.map(s => s.total_score)) 
+    : null;
+  const latestSession = finishedSessions[0] ?? null;
+  const passCount = finishedSessions.filter(s =>
+    s.score_twk >= PASSING_GRADES.TWK &&
+    s.score_tiu >= PASSING_GRADES.TIU &&
+    s.score_tkp >= PASSING_GRADES.TKP
+  ).length;
+  const firstName = user.full_name?.split(' ')[0] || user.email.split('@')[0];
+
   return (
     <div className="min-h-screen bg-slate-950 text-white">
-      <nav className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50">
+      {/* Navbar */}
+      <nav className="border-b border-slate-800 bg-slate-900/60 backdrop-blur-xl sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div className="bg-indigo-600 p-1.5 rounded-lg">
-              <span className="font-bold text-lg">CPNS</span>
+          <div className="flex items-center space-x-3">
+            <div className="bg-indigo-600 p-2 rounded-xl">
+              <Zap className="h-5 w-5 text-white" />
             </div>
-            <span className="font-semibold text-lg hidden sm:inline-block">V2.0</span>
+            <span className="font-bold text-lg tracking-tight">CAT CPNS</span>
           </div>
-          
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2 mr-2">
-              <div className="h-8 w-8 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700">
-                <User className="h-4 w-4 text-indigo-400" />
+          <div className="flex items-center space-x-3">
+            <div className="hidden sm:flex items-center space-x-2 bg-slate-800/60 px-3 py-2 rounded-xl border border-slate-700">
+              <div className="h-6 w-6 rounded-full bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center">
+                <User className="h-3 w-3 text-indigo-400" />
               </div>
-              <span className="text-sm font-medium hidden sm:inline-block">{user.email}</span>
+              <span className="text-sm font-medium text-slate-300">{user.email}</span>
             </div>
-            <Button variant="ghost" size="sm" onClick={logout} className="text-slate-400 hover:text-white">
-              <LogOut className="h-4 w-4 mr-2" /> Logout
+            <Button variant="ghost" size="sm" onClick={logout} className="text-slate-400 hover:text-white hover:bg-slate-800">
+              <LogOut className="h-4 w-4 mr-1.5" /> Logout
             </Button>
           </div>
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <header className="mb-12">
-          <h1 className="text-4xl font-extrabold tracking-tight mb-2">Welcome Back!</h1>
-          <p className="text-slate-400 text-lg">You are successfully logged in to the CPNS Platform.</p>
-        </header>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-slate-900/50 border border-slate-800 p-8 rounded-2xl hover:border-indigo-500/50 transition-all duration-300">
-            <h3 className="text-xl font-semibold mb-2">My Progress</h3>
-            <p className="text-slate-400 mb-6">Track your scores and performance over time.</p>
-            <Button variant="secondary" className="w-full" disabled>View Stats</Button>
-          </div>
-          
-          <div className="bg-slate-900/50 border border-slate-800 p-8 rounded-2xl hover:border-indigo-500/50 transition-all duration-300">
-            <h3 className="text-xl font-semibold mb-2">Exam Catalog</h3>
-            <p className="text-slate-400 mb-6">Browse hundreds of practice questions and packages.</p>
-            <Link href="/catalog" className="w-full block">
-              <Button variant="secondary" className="w-full">Explore Catalog</Button>
-            </Link>
-          </div>
-          
-          <div className="bg-slate-900/50 border border-slate-800 p-8 rounded-2xl hover:border-indigo-500/50 transition-all duration-300 border-indigo-500/30 ring-1 ring-indigo-500/20">
-            <h3 className="text-xl font-semibold mb-2">Launch CAT</h3>
-            <p className="text-slate-400 mb-6">Start a simulated Computer Assisted Test session.</p>
-            <Link href="/catalog" className="w-full block">
-              <Button className="w-full bg-indigo-600 hover:bg-indigo-700">Begin Trial</Button>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10">
+        
+        {/* Hero Welcome */}
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-900/50 via-slate-900 to-slate-900 border border-indigo-500/20 p-8 md:p-12">
+          {/* Background glow */}
+          <div className="absolute -top-20 -right-20 w-72 h-72 bg-indigo-600 rounded-full blur-[120px] opacity-10 pointer-events-none" />
+          <div className="relative">
+            <p className="text-indigo-400 font-bold text-sm uppercase tracking-[0.2em] mb-2">Dashboard Peserta</p>
+            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-3">
+              Selamat datang, <span className="text-indigo-400">{firstName}</span> 👋
+            </h1>
+            <p className="text-slate-400 text-lg mb-8 max-w-xl">
+              Pantau perkembanganmu dan mulai simulasi CAT untuk menembus Passing Grade BKN.
+            </p>
+            <Link href="/catalog">
+              <Button className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-8 py-6 rounded-2xl shadow-xl shadow-indigo-600/30 text-base group">
+                <Zap className="w-5 h-5 mr-2 group-hover:scale-125 transition-transform" />
+                Mulai Simulasi CAT
+                <ChevronRight className="w-4 h-4 ml-2 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+              </Button>
             </Link>
           </div>
         </div>
+
+        {/* Stats Row */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            loading={statsLoading}
+            icon={<BookOpen className="w-5 h-5 text-indigo-400" />}
+            label="Total Simulasi"
+            value={finishedSessions.length.toString()}
+            sub="sesi selesai"
+            color="indigo"
+          />
+          <StatCard
+            loading={statsLoading}
+            icon={<Trophy className="w-5 h-5 text-amber-400" />}
+            label="Skor Terbaik"
+            value={bestScore !== null ? bestScore.toString() : '—'}
+            sub={`dari ${MAX_SCORE} poin`}
+            color="amber"
+          />
+          <StatCard
+            loading={statsLoading}
+            icon={<CheckCircle2 className="w-5 h-5 text-emerald-400" />}
+            label="Lolos Passing Grade"
+            value={passCount.toString()}
+            sub={`dari ${finishedSessions.length} sesi`}
+            color="emerald"
+          />
+          <StatCard
+            loading={statsLoading}
+            icon={<Target className="w-5 h-5 text-rose-400" />}
+            label="Passing Grade"
+            value="311"
+            sub="ambang batas BKN"
+            color="rose"
+          />
+        </div>
+
+        {/* Latest Result + Quick Nav */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* Latest Session Result */}
+          <div className="lg:col-span-2 bg-slate-900/50 border border-slate-800 rounded-3xl p-8">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-bold text-slate-100 flex items-center">
+                <TrendingUp className="w-5 h-5 mr-2 text-indigo-400" /> Skor Terakhir
+              </h2>
+              <Link href="/history">
+                <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white text-xs">
+                  Lihat Semua <ChevronRight className="w-3 h-3 ml-1" />
+                </Button>
+              </Link>
+            </div>
+
+            {statsLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map(i => <div key={i} className="h-8 bg-slate-800/60 rounded-xl animate-pulse" />)}
+              </div>
+            ) : latestSession ? (
+              <div className="space-y-6">
+                <div className="flex items-end justify-between">
+                  <div>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">Total Skor SKD</p>
+                    <p className="text-6xl font-black tracking-tighter text-white">{latestSession.total_score}</p>
+                  </div>
+                  {latestSession.score_twk >= PASSING_GRADES.TWK &&
+                   latestSession.score_tiu >= PASSING_GRADES.TIU &&
+                   latestSession.score_tkp >= PASSING_GRADES.TKP ? (
+                    <span className="flex items-center gap-1.5 text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-4 py-2 rounded-full text-sm font-bold">
+                      <CheckCircle2 className="w-4 h-4" /> LULUS (P/L)
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1.5 text-rose-400 bg-rose-500/10 border border-rose-500/20 px-4 py-2 rounded-full text-sm font-bold">
+                      <XCircle className="w-4 h-4" /> TIDAK LULUS (TL)
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  {[
+                    { label: 'TWK', score: latestSession.score_twk, min: PASSING_GRADES.TWK, max: 175 },
+                    { label: 'TIU', score: latestSession.score_tiu, min: PASSING_GRADES.TIU, max: 175 },
+                    { label: 'TKP', score: latestSession.score_tkp, min: PASSING_GRADES.TKP, max: 225 },
+                  ].map(({ label, score, min, max }) => (
+                    <div key={label} className="bg-slate-800/50 rounded-2xl p-4">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">{label}</p>
+                      <p className={`text-2xl font-black ${score >= min ? 'text-white' : 'text-rose-400'}`}>{score}</p>
+                      <div className="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${score >= min ? 'bg-emerald-500' : 'bg-rose-500'}`}
+                          style={{ width: `${Math.min((score / max) * 100, 100)}%` }}
+                        />
+                      </div>
+                      <p className="text-[10px] text-slate-600 mt-1">min. {min}</p>
+                    </div>
+                  ))}
+                </div>
+                <Link href={`/exam/${latestSession.package_id}/result`} className="block">
+                  <Button variant="outline" size="sm" className="w-full border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 rounded-xl">
+                    Lihat Detail Hasil
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <AlertCircle className="w-12 h-12 text-slate-700 mb-4" />
+                <p className="text-slate-400 font-medium mb-2">Belum ada sesi selesai</p>
+                <p className="text-slate-600 text-sm">Kerjakan simulasi pertamamu untuk melihat statistik di sini.</p>
+              </div>
+            )}
+          </div>
+
+          {/* Quick Nav Cards */}
+          <div className="space-y-4">
+            <QuickNavCard
+              href="/catalog"
+              icon={<BookOpen className="w-6 h-6 text-indigo-400" />}
+              title="Katalog Ujian"
+              desc="Pilih paket SKD & SKB"
+              accent="indigo"
+            />
+            <QuickNavCard
+              href="/history"
+              icon={<History className="w-6 h-6 text-amber-400" />}
+              title="Riwayat Nilai"
+              desc="Lacak progres skor Anda"
+              accent="amber"
+            />
+            <QuickNavCard
+              href="/leaderboard"
+              icon={<Trophy className="w-6 h-6 text-emerald-400" />}
+              title="Leaderboard"
+              desc="Ranking nasional real-time"
+              accent="emerald"
+            />
+            <div className="bg-slate-900/30 border border-slate-800 rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Clock className="w-4 h-4 text-slate-500" />
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Standar BKN</span>
+              </div>
+              <div className="space-y-1.5 text-sm text-slate-400">
+                <p>📝 TWK min. <span className="text-white font-bold">65</span> / 175</p>
+                <p>🧠 TIU min. <span className="text-white font-bold">80</span> / 175</p>
+                <p>💡 TKP min. <span className="text-white font-bold">166</span> / 225</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </main>
     </div>
+  );
+}
+
+function StatCard({ icon, label, value, sub, color, loading }: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  sub: string;
+  color: string;
+  loading: boolean;
+}) {
+  const border = color === 'indigo' ? 'hover:border-indigo-500/40' :
+    color === 'amber' ? 'hover:border-amber-500/40' :
+    color === 'emerald' ? 'hover:border-emerald-500/40' : 'hover:border-rose-500/40';
+
+  return (
+    <div className={`bg-slate-900/50 border border-slate-800 ${border} rounded-2xl p-5 transition-all duration-300`}>
+      <div className="flex items-center gap-2 mb-3">{icon}<span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{label}</span></div>
+      {loading ? (
+        <div className="h-9 bg-slate-800 rounded-xl animate-pulse" />
+      ) : (
+        <>
+          <p className="text-3xl font-black text-white tracking-tight">{value}</p>
+          <p className="text-xs text-slate-500 mt-1">{sub}</p>
+        </>
+      )}
+    </div>
+  );
+}
+
+function QuickNavCard({ href, icon, title, desc, accent }: {
+  href: string; icon: React.ReactNode; title: string; desc: string; accent: string;
+}) {
+  const border = accent === 'indigo' ? 'hover:border-indigo-500/40' :
+    accent === 'amber' ? 'hover:border-amber-500/40' : 'hover:border-emerald-500/40';
+
+  return (
+    <Link href={href} className={`flex items-center gap-4 bg-slate-900/50 border border-slate-800 ${border} rounded-2xl p-5 group transition-all duration-300 hover:bg-slate-900`}>
+      <div className="flex-shrink-0">{icon}</div>
+      <div className="flex-1 min-w-0">
+        <p className="font-bold text-white text-sm group-hover:text-indigo-300 transition-colors">{title}</p>
+        <p className="text-xs text-slate-500 truncate">{desc}</p>
+      </div>
+      <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-slate-300 group-hover:translate-x-1 transition-all flex-shrink-0" />
+    </Link>
   );
 }
