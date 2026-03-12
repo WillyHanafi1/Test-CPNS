@@ -120,7 +120,7 @@ export default function PackagesAdmin() {
       const isEdit = !!selectedPackage;
       const url = isEdit 
         ? `${API_URL}/api/v1/admin/packages/${selectedPackage.id}`
-        : `${API_URL}/api/v1/admin/packages/`;
+        : `${API_URL}/api/v1/admin/packages`;
       
       const response = await fetch(url, {
         method: isEdit ? 'PUT' : 'POST',
