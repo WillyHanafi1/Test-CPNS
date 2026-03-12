@@ -17,33 +17,18 @@ import Link from 'next/link';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
 } from 'recharts';
+import useSWR from 'swr';
+import { fetcher } from '@/lib/api';
+import RevenueChart from '@/components/admin/charts/RevenueChart';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
 export default function AdminDashboard() {
-  const [data, setData] = React.useState<any>(null);
-  const [loading, setLoading] = React.useState(true);
+  const { data: overview, error: ovError, isLoading: ovLoading } = useSWR('/api/v1/admin/analytics/overview', fetcher);
+  const { data: revenue, error: revError, isLoading: revLoading } = useSWR('/api/v1/admin/analytics/revenue-trends?days=7', fetcher);
 
-  React.useEffect(() => {
-    fetchStats();
-  }, []);
-
-  const fetchStats = async () => {
-    try {
-      const [ovRes, revRes] = await Promise.all([
-        fetch(`${API_URL}/api/v1/admin/analytics/overview`, { credentials: 'include' }),
-        fetch(`${API_URL}/api/v1/admin/analytics/revenue-trends?days=7`, { credentials: 'include' })
-      ]);
-      const ovData = await ovRes.json();
-      const revData = await revRes.json();
-      
-      setData({ ...ovData, revenueTrends: revData.daily_revenue });
-    } catch (error) {
-      console.error("Dashboard fetch error:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const loading = ovLoading || revLoading;
+  const data = overview ? { ...overview, revenueTrends: revenue?.daily_revenue } : null;
 
   const stats = [
     { name: 'Total Pengguna', value: data?.total_users?.toLocaleString() || '0', change: '+5%', icon: Users, color: 'text-blue-500', bg: 'bg-blue-500/10' },

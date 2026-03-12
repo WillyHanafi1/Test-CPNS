@@ -23,46 +23,23 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell 
 } from 'recharts';
+import useSWR from 'swr';
+import { fetcher } from '@/lib/api';
+import RevenueChart from '@/components/admin/charts/RevenueChart';
+import ScoreDistributionChart from '@/components/admin/charts/ScoreDistributionChart';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
 const COLORS = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#ef4444'];
 
 export default function AnalyticsAdmin() {
-  const [overview, setOverview] = useState<any>(null);
-  const [exams, setExams] = useState<any>(null);
-  const [revenue, setRevenue] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
   const [days, setDays] = useState(7);
+  
+  const { data: overview, error: ovError, isLoading: ovLoading } = useSWR('/api/v1/admin/analytics/overview', fetcher);
+  const { data: exams, error: exError, isLoading: exLoading } = useSWR('/api/v1/admin/analytics/exam-performance', fetcher);
+  const { data: revenue, error: revError, isLoading: revLoading } = useSWR(`/api/v1/admin/analytics/revenue-trends?days=${days}`, fetcher);
 
-  useEffect(() => {
-    fetchData();
-  }, [days]);
-
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const [ovRes, exRes, revRes] = await Promise.all([
-        fetch(`${API_URL}/api/v1/admin/analytics/overview`, { credentials: 'include' }),
-        fetch(`${API_URL}/api/v1/admin/analytics/exam-performance`, { credentials: 'include' }),
-        fetch(`${API_URL}/api/v1/admin/analytics/revenue-trends?days=${days}`, { credentials: 'include' })
-      ]);
-
-      const [ovData, exData, revData] = await Promise.all([
-        ovRes.json(),
-        exRes.json(),
-        revRes.json()
-      ]);
-
-      setOverview(ovData);
-      setExams(exData);
-      setRevenue(revData);
-    } catch (error) {
-      console.error("Fetch analytics error:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const loading = ovLoading || exLoading || revLoading;
 
   const StatCard = ({ title, value, icon: Icon, color, trend }: any) => (
     <Card className="bg-slate-900/40 border-slate-800/60 rounded-3xl overflow-hidden group">
@@ -151,30 +128,7 @@ export default function AnalyticsAdmin() {
             <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Revenue Growth over {days} days</p>
           </CardHeader>
           <CardContent className="p-8 pt-4 h-[350px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={revenue?.daily_revenue || []}>
-                <defs>
-                  <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                <XAxis 
-                   dataKey="label" 
-                   stroke="#64748b" 
-                   fontSize={10} 
-                   fontWeight="bold" 
-                   tickFormatter={(str) => str.split('-').slice(1).join('/')}
-                />
-                <YAxis stroke="#64748b" fontSize={10} fontWeight="bold" />
-                <Tooltip 
-                   contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '16px', fontWeight: 'bold' }}
-                   itemStyle={{ color: '#10b981' }}
-                />
-                <Area type="monotone" dataKey="value" stroke="#10b981" fillOpacity={1} fill="url(#colorValue)" strokeWidth={4} />
-              </AreaChart>
-            </ResponsiveContainer>
+            <RevenueChart data={revenue?.daily_revenue || []} height={350} days={days} loading={loading} />
           </CardContent>
         </Card>
 
@@ -190,18 +144,7 @@ export default function AnalyticsAdmin() {
             <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Performance histogram of all time</p>
           </CardHeader>
           <CardContent className="p-8 pt-4 h-[350px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={exams?.score_distribution || []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                <XAxis dataKey="label" stroke="#64748b" fontSize={10} fontWeight="bold" />
-                <YAxis stroke="#64748b" fontSize={10} fontWeight="bold" />
-                <Tooltip 
-                   contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '16px' }}
-                   cursor={{ fill: 'rgba(99, 102, 241, 0.05)' }}
-                />
-                <Bar dataKey="value" fill="#6366f1" radius={[8, 8, 0, 0]} barSize={40} />
-              </BarChart>
-            </ResponsiveContainer>
+            <ScoreDistributionChart data={exams?.score_distribution || []} height={350} loading={loading} />
           </CardContent>
         </Card>
       </div>
