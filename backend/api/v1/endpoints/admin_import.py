@@ -97,11 +97,16 @@ async def import_questions(
                         score = int(float(row[score_col])) 
                     except (ValueError, TypeError):
                         score = 0
+                
+                # Handle option image URL if present
+                opt_image_col = f'option_image_{label.lower()}'
+                opt_image_url = str(row[opt_image_col]).strip() if opt_image_col in df.columns else ""
     
                 new_opt = QuestionOption(
                     question_id=new_question.id,
                     label=label,
                     content=str(row[col_name]),
+                    image_url=opt_image_url if opt_image_url else None,
                     score=score
                 )
                 db.add(new_opt)

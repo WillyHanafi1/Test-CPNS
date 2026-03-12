@@ -28,6 +28,7 @@ class OptionResponse(BaseModel):
     id: uuid.UUID
     label: str
     content: str
+    image_url: Optional[str] = None
     # KUNCI JAWABAN (score) SENGAJA TIDAK DIMASUKKAN AGAR AMAN
     model_config = ConfigDict(from_attributes=True)
 

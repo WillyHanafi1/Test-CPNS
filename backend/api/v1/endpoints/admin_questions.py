@@ -38,6 +38,7 @@ class OptionUpdate(BaseModel):
     id: Optional[uuid.UUID] = None
     label: str
     content: str
+    image_url: Optional[str] = None
     score: int
 
 class QuestionUpdate(BaseModel):
@@ -59,6 +60,7 @@ class OptionResponse(BaseModel):
     id: uuid.UUID
     label: str
     content: str
+    image_url: Optional[str] = None
     score: int
     model_config = ConfigDict(from_attributes=True)
 
@@ -153,6 +155,7 @@ async def create_question(
             question_id=new_question.id,
             label=opt.label,
             content=opt.content,
+            image_url=opt.image_url,
             score=opt.score
         )
         db.add(new_opt)
@@ -208,6 +211,7 @@ async def update_question(
                 question_id=question.id,
                 label=opt.label,
                 content=opt.content,
+                image_url=opt.image_url,
                 score=opt.score
             )
             db.add(new_opt)

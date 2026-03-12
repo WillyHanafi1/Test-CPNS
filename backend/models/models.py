@@ -67,6 +67,7 @@ class QuestionOption(Base):
     question_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("questions.id"))
     label: Mapped[str] = mapped_column(String(10)) # A, B, C, D, E
     content: Mapped[str] = mapped_column(Text)
+    image_url: Mapped[str] = mapped_column(String(500), nullable=True)
     score: Mapped[int] = mapped_column(Integer, default=0)
 
     question: Mapped["Question"] = relationship(back_populates="options")
