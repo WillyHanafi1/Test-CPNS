@@ -21,7 +21,8 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="CPNS Platform API",
     description="Latest Tech Stack CPNS Exam Practice Platform",
-    version="1.0.0"
+    version="1.0.0",
+    redirect_slashes=False
 )
 
 # Configure CORS — origins read from settings (configurable via .env CORS_ORIGINS)
