@@ -71,52 +71,64 @@ async def get_exam_performance(
     db: AsyncSession = Depends(get_async_session),
     admin: str = Depends(get_current_admin)
 ):
-    # Only finished exams
-    stmt = select(ExamSession).where(ExamSession.status == "finished")
-    result = await db.execute(stmt)
-    sessions = result.scalars().all()
+    # 1. Hitung Total Sesi Selesai & Rata-rata langsung di DB
+    stats_stmt = select(
+        func.count(ExamSession.id).label("total_exams"),
+        func.avg(ExamSession.total_score).label("avg_total"),
+        func.avg(ExamSession.score_twk).label("avg_twk"),
+        func.avg(ExamSession.score_tiu).label("avg_tiu"),
+        func.avg(ExamSession.score_tkp).label("avg_tkp")
+    ).where(ExamSession.status == "finished")
     
-    if not sessions:
+    stats_result = await db.execute(stats_stmt)
+    stats = stats_result.fetchone()
+    
+    if not stats or stats.total_exams == 0:
         return {
             "avg_total_score": 0, "avg_twk": 0, "avg_tiu": 0, "avg_tkp": 0, 
             "pass_rate": 0, "score_distribution": []
         }
 
-    total_scores = [s.total_score or 0 for s in sessions]
-    avg_total = sum(total_scores) / len(sessions)
-    
-    # Pass rate (National SKD Passing Grade: TWK 65, TIU 80, TKP 166)
-    passed = 0
-    for s in sessions:
-        if (s.score_twk or 0) >= 65 and (s.score_tiu or 0) >= 80 and (s.score_tkp or 0) >= 166:
-            passed += 1
-            
-    pass_rate = (passed / len(sessions)) * 100 if sessions else 0
+    # 2. Hitung Pass Rate di DB (National SKD Passing Grade: TWK 65, TIU 80, TKP 166)
+    passed_stmt = select(func.count(ExamSession.id)).where(
+        and_(
+            ExamSession.status == "finished",
+            ExamSession.score_twk >= 65,
+            ExamSession.score_tiu >= 80,
+            ExamSession.score_tkp >= 166
+        )
+    )
+    passed_count = await db.scalar(passed_stmt) or 0
+    pass_rate = (passed_count / stats.total_exams * 100) if stats.total_exams > 0 else 0
 
-    # Score Distribution Histogram
-    buckets = [
-        {"range": "0-100", "min": 0, "max": 100, "count": 0},
-        {"range": "101-200", "min": 101, "max": 200, "count": 0},
-        {"range": "201-300", "min": 201, "max": 300, "count": 0},
-        {"range": "301-400", "min": 301, "max": 400, "count": 0},
-        {"range": "401-500", "min": 401, "max": 500, "count": 0},
-        {"range": "500+", "min": 501, "max": 600, "count": 0},
+    # 3. Distribusi Skor using SQL CASE
+    dist_stmt = select(
+        func.count(func.case((and_(ExamSession.total_score >= 0, ExamSession.total_score <= 100), 1))).label("bucket_0_100"),
+        func.count(func.case((and_(ExamSession.total_score >= 101, ExamSession.total_score <= 200), 1))).label("bucket_101_200"),
+        func.count(func.case((and_(ExamSession.total_score >= 201, ExamSession.total_score <= 300), 1))).label("bucket_201_300"),
+        func.count(func.case((and_(ExamSession.total_score >= 301, ExamSession.total_score <= 400), 1))).label("bucket_301_400"),
+        func.count(func.case((and_(ExamSession.total_score >= 401, ExamSession.total_score <= 500), 1))).label("bucket_401_500"),
+        func.count(func.case((ExamSession.total_score >= 501, 1))).label("bucket_501_plus")
+    ).where(ExamSession.status == "finished")
+    
+    dist_result = await db.execute(dist_stmt)
+    d = dist_result.fetchone()
+    
+    dist = [
+        {"label": "0-100", "value": float(d.bucket_0_100 or 0)},
+        {"label": "101-200", "value": float(d.bucket_101_200 or 0)},
+        {"label": "201-300", "value": float(d.bucket_201_300 or 0)},
+        {"label": "301-400", "value": float(d.bucket_301_400 or 0)},
+        {"label": "401-500", "value": float(d.bucket_401_500 or 0)},
+        {"label": "500+", "value": float(d.bucket_501_plus or 0)},
     ]
-    
-    for score in total_scores:
-        for b in buckets:
-            if score >= b["min"] and score <= b["max"]:
-                b["count"] += 1
-                break
-    
-    dist = [{"label": b["range"], "value": float(b["count"])} for b in buckets]
 
     return {
-        "avg_total_score": round(avg_total, 1),
-        "avg_twk": 0, # In real app, pull from session.score_details json
-        "avg_tiu": 0,
-        "avg_tkp": 0,
-        "pass_rate": round(pass_rate, 1),
+        "avg_total_score": round(float(stats.avg_total or 0), 1),
+        "avg_twk": round(float(stats.avg_twk or 0), 1),
+        "avg_tiu": round(float(stats.avg_tiu or 0), 1),
+        "avg_tkp": round(float(stats.avg_tkp or 0), 1),
+        "pass_rate": round(float(pass_rate), 1),
         "score_distribution": dist
     }
 
