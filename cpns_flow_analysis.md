@@ -76,16 +76,24 @@ flowchart TD
 ## 🔬 Analisis & Penilaian Fitur Strategis
 
 ### A. Midtrans Snap Frontend Integration
-**Status:** Fondasi backend & script loader sudah ada, namun implementasi UI masih bersifat "Placeholder" atau hardcoded.
+**Status:** 🚧 Ongoing (60%) — Backend fulfillment & Pro logic stabil, namun flow pembelian satuan (Single Package) dan feedback user masih mentah.
 
 - **Analisis & Aturan Bisnis:**
-  - **Sesuai Konfirmasi:** Jika akun user adalah **PRO**, maka mereka memiliki akses ke **seluruh package** (Global Access). Tombol "Beli Sekarang" pada detail paket seharusnya tidak muncul bagi user PRO.
-  - Untuk user non-PRO, sistem membutuhkan flow "Purchase Single Package" (Saat ini baru ada `/upgrade-pro`).
-  - Script Snap sudah di-load di `RootLayout.tsx`.
-- **File Penting untuk Di-Check:**
-  - [package_api.py](file:///d:/ProjectAI/Test-CPNS/backend/api/v1/endpoints/package_api.py): Lihat fungsi `check_package_access` (Line 84) — ini adalah logic utama yang **memprioritaskan status PRO** di atas transaksi satuan.
-  - [transactions_api.py](file:///d:/ProjectAI/Test-CPNS/backend/api/v1/endpoints/transactions_api.py): Tempat logika fulfillment (`fulfill_transaction`) berada.
-  - [page.tsx (Catalog Detail)](file:///d:/ProjectAI/Test-CPNS/frontend/src/app/catalog/%5Bid%5D/page.tsx): Perlu pengecekan state `user.is_pro` untuk menyembunyikan tombol beli jika sudah PRO.
+  - **PRO Bypass:** Logic `Pro = All Access` sudah berjalan di backend.
+  - **Issue Utama:** Tombol "Beli Sekarang" di halaman detail selalu menembak `/upgrade-pro`. Belum ada flow untuk `Single Package Transaction`.
+  - **Missing User Loop:** User tidak punya halaman "Riwayat Transaksi" untuk cek status pembayaran yang *pending*.
+  - **Missing Redirects:** Belum ada halaman `/payment/finish` atau `/payment/error` yang cantik setelah Snap window ditutup.
+
+- **Apa yang Perlu Diperbaiki?**
+  1. **Dynamic Purchase Endpoint:** Buat endpoint yang menerima `package_id` untuk transaksi non-PRO.
+  2. **Transaction History UI:** Halaman bagi user untuk melihat invoice dan status pembayaran mereka.
+  3. **Universal Fulfillment:** Update `fulfill_transaction` agar bisa memberikan akses ke satu paket saja jika tipenya bukan `pro_upgrade`.
+  4. **Snap Callbacks:** Tangani `onSuccess` dan `onPending` dengan mengarahkan ke halaman sukses yang informatif.
+
+- **File Utama yang Perlu Dicek:**
+  - [transactions_api.py](file:///d:/ProjectAI/Test-CPNS/backend/api/v1/endpoints/transactions_api.py): Perlu logic `Single Package` di fungsi `fulfill_transaction`.
+  - [PackageDetail (frontend)](file:///d:/ProjectAI/Test-CPNS/frontend/src/app/catalog/%5Bid%5D/page.tsx): Fungsi `handleBuyNow` perlu dibuat dinamis berdasarkan harga paket & pilihan user.
+  - [models.py](file:///d:/ProjectAI/Test-CPNS/backend/models/models.py): Pastikan relasi `UserTransaction` ke `Package` sudah terpetakan dengan benar (saat ini sudah ada `package_id`).
 
 ### B. Google OAuth 2.0
 **Status:** Backend siap (`/auth/google`), Provider frontend sudah terpasang.

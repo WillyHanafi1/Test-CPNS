@@ -67,6 +67,22 @@ async def create_pro_upgrade_transaction(
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to create Midtrans transaction: {str(e)}")
 
+@router.get("/my-transactions")
+async def get_user_transactions(
+    db: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get current user's transaction history.
+    """
+    result = await db.execute(
+        select(UserTransaction)
+        .where(UserTransaction.user_id == current_user.id)
+        .order_by(UserTransaction.created_at.desc())
+    )
+    transactions = result.scalars().all()
+    return transactions
+
 @router.post("/webhook")
 async def midtrans_webhook(
     request: Request,
@@ -119,8 +135,8 @@ async def fulfill_transaction(db: AsyncSession, order_id: str, payment_status: s
             user.is_pro = True
             # set expiration (e.g. 1 year)
             user.pro_expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=365)
-        elif payment_status in ["failed", "cancel", "expire", "deny", "pending"]:
-            # Revoke PRO access if transaction failed/cancelled
+        elif payment_status in ["failed", "cancel", "expire", "deny"]:
+            # Only revoke if it was explicitly failed (don't revoke on pending)
             user.is_pro = False
             user.pro_expires_at = None
             

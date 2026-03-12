@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv
+venv/
+env/
+dist/
+build/
+.git/
+.gitignore
+.dockerignore
+tests/
+alembic/versions/*.pyc
