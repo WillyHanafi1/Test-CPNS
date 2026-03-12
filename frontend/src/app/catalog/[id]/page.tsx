@@ -97,46 +97,8 @@ export default function PackageDetailPage() {
     checkAccess();
   }, [pkg, user, id]);
 
-  const handleBuyNow = async () => {
-    if (!user) {
-      router.push('/login');
-      return;
-    }
-
-    try {
-      setAccessState('loading');
-      const res = await fetch(`${API_URL}/api/v1/transactions/upgrade-pro`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-      });
-      
-      if (!res.ok) throw new Error('Gagal membuat transaksi');
-      
-      const data = await res.json();
-      
-      if (window.snap) {
-        window.snap.pay(data.token, {
-          onSuccess: async function(result: any) {
-            toast.success('Pembayaran Berhasil! Akun Anda kini PRO.');
-            await refreshSession();
-          },
-          onPending: function(result: any) {
-            toast.success('Pembayaran Menunggu. Selesaikan di aplikasi pembayaran Anda.');
-          },
-          onError: function(result: any) {
-            toast.error('Pembayaran Gagal. Silakan coba lagi.');
-            setAccessState('denied');
-          },
-          onClose: function() {
-            setAccessState('denied');
-          }
-        });
-      }
-    } catch (err: any) {
-      toast.error(err.message || 'Terjadi kesalahan sistem.');
-      setAccessState('denied');
-    }
+  const handleUpgradePro = () => {
+    router.push('/catalog/upgrade');
   };
 
   if (loading) {
@@ -287,22 +249,22 @@ export default function PackageDetailPage() {
                   ) : (
                     // NO ACCESS — show buy button
                     <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-amber-400 text-sm bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
+                      <div className="flex items-center gap-2 text-indigo-400 text-sm bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-3">
                         <Lock className="w-4 h-4 flex-shrink-0" />
-                        <span>Paket ini memerlukan pembelian untuk diakses.</span>
+                        <span>Akses terbatas untuk PRO Member.</span>
                       </div>
                       <Button
-                        onClick={handleBuyNow}
-                        className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 h-12 text-base font-bold rounded-xl shadow-lg shadow-amber-500/20 group"
+                        onClick={handleUpgradePro}
+                        className="w-full bg-indigo-600 hover:bg-indigo-500 text-white h-12 text-base font-bold rounded-xl shadow-lg shadow-indigo-600/20 group"
                       >
-                        <CreditCard className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
-                        Beli Sekarang
+                        <Zap className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
+                        Upgrade PRO (Buka Semua)
                       </Button>
                     </div>
                   )}
 
                   <p className="text-center text-xs text-slate-600">
-                    {pkg.price === 0 ? 'Akses gratis selamanya' : 'Akses selamanya dengan sekali pembayaran'}
+                    {pkg.price === 0 ? 'Akses gratis selamanya' : 'Dapatkan akses ke SEMUA paket dengan upgrade PRO'}
                   </p>
                 </div>
               </CardContent>

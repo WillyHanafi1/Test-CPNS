@@ -5,9 +5,10 @@ import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { 
   CheckCircle2, Zap, ShieldCheck, Trophy, 
-  Crown, ArrowLeft, Loader2, Star
+  Crown, ArrowLeft, Loader2, Star, RefreshCw
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
@@ -37,8 +38,6 @@ const BENEFITS = [
   }
 ];
 
-import { RefreshCw } from 'lucide-react';
-
 export default function UpgradeProPage() {
   const { user, refreshSession } = useAuth();
   const router = useRouter();
@@ -64,12 +63,17 @@ export default function UpgradeProPage() {
       if (window.snap) {
         window.snap.pay(data.token, {
           onSuccess: async function(result: any) {
-            toast.success('Pembayaran Berhasil! Selamat datang di PRO.');
-            await refreshSession();
-            router.push('/dashboard');
+            toast.success('Pembayaran Berhasil! Sedang memverifikasi...');
+            // Beri waktu 3 detik agar Webhook Midtrans selesai memproses di server
+            setTimeout(async () => {
+              await refreshSession();
+              toast.success('Akun PRO sudah aktif!');
+              router.push('/dashboard');
+            }, 3000);
           },
           onPending: function(result: any) {
             toast.success('Pembayaran Menunggu. Selesaikan proses di aplikasi Anda.');
+            setLoading(false);
           },
           onError: function(result: any) {
             toast.error('Pembayaran Gagal. Silakan coba lagi.');
@@ -181,5 +185,3 @@ export default function UpgradeProPage() {
     </div>
   );
 }
-
-import { Badge } from '@/components/ui/badge';

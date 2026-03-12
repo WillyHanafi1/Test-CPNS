@@ -38,7 +38,7 @@ async def create_pro_upgrade_transaction(
         "id": "PRO_ACCOUNT",
         "price": PRO_PRICE,
         "quantity": 1,
-        "name": "Upgrade Akun PRO - Akses Semua Soal"
+        "name": "Upgrade PRO - Akses Semua Paket Soal"
     }]
     
     customer_details = {
@@ -123,6 +123,10 @@ async def fulfill_transaction(db: AsyncSession, order_id: str, payment_status: s
     if not transaction:
         return
         
+    # Mencegah eksekusi ganda jika transaksi sudah berstatus success
+    if transaction.payment_status == "success" and payment_status == "success":
+        return
+        
     transaction.payment_status = payment_status
     
     # Get user
@@ -131,13 +135,17 @@ async def fulfill_transaction(db: AsyncSession, order_id: str, payment_status: s
     
     if user and transaction.transaction_type == "pro_upgrade":
         if payment_status == "success":
-            # Activate PRO status for user
             user.is_pro = True
-            # set expiration (e.g. 1 year)
-            user.pro_expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=365)
-        elif payment_status in ["failed", "cancel", "expire", "deny"]:
-            # Only revoke if it was explicitly failed (don't revoke on pending)
-            user.is_pro = False
-            user.pro_expires_at = None
+            
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            # Jika user MASIH PRO, tambahkan masa aktif dari tanggal expired-nya
+            if user.pro_expires_at and user.pro_expires_at > now:
+                user.pro_expires_at = user.pro_expires_at + timedelta(days=365)
+            # Jika user BUKAN PRO atau sudah expired, hitung 1 tahun dari sekarang
+            else:
+                user.pro_expires_at = now + timedelta(days=365)
+                
+        # HAPUS logika "elif payment_status in ['failed', ...]: user.is_pro = False". 
+        # Pembatalan transaksi baru tidak boleh merusak langganan lama yang sudah aktif!
             
     await db.commit()

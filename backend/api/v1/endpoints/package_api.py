@@ -104,30 +104,11 @@ async def check_package_access(
     # Fix: use timezone-aware datetime
     now = datetime.now(timezone.utc).replace(tzinfo=None)  # naive UTC for DB comparison
 
-    # 1. CEK STATUS PRO GLOBAL DARI USER
+    # Cek status PRO (Akses ke semua paket premium)
     if current_user.is_pro and (not current_user.pro_expires_at or current_user.pro_expires_at > now):
         return {"has_access": True, "reason": "pro_account"}
 
-    # 2. FALLBACK: Cek transaksi spesifik
-    result = await db.execute(
-        select(UserTransaction)
-        .where(
-            UserTransaction.user_id == current_user.id,
-            UserTransaction.package_id == package_id,
-            UserTransaction.payment_status == "success",
-        )
-        .order_by(UserTransaction.created_at.desc())
-        .limit(1)
-    )
-    transaction = result.scalar_one_or_none()
-
-    if not transaction:
-        return {"has_access": False}
-
-    if transaction.access_expires_at and transaction.access_expires_at < now:
-        return {"has_access": False, "reason": "access_expired"}
-
-    return {"has_access": True}
+    return {"has_access": False, "reason": "subscription_required"}
 
 
 # ── Admin Endpoints have been moved to admin/packages.py and admin/questions.py ──
