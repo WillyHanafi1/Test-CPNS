@@ -15,7 +15,8 @@ import {
   FileSpreadsheet,
   X,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -42,6 +43,7 @@ export default function QuestionsAdmin() {
   const [importLoading, setImportLoading] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importPackageId, setImportPackageId] = useState('');
+  const [importErrors, setImportErrors] = useState<string[]>([]);
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
 
   useEffect(() => {
@@ -99,6 +101,7 @@ export default function QuestionsAdmin() {
     if (!importFile || !importPackageId) return;
 
     setImportLoading(true);
+    setImportErrors([]);
     const formData = new FormData();
     formData.append('file', importFile);
     
@@ -113,9 +116,16 @@ export default function QuestionsAdmin() {
       if (response.ok) {
         setMessage({ type: 'success', text: data.message });
         setIsImportModalOpen(false);
+        setImportFile(null);
         fetchQuestions();
       } else {
-        setMessage({ type: 'error', text: data.detail || 'Import gagal' });
+        // Handle detailed errors from backend refactor
+        if (data.detail && typeof data.detail === 'object' && data.detail.errors) {
+          setImportErrors(data.detail.errors);
+          setMessage({ type: 'error', text: data.detail.message || 'Validasi file gagal' });
+        } else {
+          setMessage({ type: 'error', text: data.detail || 'Import gagal' });
+        }
       }
     } catch (error) {
       setMessage({ type: 'error', text: 'Terjadi kesalahan sistem' });
@@ -280,12 +290,51 @@ export default function QuestionsAdmin() {
                           <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Excel / CSV Uploader</p>
                        </div>
                     </div>
-                    <button onClick={() => setIsImportModalOpen(false)} className="text-slate-500 hover:text-white transition-colors">
+                    <button onClick={() => {
+                      setIsImportModalOpen(false);
+                      setImportErrors([]);
+                    }} className="text-slate-500 hover:text-white transition-colors">
                        <X className="w-6 h-6" />
                     </button>
                  </div>
 
+                 {/* Error List - Enterprise Grade */}
+                 {importErrors.length > 0 && (
+                   <div className="mb-6 p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl max-h-[150px] overflow-y-auto">
+                      <p className="text-xs font-black text-rose-400 uppercase tracking-widest mb-2">Daftar Kesalahan Baris:</p>
+                      <ul className="space-y-1">
+                         {importErrors.map((err, i) => (
+                           <li key={i} className="text-[11px] text-rose-300 font-medium leading-relaxed italic">• {err}</li>
+                         ))}
+                      </ul>
+                   </div>
+                 )}
+
                  <form onSubmit={handleImport} className="space-y-6">
+                    <div className="space-y-4 p-4 bg-slate-950/50 border border-slate-800 rounded-2xl relative overflow-hidden">
+                       <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-3xl" />
+                       <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                          <div>
+                             <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1 flex items-center">
+                                <AlertCircle className="w-3 h-3 mr-1" /> Petunjuk Format Excel
+                             </p>
+                             <p className="text-[11px] text-slate-400 leading-relaxed max-w-sm">
+                                Wajib memiliki kolom: <code className="text-indigo-300">No</code>, <code className="text-indigo-300">Segmen</code> (TWK/TIU/TKP), <code className="text-indigo-300">Teks Soal</code>, <code className="text-indigo-300">Opsi A-E</code>, dan <code className="text-indigo-300">Nilai A-E</code>.
+                             </p>
+                          </div>
+                          <Button 
+                             type="button" 
+                             variant="outline" 
+                             size="sm"
+                             className="border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10 flex-shrink-0"
+                             onClick={() => window.open('/template_soal_cpns.xlsx', '_blank')}
+                          >
+                             <FileSpreadsheet className="w-4 h-4 mr-2" />
+                             Unduh Template
+                          </Button>
+                       </div>
+                    </div>
+
                     <div className="space-y-2">
                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Pilih Paket Tujuan</label>
                        <select 
@@ -344,8 +393,4 @@ export default function QuestionsAdmin() {
       )}
     </div>
   );
-}
-
-function Loader2({ className }: { className?: string }) {
-  return <div className={`border-2 border-white border-t-transparent rounded-full ${className}`} />;
 }

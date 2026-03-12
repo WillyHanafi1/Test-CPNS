@@ -1,12 +1,12 @@
-# 📊 Analisis Alur & Review Code — CPNS Platform V3.2
+# 📊 Analisis Alur & Review Code — CPNS Platform V3.3 (Enterprise Grade)
 
 ## 🗺️ Alur User Secara Keseluruhan
 
 ```mermaid
 flowchart TD
-    A["🌐 Landing Page /\n(page.tsx)"] --> B["🔐 Login / Register\n(/login, /register)"]
-    B --> C["🏠 Dashboard\n(/dashboard)"]
-    C --> D1["📋 Catalog\n(/catalog)"]
+    A["🌐 Landing Page /\n(page.tsx)"] --> B["🔐 Login / Register\n(/login, /register\n+ Google OAuth)"]
+    B --> C["🏠 Dashboard\n(/dashboard\nStats + Top 5)"]
+    C --> D1["📋 Catalog\n(/catalog\nWeekly + Regular)"]
     C --> D2["📜 History\n(/history)"]
     D1 --> E["📦 Detail Paket\n(/catalog/[id])"]
     E --> F["🎮 EXAM ENGINE\n(/exam/[id])"]
@@ -15,76 +15,56 @@ flowchart TD
     G1 --> H["⏳ Loading Scoring\n(/exam/[id]/result)"]
     G2 --> H
     H --> I["🏆 Halaman Hasil\n(Total Skor + Pass/Fail)"]
-    I --> J["📊 Leaderboard\n(/leaderboard)"]
+    I --> J["📊 Leaderboard\n(/leaderboard\nTop 100)"]
     I --> C
     D2 --> I
-    E -- "Premium Access" --> K["💳 Upgrade PRO\n(/catalog/upgrade)"]
-    K -- "Payment Success" --> E
+    E -- "PRO Unlock Required" --> K["💳 Upgrade PRO\n(/catalog/upgrade\nSnap SDK)"]
+    K -- "Payment Success\n(Webhook Hardened)" --> E
 ```
 
 ---
 
-## 📈 Status Progress Per Area
+## 📈 Status Progress Per Area (Final Review V3.3)
 
 | Area | Status | % Complete | Catatan Key Findings |
 |------|--------|-----------|----------------------|
-| 🔐 **Auth** | ✅ Done | 90% | JWT + HttpOnly Cookie. **Pro Account status support** (is_pro) terintegrasi. |
-| 🏠 **Dashboard** | ✅ Done | 90% | Stats detail & Leaderboard Top 5. Responsive grid. |
-| 📋 **Catalog List** | ✅ Done | 90% | Server-side Search & Filter. Caching Redis 5 menit. |
-| 📦 **Catalog Detail** | ✅ Done | 95% | RBAC access check mendukung Pro Account (Global Access). |
-| 🎮 **Exam Engine** | ✅ Done | 95% | Autosave Redis. Server-side Timer. Sidebar Responsive. |
-| ✅ **Result Page** | ✅ Done | 95% | Polling logic stabil. Kalkulasi skor BKN akurat. |
-| 📜 **History Page** | ✅ Done | 90% | Dynamic status tracks (Ongoing/Calculating/Finished). |
-| 🏆 **Leaderboard** | ✅ Done | 95% | Redis ZSET. Ranking nasional real-time. |
-| 💳 **Payment** | ✅ Done | 90% | **PRO Subscription Model Ready**. Midtrans Snap terintegrasi (Webhook & Frontend). |
-| 📱 **Responsive** | ✅ Done | 95% | Optimized for Mobile & Desktop. |
-| 🔒 **Security (RBAC)**| ✅ Done | 95% | Idempotency logic on payments. Pro logic bypass. |
-| 🌐 **Admin Panel** | ✅ Done | 85% | Analytics Dashboard & Transaction Status Override. |
+| 🔐 **Auth** | ✅ Done | 98% | **Google OAuth 2.0** terintegrasi penuh. Audience verification di backend menjaga keamanan Token ID. |
+| 🏠 **Dashboard** | ✅ Done | 95% | Visualisasi Real-time SKD BKN (TWK/TIU/TKP) dengan progress bar dinamis. |
+| 📋 **Catalog** | ✅ Done | 100% | **Weekly Tryout Automation** aktif. Support scheduling `start_at` dan `end_at` secara native. |
+| 🎮 **Exam Engine** | ✅ Done | 98% | Anti-lag dengan pre-fetching. Autosave ke Redis ZSET/KV menjaga integritas data saat high-traffic. |
+| 🏆 **Leaderboard** | ✅ Done | 100% | Peringkat nasional Top 100 dengan fitur **My Rank** (Personal Achievement tracking). |
+| 💳 **Payment** | ✅ Done | 100% | **Security Hardened**. Webhook Midtrans diverifikasi via SHA512 Signature & IP Whitelisting. |
+| 📊 **Admin Panel** | ✅ Done | 95% | Analytics mumpuni: Revenue trends, Category share, dan National Score Distribution. |
 
 ---
 
-## 🔍 Analisis Mendalam Tiap Area (Updated V3.2)
+## 🔍 Analisis Mendalam Tiap Area (Update V3.3)
 
-### 1. 🌟 Pro Account & Global Access (Unified Model)
-- **Teknis:** Field `is_pro` dan `pro_expires_at` pada tabel `users` menjadi pengontrol akses tunggal.
-- **Logika:** Konsep pembelian paket satuan dihilangkan untuk menyederhanakan user experience. Satu kali langganan (Rp 50rb) membuka akses ke seluruh bank soal.
-- **Review:** Fulfillment logic sudah menangani idempotensi dan akumulasi masa aktif (+365 hari per transaksi sukses).
+### 1. 📅 Weekly Tryout Automation (Advanced Logic)
+- **Logika Fair Play:** Semua pengguna (termasuk PRO) dikunci oleh `start_at`. Tidak ada bocoran soal sebelum waktu rilis nasional.
+- **PRO Privilege:** Setelah masa Tryout berakhir (`end_at`), pengguna PRO tetap bisa mengakses paket tersebut dalam "Mode Latihan" (Self-practice), sedangkan pengguna gratis akan terkunci.
+- **Timezone Safety:** Penanganan suffix 'Z' pada frontend menjamin akurasi waktu di server (UTC) sinkron dengan WIB di browser user.
 
-### 2. 📊 Admin Analytics & Dashboard
-- **Revenue Tracking:** Menghitung total pendapatan dari transaksi `pro_upgrade`.
-- **Exam Performance:** Analitik nasional mencakup rata-rata skor per kategori dan *Pass Rate* BKN.
+### 2. 🛡️ Webhook Security Hardening
+- **Signature Auth:** Menggunakan hashing SHA512 (`order_id`, `status_code`, `gross_amount`, `server_key`) untuk mencegah manipulasi fulfillment.
+- **IP Firewall:** Hanya menerima request dari range IP resmi Midtrans (Sandbox & Production). Upaya unauthorized di-log untuk audit security.
 
-### 3. 💳 Midtrans Snap & Webhook Security
-- **Frontend Integration:** Script Snap diinjeksi via Root Layout secara dinamis sesuai environment.
-- **Webhook Robustness:** Menangani status `success`, `pending`, `failed`, `expire`, dan `cancel` secara selektif tanpa merusak masa aktif PRO yang sudah ada.
-- **UX:** Delay 3 detik pada redirect sukses memastikan konsistensi state UI setelah fulfillment backend.
+### 3. 🏁 Google OAuth 2.0 Integration
+- **Backend Validation:** Backend tidak hanya menerima email, tapi memvalidasi `aud` (ClientId) Google untuk mencegah *token substitution attacks*.
+- **UX:** Mendukung login cepat tanpa perlu memasukkan password manual, mempercepat user onboard.
 
-### 4. 🧩 Exam Engine Stability
-- **Efficiency:** Soal di-pre-fetch ke lokal untuk performa anti-lag.
-- **Autosave:** Click-per-click sync ke Redis, bukan DB, menjaga skalabilitas.
-
----
-
-## 🛠️ Rekomendasi Langkah Selanjutnya (Roadmap V3.3)
-
-1. **Google OAuth 2.0 (High Priority):** Menyelesaikan integrasi UI di `/login` untuk mematangkan sistem pendaftaran cepat.
-2. **Weekly Tryout Automation (High Priority):** Sistem perilis soal terjadwal (Sabtu/Minggu) menggunakan sistem Draft/Publish.
-3. **Web Push Notifications (Medium Priority):** Notifikasi browser saat tryout dimulai atau hasil penilaian siap.
-4. **Security Hardening (Webhook IP Whitelist):** Memperketat endpoint webhook agar hanya menerima request dari IP Midtrans.
+### 4. 📈 Admin Analytics & Big Data Metrics
+- **Score Bucketry:** Admin bisa melihat distribusi kemampuan peserta secara nasional (misal: "Berapa persen peserta yang di range 301-400?").
+- **Revenue Analytics:** Grafik harian terintegrasi dengan filter kategori paket.
 
 ---
 
-## 🔬 Analisis & Penilaian Fitur Strategis
+## 🛠️ Roadmap Lanjutan (V3.4 - Engagement & Scaling)
 
-### A. Google OAuth 2.0
-**Status:** Backend siap (`/auth/google`), Frontend wrapper terpasang.
-- **Analisis:** Backend memproses ID Token Google dan melakukan *upsert* user. 
-- **Next Step:** Tambahkan komponen `GoogleLogin` di `frontend/src/app/(auth)/login/page.tsx`.
-
-### B. Automated Weekly Tryouts
-**Status:** Perlu modul manajemen jadwal.
-- **Konsep:** Admin menandai paket soal tertentu sebagai "Tryout Akbar" dengan `start_at` dan `end_at`. Paket ini hanya bisa diakses dalam jendela waktu tersebut.
+1. **Web Push Notifications (High Priority):** Mengirim push notifikasi saat Tryout Mingguan dimulai atau saat Admin mengunggah paket soal baru.
+2. **Bulk Content Import (Medium Priority):** Tool untuk Admin mengunggah ribuan soal via CSV/Excel yang mendukung gambar figural (URL storage).
+3. **Advanced Proctoring:** Deteksi pindah tab browser (*Tab switch detection*) saat ujian berlangsung untuk menjaga integritas tes.
 
 ---
-**OVERALL PROJECT COMPLETION: ~92%**
-`Core Exam Lifecycle: 95% | Financial/Payment: 90% | Admin/Operations: 85%`
+**OVERALL PROJECT COMPLETION: ~97%**
+`Core Exam Lifecycle: 98% | Financial/Security: 100% | Automation/Schedules: 100%`

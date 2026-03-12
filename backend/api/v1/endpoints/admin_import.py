@@ -4,11 +4,11 @@ from sqlalchemy import select
 import pandas as pd
 import io
 import uuid
-from typing import List
-
+from typing import List, Dict
 from backend.db.session import get_async_session
 from backend.models.models import Question, QuestionOption, Package, User
 from backend.api.v1.endpoints.auth import get_current_admin
+from backend.core.redis_service import redis_service
 
 router = APIRouter(prefix="/admin/import", tags=["admin-import"])
 
@@ -21,7 +21,7 @@ async def import_questions(
     db: AsyncSession = Depends(get_async_session),
     admin: User = Depends(get_current_admin)
 ):
-    # Check if package exists
+    # 1. Check if package exists
     result = await db.execute(select(Package).where(Package.id == package_id))
     package = result.scalar_one_or_none()
     if not package:
@@ -39,85 +39,139 @@ async def import_questions(
         else:
             raise HTTPException(status_code=400, detail="Invalid file format. Use CSV or Excel.")
         
-        # FIX: Replace NaN with empty string to avoid "nan" string conversion
+        # Replace NaN with empty string
         df.fillna('', inplace=True)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error parsing file: {str(e)}")
-
-    # Expected columns: number, segment, content, option_a, option_b, option_c, option_d, option_e, 
-    # score_a, score_b, score_c, score_d, score_e, discussion, image_url
-    
-    required_cols = ['number', 'segment', 'content', 'option_a', 'option_b', 'option_c', 'option_d', 'option_e']
-    for col in required_cols:
-        if col not in df.columns:
-            raise HTTPException(status_code=400, detail=f"Missing required column: {col}")
-
-    # Prefetch existing question numbers in the package to prevent duplicates
-    existing_nums_result = await db.execute(select(Question.number).where(Question.package_id == package_id))
-    existing_nums = {row[0] for row in existing_nums_result.all()}
-    
-    # Check duplicates within the file itself
-    if df['number'].duplicated().any():
-        raise HTTPException(status_code=400, detail="Terdapat duplikasi nomor soal di dalam file unggahan")
-        
-    for num in df['number']:
-        if int(num) in existing_nums:
-            raise HTTPException(status_code=409, detail=f"Nomor soal {int(num)} sudah digunakan di paket ini")
-
-    questions_added = 0
-    
-    try:
-        for _, row in df.iterrows():
-            # Extract safe values
-            image_url = str(row['image_url']).strip() if 'image_url' in df.columns else ""
-            discussion = str(row['discussion']).strip() if 'discussion' in df.columns else ""
-            
-            # Create Question
-            new_question = Question(
-                package_id=package_id,
-                content=str(row['content']),
-                segment=str(row['segment']),
-                number=int(row['number']),
-                image_url=image_url if image_url else None,
-                discussion=discussion if discussion else None
-            )
-            db.add(new_question)
-            await db.flush()
-
-            # Create Options
-            labels = ['A', 'B', 'C', 'D', 'E']
-            for label in labels:
-                col_name = f'option_{label.lower()}'
-                score_col = f'score_{label.lower()}'
-                
-                # Safer score conversion: handle empty strings and float-like strings from Pandas
-                score = 0
-                if score_col in df.columns and str(row[score_col]).strip() != '':
-                    try:
-                        score = int(float(row[score_col])) 
-                    except (ValueError, TypeError):
-                        score = 0
-                
-                # Handle option image URL if present
-                opt_image_col = f'option_image_{label.lower()}'
-                opt_image_url = str(row[opt_image_col]).strip() if opt_image_col in df.columns else ""
-    
-                new_opt = QuestionOption(
-                    question_id=new_question.id,
-                    label=label,
-                    content=str(row[col_name]),
-                    image_url=opt_image_url if opt_image_url else None,
-                    score=score
-                )
-                db.add(new_opt)
-            
-            questions_added += 1
-
-        await db.commit()
-        return {"message": f"Successfully imported {questions_added} questions", "count": questions_added}
-        
+        # Normalize column names to lowercase and strip whitespace
+        df.columns = [str(col).lower().strip() for col in df.columns]
     except HTTPException:
         raise
     except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error parsing file: {str(e)}")
+
+    # 2. Header Mapping (Support both English & Indonesian)
+    mapping = {
+        'number': ['number', 'no', 'nomor'],
+        'segment': ['segment', 'segmen'],
+        'content': ['content', 'teks soal', 'soal'],
+        'image_url': ['image_url', 'url gambar soal', 'gambar_soal'],
+        'discussion': ['discussion', 'teks pembahasan', 'pembahasan'],
+        'option_a': ['option_a', 'opsi a'],
+        'score_a': ['score_a', 'nilai a'],
+    }
+    
+    # Helper to find mapped column from df
+    def find_col(keys: List[str]):
+        for k in keys:
+            if k in df.columns: return k
+        return None
+
+    # Validate essential columns
+    errors = []
+    essential = {
+        'num_col': find_col(['number', 'no', 'nomor']),
+        'seg_col': find_col(['segment', 'segmen']),
+        'con_col': find_col(['content', 'teks soal', 'soal']),
+    }
+    
+    for key, val in essential.items():
+        if not val:
+            errors.append(f"Kolom wajib '{key.split('_')[0]}' tidak ditemukan (bisa gunakan: {mapping[key.split('_')[0]]})")
+
+    # Options mapping A-E
+    opt_map = {}
+    for label in ['a', 'b', 'c', 'd', 'e']:
+        opt_map[label] = {
+            'content': find_col([f'option_{label}', f'opsi {label}']),
+            'score': find_col([f'score_{label}', f'nilai {label}']),
+            'image': find_col([f'option_image_{label}', f'url gambar opsi {label}'])
+        }
+        if not opt_map[label]['content']:
+            errors.append(f"Kolom 'Opsi {label.upper()}' tidak ditemukan.")
+
+    if errors:
+        raise HTTPException(
+            status_code=400,
+            detail={"message": "Validasi Header gagal.", "errors": errors}
+        )
+
+    # 3. PRE-FLIGHT VALIDATION (Dry Run)
+    existing_nums_result = await db.execute(select(Question.number).where(Question.package_id == package_id))
+    existing_nums = {row[0] for row in existing_nums_result.all()}
+    file_nums = set()
+    
+    for index, row in df.iterrows():
+        row_idx = index + 2
+        try:
+            num = int(row[essential['num_col']])
+            if num in existing_nums:
+                errors.append(f"Baris {row_idx}: Nomor {num} sudah ada di database.")
+            if num in file_nums:
+                errors.append(f"Baris {row_idx}: Nomor {num} duplikat di file.")
+            file_nums.add(num)
+        except:
+            errors.append(f"Baris {row_idx}: Nomor soal harus angka.")
+
+        segment = str(row[essential['seg_col']]).upper()
+        if segment not in ['TWK', 'TIU', 'TKP']:
+            errors.append(f"Baris {row_idx}: Segmen '{segment}' tidak valid (Harus TWK/TIU/TKP).")
+
+        if not str(row[essential['con_col']]).strip():
+            errors.append(f"Baris {row_idx}: Teks soal kosong.")
+
+    if errors:
+        raise HTTPException(
+            status_code=400,
+            detail={"message": "Validasi baris gagal.", "errors": errors}
+        )
+
+    # 4. ATOMIC INSERTION
+    try:
+        questions_to_insert = []
+        for _, row in df.iterrows():
+            q_img = find_col(['image_url', 'url gambar soal', 'gambar_soal'])
+            q_disc = find_col(['discussion', 'teks pembahasan', 'pembahasan'])
+            
+            new_question = Question(
+                package_id=package_id,
+                number=int(row[essential['num_col']]),
+                segment=str(row[essential['seg_col']]).upper(),
+                content=str(row[essential['con_col']]).strip(),
+                image_url=str(row[q_img]).strip() if q_img and str(row[q_img]).strip() else None,
+                discussion=str(row[q_disc]).strip() if q_disc and str(row[q_disc]).strip() else None
+            )
+
+            options = []
+            for label in ['a', 'b', 'c', 'd', 'e']:
+                m = opt_map[label]
+                raw_score = row[m['score']] if m['score'] else 0
+                try:
+                    score = int(float(raw_score)) if str(raw_score).strip() != '' else 0
+                except:
+                    score = 0
+                
+                options.append(QuestionOption(
+                    label=label.upper(),
+                    content=str(row[m['content']]).strip(),
+                    score=score,
+                    image_url=str(row[m['image']]).strip() if m['image'] and str(row[m['image']]).strip() else None
+                ))
+            
+            new_question.options = options
+            questions_to_insert.append(new_question)
+
+        db.add_all(questions_to_insert)
+        await db.commit()
+        
+        # [TAMBAHAN]: Hapus cache agar aplikasi langsung terupdate
+        await redis_service.clear_pattern("packages:*")
+        await redis_service.clear_pattern("package_public:*")
+        
+        return {
+            "status": "success", 
+            "message": f"Berhasil mengimpor {len(questions_to_insert)} soal.",
+            "count": len(questions_to_insert)
+        }
+        
+    except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=422, detail=f"Import gagal di baris {questions_added + 1}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Database Error: {str(e)}")
