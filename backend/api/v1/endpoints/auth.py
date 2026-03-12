@@ -1,3 +1,4 @@
+```python
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Request, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -225,6 +226,10 @@ async def google_login(
             app_settings.GOOGLE_CLIENT_ID
         )
         
+        # [TAMBAHAN BEST PRACTICE]
+        if idinfo['aud'] != app_settings.GOOGLE_CLIENT_ID:
+            raise ValueError("Could not verify audience.")
+
         email = idinfo['email']
         full_name = idinfo.get('name', 'Google User')
         
@@ -273,7 +278,7 @@ async def google_login(
             "role": user.role
         }
 
-    except ValueError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Google token")
+    except ValueError as ve:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(ve))
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))

@@ -1,4 +1,4 @@
-# 📊 Analisis Alur & Review Code — CPNS Platform V2.0
+# 📊 Analisis Alur & Review Code — CPNS Platform V3.2
 
 ## 🗺️ Alur User Secara Keseluruhan
 
@@ -18,6 +18,8 @@ flowchart TD
     I --> J["📊 Leaderboard\n(/leaderboard)"]
     I --> C
     D2 --> I
+    E -- "Premium Access" --> K["💳 Upgrade PRO\n(/catalog/upgrade)"]
+    K -- "Payment Success" --> E
 ```
 
 ---
@@ -29,95 +31,60 @@ flowchart TD
 | 🔐 **Auth** | ✅ Done | 90% | JWT + HttpOnly Cookie. **Pro Account status support** (is_pro) terintegrasi. |
 | 🏠 **Dashboard** | ✅ Done | 90% | Stats detail & Leaderboard Top 5. Responsive grid. |
 | 📋 **Catalog List** | ✅ Done | 90% | Server-side Search & Filter. Caching Redis 5 menit. |
-| 📦 **Catalog Detail** | ✅ Done | 85% | RBAC access check mendukung Pro Account (Global Access). |
+| 📦 **Catalog Detail** | ✅ Done | 95% | RBAC access check mendukung Pro Account (Global Access). |
 | 🎮 **Exam Engine** | ✅ Done | 95% | Autosave Redis. Server-side Timer. Sidebar Responsive. |
 | ✅ **Result Page** | ✅ Done | 95% | Polling logic stabil. Kalkulasi skor BKN akurat. |
 | 📜 **History Page** | ✅ Done | 90% | Dynamic status tracks (Ongoing/Calculating/Finished). |
 | 🏆 **Leaderboard** | ✅ Done | 95% | Redis ZSET. Ranking nasional real-time. |
-| 💳 **Payment** | 🚧 Ongoing | 60% | **Pro Upgrade API ready**. Midtrans Webhook & Fulfillment logic backend stabil. |
-| 📱 **Responsive** | ✅ Done | 90% | Optimized for Mobile & Desktop. |
-| 🔒 **Security (RBAC)**| ✅ Done | 90% | Pro Account bypass logic. Admin protection on all admin APIs. |
-| 🌐 **Admin Panel** | ✅ Done | 85% | **New: Analytics Dashboard & Transaction Status Override**. |
+| 💳 **Payment** | ✅ Done | 90% | **PRO Subscription Model Ready**. Midtrans Snap terintegrasi (Webhook & Frontend). |
+| 📱 **Responsive** | ✅ Done | 95% | Optimized for Mobile & Desktop. |
+| 🔒 **Security (RBAC)**| ✅ Done | 95% | Idempotency logic on payments. Pro logic bypass. |
+| 🌐 **Admin Panel** | ✅ Done | 85% | Analytics Dashboard & Transaction Status Override. |
 
 ---
 
-## 🔍 Analisis Mendalam Tiap Area (Updated V3.0)
+## 🔍 Analisis Mendalam Tiap Area (Updated V3.2)
 
-### 1. 🌟 Pro Account & Global Access (New Feature)
-- **Teknis:** Penambahan field `is_pro` dan `pro_expires_at` pada tabel `users`.
-- **Logika:** Middleware `check_package_access` menggunakan shortcut logic: jika user adalah PRO, maka seluruh paket berbayar otomatis terbuka (`has_access: true`).
-- **Review:** Transaksi `pro_upgrade` seharga Rp 50.000 memicu aktivasi status Pro selama 1 tahun via `fulfill_transaction`.
+### 1. 🌟 Pro Account & Global Access (Unified Model)
+- **Teknis:** Field `is_pro` dan `pro_expires_at` pada tabel `users` menjadi pengontrol akses tunggal.
+- **Logika:** Konsep pembelian paket satuan dihilangkan untuk menyederhanakan user experience. Satu kali langganan (Rp 50rb) membuka akses ke seluruh bank soal.
+- **Review:** Fulfillment logic sudah menangani idempotensi dan akumulasi masa aktif (+365 hari per transaksi sukses).
 
-### 2. 📊 Admin Analytics & Dashboard (New Feature)
-- **Revenue Tracking:** Total pendapatan dari transaksi `success` dihitung secara real-time.
-- **Exam Performance:** Analitik nasional mencakup rata-rata skor per kategori dan *Pass Rate* berdasarkan ambang batas BKN (TWK: 65, TIU: 80, TKP: 166).
-- **Trend:** Menampilkan grafik pendapatan harian (7-90 hari) dan share kategori paket populer.
+### 2. 📊 Admin Analytics & Dashboard
+- **Revenue Tracking:** Menghitung total pendapatan dari transaksi `pro_upgrade`.
+- **Exam Performance:** Analitik nasional mencakup rata-rata skor per kategori dan *Pass Rate* BKN.
 
-### 3. 💳 Transaction Management & Midtrans
-- **Fulfillment Logic:** Penanganan webhook Midtrans yang robust (`capture`, `settlement`, `cancel`, `deny`).
-- **Manual Override:** Admin memiliki dashboard untuk mengubah status transaksi secara manual (`SET SUCCESS`), yang otomatis memberikan akses ke paket/pro account via fungsi `fulfill_transaction`.
-- **Snap Token:** Integrasi token Midtrans Snap tersimpan di DB untuk mempermudah tracking transaksi yang menggantung.
+### 3. 💳 Midtrans Snap & Webhook Security
+- **Frontend Integration:** Script Snap diinjeksi via Root Layout secara dinamis sesuai environment.
+- **Webhook Robustness:** Menangani status `success`, `pending`, `failed`, `expire`, dan `cancel` secara selektif tanpa merusak masa aktif PRO yang sudah ada.
+- **UX:** Delay 3 detik pada redirect sukses memastikan konsistensi state UI setelah fulfillment backend.
 
-### 4. 🧩 Exam Engine Optimization
-- **Zustand State:** Penanganan state jawaban di frontend yang sinkron dengan Redis backend.
-- **Server Confidence:** Timer backend tetap menjadi *source of truth*, mencegah kecurangan durasi di sisi client.
+### 4. 🧩 Exam Engine Stability
+- **Efficiency:** Soal di-pre-fetch ke lokal untuk performa anti-lag.
+- **Autosave:** Click-per-click sync ke Redis, bukan DB, menjaga skalabilitas.
 
 ---
 
-## 🛠️ Rekomendasi Langkah Selanjutnya (Roadmap V3.1)
+## 🛠️ Rekomendasi Langkah Selanjutnya (Roadmap V3.3)
 
-1. **Snap Frontend Integration (High Priority):** Menyambungkan tombol "Beli Sekarang" dengan window Snap Midtrans agar user bisa membayar langsung.
-2. **Google OAuth 2.0 (High Priority):** Menyelesaikan integrasi UI untuk login cepat guna meningkatkan konversi user.
-3. **Push Notifications (Medium Priority):** Implementasi Web Push API untuk notifikasi real-time terkait tryout.
-4. **Tryout Automation System (Strategic):** Sistem Manajemen Tryout Mingguan yang terotomasi.
+1. **Google OAuth 2.0 (High Priority):** Menyelesaikan integrasi UI di `/login` untuk mematangkan sistem pendaftaran cepat.
+2. **Weekly Tryout Automation (High Priority):** Sistem perilis soal terjadwal (Sabtu/Minggu) menggunakan sistem Draft/Publish.
+3. **Web Push Notifications (Medium Priority):** Notifikasi browser saat tryout dimulai atau hasil penilaian siap.
+4. **Security Hardening (Webhook IP Whitelist):** Memperketat endpoint webhook agar hanya menerima request dari IP Midtrans.
 
 ---
 
 ## 🔬 Analisis & Penilaian Fitur Strategis
 
-### A. Midtrans Snap Frontend Integration
-**Status:** 🚧 Ongoing (60%) — Backend fulfillment & Pro logic stabil, namun flow pembelian satuan (Single Package) dan feedback user masih mentah.
+### A. Google OAuth 2.0
+**Status:** Backend siap (`/auth/google`), Frontend wrapper terpasang.
+- **Analisis:** Backend memproses ID Token Google dan melakukan *upsert* user. 
+- **Next Step:** Tambahkan komponen `GoogleLogin` di `frontend/src/app/(auth)/login/page.tsx`.
 
-- **Analisis & Aturan Bisnis:**
-  - **PRO Bypass:** Logic `Pro = All Access` sudah berjalan di backend.
-  - **Issue Utama:** Tombol "Beli Sekarang" di halaman detail selalu menembak `/upgrade-pro`. Belum ada flow untuk `Single Package Transaction`.
-  - **Missing User Loop:** User tidak punya halaman "Riwayat Transaksi" untuk cek status pembayaran yang *pending*.
-  - **Missing Redirects:** Belum ada halaman `/payment/finish` atau `/payment/error` yang cantik setelah Snap window ditutup.
-
-- **Apa yang Perlu Diperbaiki?**
-  1. **Dynamic Purchase Endpoint:** Buat endpoint yang menerima `package_id` untuk transaksi non-PRO.
-  2. **Transaction History UI:** Halaman bagi user untuk melihat invoice dan status pembayaran mereka.
-  3. **Universal Fulfillment:** Update `fulfill_transaction` agar bisa memberikan akses ke satu paket saja jika tipenya bukan `pro_upgrade`.
-  4. **Snap Callbacks:** Tangani `onSuccess` dan `onPending` dengan mengarahkan ke halaman sukses yang informatif.
-
-- **File Utama yang Perlu Dicek:**
-  - [transactions_api.py](file:///d:/ProjectAI/Test-CPNS/backend/api/v1/endpoints/transactions_api.py): Perlu logic `Single Package` di fungsi `fulfill_transaction`.
-  - [PackageDetail (frontend)](file:///d:/ProjectAI/Test-CPNS/frontend/src/app/catalog/%5Bid%5D/page.tsx): Fungsi `handleBuyNow` perlu dibuat dinamis berdasarkan harga paket & pilihan user.
-  - [models.py](file:///d:/ProjectAI/Test-CPNS/backend/models/models.py): Pastikan relasi `UserTransaction` ke `Package` sudah terpetakan dengan benar (saat ini sudah ada `package_id`).
-
-### B. Google OAuth 2.0
-**Status:** Backend siap (`/auth/google`), Provider frontend sudah terpasang.
-
-- **Analisis:**
-  - Backend sudah menggunakan `google-auth` untuk verifikasi token. Profil user dibuat otomatis jika belum ada.
-  - Frontend butuh komponen `GoogleLogin` (dari `@react-oauth/google`) di halaman login.
-- **File Penting untuk Di-Check:**
-  - [auth.py](file:///d:/ProjectAI/Test-CPNS/backend/api/v1/endpoints/auth.py): Lihat fungsi `google_login` (line 213).
-  - [page.tsx (Login)](file:///d:/ProjectAI/Test-CPNS/frontend/src/app/login/page.tsx): Perlu penempatan tombol login Google.
-
-### C. Best Practice: Weekly Tryouts & Push Notifications
-Untuk menangani tryout yang update setiap minggu secara efisien (*Enterprise Standard*):
-
-1. **Tryout Management (Backend):**
-   - **Template-based:** Gunakan sistem "Draft" untuk paket soal. Admin menyiapkan bank soal di hari kerja, lalu sistem merilisnya otomatis di hari Sabtu/Minggu.
-   - **CSV/Excel Bulk Import:** Karena soal berjumlah 110, admin dilarang input manual satu-satu. Gunakan `admin_import.py` yang sudah ada untuk upload massal.
-   - **Soft-Delete & Versioning:** Jangan hapus tryout minggu lalu. Simpan sebagai arsip untuk fitur "Latihan Mandiri".
-
-2. **Push Notifications (Architecture):**
-   - **Web Push API (VAPID):** Cara paling efisien untuk browser modern tanpa aplikasi native.
-   - **Celery Beat:** Gunakan scheduler untuk mengirim notifikasi 1 jam sebelum tryout dimulai.
-   - **Notifikasi Segmented:** Kirimkan notifikasi hanya ke user yang memiliki target instansi yang relevan dengan paket tryout tersebut.
+### B. Automated Weekly Tryouts
+**Status:** Perlu modul manajemen jadwal.
+- **Konsep:** Admin menandai paket soal tertentu sebagai "Tryout Akbar" dengan `start_at` dan `end_at`. Paket ini hanya bisa diakses dalam jendela waktu tersebut.
 
 ---
-**OVERALL PROJECT COMPLETION: ~88%**
-`Core Exam Lifecycle: 95% | Financial/Payment: 60% | Admin/Operations: 85%`
+**OVERALL PROJECT COMPLETION: ~92%**
+`Core Exam Lifecycle: 95% | Financial/Payment: 90% | Admin/Operations: 85%`

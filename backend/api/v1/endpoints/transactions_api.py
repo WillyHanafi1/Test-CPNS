@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
+import hashlib
+import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import uuid
@@ -9,6 +11,19 @@ from backend.models.models import User, UserTransaction, Package
 from backend.api.v1.endpoints.auth import get_current_user
 from backend.core.midtrans import midtrans_service
 from backend.config import settings
+
+logger = logging.getLogger(__name__)
+
+# Official Midtrans IP Ranges (Simplified for check)
+# Note: In production, consider using a more robust CIDR checker if needed.
+MIDTRANS_IPS = {
+    "103.208.23.6", "103.127.17.6", "34.87.92.33", "34.87.59.67",
+    "35.186.147.251", "34.87.157.231", "13.228.166.126", "52.220.80.5",
+    "3.1.123.95", "108.136.204.114", "108.136.34.95", "108.137.159.245",
+    "108.137.135.225", "16.78.53.66", "43.218.2.230", "16.78.88.149",
+    "16.78.85.64", "16.78.69.49", "16.78.98.130", "16.78.9.40",
+    "43.218.223.26", "34.101.68.130", "34.101.92.69" # Plus others as needed
+}
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
@@ -92,6 +107,30 @@ async def midtrans_webhook(
     Handle notification from Midtrans.
     """
     data = await request.json()
+    
+    # 1. IP Whitelisting (Optional but Recommended)
+    # Get real IP if behind proxy
+    forwarded = request.headers.get("X-Forwarded-For")
+    client_ip = forwarded.split(",")[0] if forwarded else request.client.host
+    
+    # Note: If running on local with ngrok/expose, you might want to disable this temporarily
+    # if client_ip not in MIDTRANS_IPS:
+    #     logger.warning(f"Unauthorized Webhook attempt from IP: {client_ip}")
+    #     # raise HTTPException(status_code=403, detail="Forbidden IP")
+
+    # 2. Signature Key Verification (MANDATORY)
+    order_id = data.get("order_id")
+    status_code = data.get("status_code")
+    gross_amount = data.get("gross_amount")
+    signature_key_received = data.get("signature_key")
+    
+    # SHA512(order_id + status_code + gross_amount + ServerKey)
+    payload = f"{order_id}{status_code}{gross_amount}{settings.MIDTRANS_SERVER_KEY}"
+    expected_signature = hashlib.sha512(payload.encode()).hexdigest()
+    
+    if signature_key_received != expected_signature:
+        logger.error(f"Invalid Midtrans Signature! Order: {order_id}. Received: {signature_key_received}")
+        raise HTTPException(status_code=401, detail="Invalid signature key")
     
     try:
         status_response = midtrans_service.verify_notification(data)

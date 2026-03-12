@@ -40,6 +40,10 @@ class Package(Base):
     price: Mapped[int] = mapped_column(Integer, default=0)
     is_premium: Mapped[bool] = mapped_column(Boolean, default=False)
     category: Mapped[str] = mapped_column(String(50)) # TWK, TIU, TKP, Mix
+    is_published: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_weekly: Mapped[bool] = mapped_column(Boolean, default=False)
+    start_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    end_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     questions: Mapped[list["Question"]] = relationship(back_populates="package", cascade="all, delete-orphan")
     transactions: Mapped[list["UserTransaction"]] = relationship(back_populates="package")

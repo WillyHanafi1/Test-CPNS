@@ -4,6 +4,7 @@ from sqlalchemy import select, func, or_
 import uuid
 from typing import List, Optional
 from pydantic import BaseModel, ConfigDict
+from datetime import datetime
 
 from backend.db.session import get_async_session
 from backend.models.models import Package, Question, User
@@ -17,7 +18,11 @@ class PackageCreate(BaseModel):
     description: str
     price: int = 0
     is_premium: bool = False
-    category: str # TWK, TIU, TKP, Mix
+    category: str
+    is_published: bool = False
+    is_weekly: bool = False
+    start_at: Optional[datetime] = None
+    end_at: Optional[datetime] = None
 
 class PackageUpdate(BaseModel):
     title: Optional[str] = None
@@ -25,6 +30,10 @@ class PackageUpdate(BaseModel):
     price: Optional[int] = None
     is_premium: Optional[bool] = None
     category: Optional[str] = None
+    is_published: Optional[bool] = None
+    is_weekly: Optional[bool] = None
+    start_at: Optional[datetime] = None
+    end_at: Optional[datetime] = None
 
 class PackageResponse(BaseModel):
     id: uuid.UUID
@@ -33,6 +42,10 @@ class PackageResponse(BaseModel):
     price: int
     is_premium: bool
     category: str
+    is_published: bool
+    is_weekly: bool
+    start_at: Optional[datetime]
+    end_at: Optional[datetime]
     question_count: int = 0
     
     model_config = ConfigDict(from_attributes=True)

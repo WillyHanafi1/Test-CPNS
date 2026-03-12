@@ -35,11 +35,10 @@ async def get_packages(
     if cached_data:
         return cached_data
 
-    query = select(Package)
+    query = select(Package).where(Package.is_published == True)
     if category:
         query = query.where(Package.category == category)
     if search:
-        # Case-insensitive ILIKE search on title and description
         query = query.where(
             Package.title.ilike(f"%{search}%") |
             Package.description.ilike(f"%{search}%")
@@ -69,11 +68,11 @@ async def get_package(package_id: uuid.UUID, db: AsyncSession = Depends(get_asyn
         return cached_data
 
     result = await db.execute(
-        select(Package).where(Package.id == package_id)
+        select(Package).where(Package.id == package_id, Package.is_published == True)
     )
     package = result.scalar_one_or_none()
     if not package:
-        raise HTTPException(status_code=404, detail="Package not found")
+        raise HTTPException(status_code=404, detail="Package not found or not published")
 
     package_data = PackagePublic.model_validate(package).model_dump()
     await redis_service.set_cache(cache_key, package_data, expire=300)
@@ -95,18 +94,24 @@ async def check_package_access(
     """
     result = await db.execute(select(Package).where(Package.id == package_id))
     package = result.scalar_one_or_none()
-    if not package:
-        raise HTTPException(status_code=404, detail="Package not found")
-
-    if not package.is_premium or package.price == 0:
-        return {"has_access": True}
-
     # Fix: use timezone-aware datetime
-    now = datetime.now(timezone.utc).replace(tzinfo=None)  # naive UTC for DB comparison
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
 
-    # Cek status PRO (Akses ke semua paket premium)
+    # 1. MENGUNCI SEMUA ORANG (Termasuk PRO) JIKA TRYOUT BELUM DIMULAI
+    if package.start_at and package.start_at > now:
+        return {"has_access": False, "reason": "upcoming", "start_at": package.start_at}
+
+    # 2. CEK STATUS PRO (Bisa akses soal meski masa tryout mingguan sudah lewat)
     if current_user.is_pro and (not current_user.pro_expires_at or current_user.pro_expires_at > now):
         return {"has_access": True, "reason": "pro_account"}
+
+    # 3. MENGUNCI PENGGUNA GRATIS JIKA MASA TRYOUT SUDAH HABIS
+    if package.end_at and package.end_at < now:
+        return {"has_access": False, "reason": "expired", "end_at": package.end_at}
+
+    # 4. CEK PAKET PREMIUM UMUM
+    if not package.is_premium or package.price == 0:
+        return {"has_access": True}
 
     return {"has_access": False, "reason": "subscription_required"}
 

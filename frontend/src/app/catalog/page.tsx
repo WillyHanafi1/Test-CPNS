@@ -15,6 +15,9 @@ interface Package {
   price: number;
   is_premium: boolean;
   category: string;
+  is_weekly: boolean;
+  start_at: string | null;
+  end_at: string | null;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';

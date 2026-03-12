@@ -16,7 +16,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const { user, login } = useAuth();
+  const { user, login, refreshSession } = useAuth();
   const router = useRouter();
 
   React.useEffect(() => {
@@ -46,7 +46,7 @@ export default function LoginPage() {
   const handleGoogleSuccess = async (credentialResponse: any) => {
     setIsLoading(true);
     setError('');
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
     try {
       const res = await fetch(`${API_URL}/api/v1/auth/google`, {
@@ -58,10 +58,8 @@ export default function LoginPage() {
       
       if (res.ok) {
         const data = await res.json();
-        toast.success('Successfully logged in with Google');
-        // Refresh to update AuthContext state or use router.replace
-        // Forcing a hard reload often helps with cookie-based auth contexts
-        window.location.href = data.role === 'admin' ? '/admin' : '/dashboard';
+        await refreshSession();
+        router.replace(data.role === 'admin' ? '/admin' : '/dashboard');
       } else {
         const data = await res.json();
         setError(data.detail || 'Google login failed');
@@ -148,9 +146,10 @@ export default function LoginPage() {
                 <GoogleLogin
                   onSuccess={handleGoogleSuccess}
                   onError={() => setError('Google Login Failed')}
+                  useOneTap
                   theme="filled_black"
-                  shape="pill"
-                  width="100%"
+                  shape="rectangular"
+                  text="continue_with"
                 />
               </div>
             </div>
