@@ -10,7 +10,7 @@ from backend.models.models import Package, Question, User
 from backend.api.v1.endpoints.auth import get_current_admin
 from backend.core.redis_service import redis_service
 
-router = APIRouter(prefix="/admin/packages", tags=["admin-packages"], strict_slashes=False)
+router = APIRouter(prefix="/admin/packages", tags=["admin-packages"])
 
 class PackageCreate(BaseModel):
     title: str

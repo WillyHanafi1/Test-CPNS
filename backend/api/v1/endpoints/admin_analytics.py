@@ -10,7 +10,7 @@ from backend.db.session import get_async_session
 from backend.models.models import User, UserTransaction, ExamSession, Package, Question
 from backend.api.v1.endpoints.auth import get_current_admin
 
-router = APIRouter(prefix="/admin/analytics", tags=["admin-analytics"], strict_slashes=False)
+router = APIRouter(prefix="/admin/analytics", tags=["admin-analytics"])
 
 class OverviewStats(BaseModel):
     total_users: int

@@ -10,7 +10,7 @@ from backend.db.session import get_async_session
 from backend.models.models import Question, QuestionOption, Package, User
 from backend.api.v1.endpoints.auth import get_current_admin
 
-router = APIRouter(prefix="/admin/import", tags=["admin-import"], strict_slashes=False)
+router = APIRouter(prefix="/admin/import", tags=["admin-import"])
 
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 
