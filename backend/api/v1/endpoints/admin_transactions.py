@@ -24,14 +24,16 @@ class TransactionPackage(BaseModel):
 class TransactionResponse(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID
-    package_id: uuid.UUID
+    package_id: Optional[uuid.UUID] = None
+    transaction_type: str
+    order_id: Optional[str] = None
     payment_status: str
     amount: int
     snap_token: Optional[str] = None
     access_expires_at: Optional[datetime] = None
     created_at: datetime
     user: TransactionUser
-    package: TransactionPackage
+    package: Optional[TransactionPackage] = None
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -120,16 +122,23 @@ async def update_transaction_status_admin(
     db: AsyncSession = Depends(get_async_session),
     admin: str = Depends(get_current_admin)
 ):
+    from backend.api.v1.endpoints.transactions_api import fulfill_transaction
+    
     result = await db.execute(select(UserTransaction).where(UserTransaction.id == transaction_id))
     transaction = result.scalar_one_or_none()
     if not transaction:
         raise HTTPException(status_code=404, detail="Transaction not found")
     
-    transaction.payment_status = new_status
-    # If success, set access_expires_at (example: 1 year from now)
-    if new_status == "success" and not transaction.access_expires_at:
-        from datetime import timedelta, timezone
-        transaction.access_expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=365)
+    # Use the shared fulfillment logic
+    if transaction.order_id:
+        await fulfill_transaction(db, transaction.order_id, new_status)
+    else:
+        # Fallback for transactions without order_id (legacy)
+        transaction.payment_status = new_status
+        # If success, set access_expires_at (example: 1 year from now)
+        if new_status == "success" and not transaction.access_expires_at:
+            from datetime import timedelta, timezone
+            transaction.access_expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=365)
+        await db.commit()
     
-    await db.commit()
     return {"message": "Transaction status updated", "new_status": new_status}

@@ -101,8 +101,14 @@ async def check_package_access(
     if not package.is_premium or package.price == 0:
         return {"has_access": True}
 
-    # Fix: use timezone-aware datetime (datetime.utcnow() is deprecated in Python 3.12+)
+    # Fix: use timezone-aware datetime
     now = datetime.now(timezone.utc).replace(tzinfo=None)  # naive UTC for DB comparison
+
+    # 1. CEK STATUS PRO GLOBAL DARI USER
+    if current_user.is_pro and (not current_user.pro_expires_at or current_user.pro_expires_at > now):
+        return {"has_access": True, "reason": "pro_account"}
+
+    # 2. FALLBACK: Cek transaksi spesifik
     result = await db.execute(
         select(UserTransaction)
         .where(

@@ -12,6 +12,8 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     role: Mapped[str] = mapped_column(String(20), default="participant") # admin, participant
+    is_pro: Mapped[bool] = mapped_column(Boolean, default=False)
+    pro_expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     profile: Mapped["UserProfile"] = relationship(back_populates="user", uselist=False)
@@ -105,7 +107,9 @@ class UserTransaction(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
-    package_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("packages.id"))
+    package_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("packages.id"), nullable=True)
+    transaction_type: Mapped[str] = mapped_column(String(50), default="single_package") # single_package, pro_upgrade
+    order_id: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=True)
     payment_status: Mapped[str] = mapped_column(String(20), default="pending") # pending, success, failed
     amount: Mapped[int] = mapped_column(Integer)
     snap_token: Mapped[str] = mapped_column(String(255), nullable=True) # For Midtrans

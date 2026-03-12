@@ -4,8 +4,9 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { PackageCard } from '@/components/PackageCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search, Filter, BookOpen, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Search, Filter, BookOpen, AlertTriangle, RefreshCw, Zap } from 'lucide-react';
 import Link from 'next/link';
+import { useAuth } from '@/context/AuthContext';
 
 interface Package {
   id: string;
@@ -26,6 +27,7 @@ export default function CatalogPage() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [category, setCategory] = useState<string | null>(null);
+  const { user } = useAuth();
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Debounce search input (300ms)
@@ -86,13 +88,32 @@ export default function CatalogPage() {
       </nav>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <header className="mb-10">
-          <h1 className="text-4xl font-extrabold tracking-tight mb-3 bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
-            Katalog Paket Ujian
-          </h1>
-          <p className="text-slate-400 text-lg max-w-2xl">
-            Pilih paket simulasi SKD dan SKB terbaik untuk persiapan ujian CPNS Anda. Semua paket dirancang sesuai standar BKN terbaru.
-          </p>
+        <header className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="max-w-2xl">
+            <h1 className="text-4xl font-extrabold tracking-tight mb-3 bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
+              Katalog Paket Ujian
+            </h1>
+            <p className="text-slate-400 text-lg">
+              Pilih paket simulasi SKD dan SKB terbaik untuk persiapan ujian CPNS Anda. Semua paket dirancang sesuai standar BKN terbaru.
+            </p>
+          </div>
+
+          {!user?.is_pro && (
+            <Link href="/catalog/upgrade" className="flex-shrink-0">
+               <div className="bg-gradient-to-br from-indigo-600 to-violet-700 p-6 rounded-2xl border border-white/10 shadow-xl shadow-indigo-500/20 relative overflow-hidden group">
+                  <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform" />
+                  <div className="relative z-10 flex items-center gap-4">
+                    <div className="bg-white/20 p-3 rounded-xl backdrop-blur-md">
+                      <Zap className="w-6 h-6 text-yellow-300 fill-yellow-300" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-white mb-0.5">Akses Semua Paket</h3>
+                      <p className="text-indigo-100 text-sm">Upgrade PRO hanya Rp 50.000</p>
+                    </div>
+                  </div>
+               </div>
+            </Link>
+          )}
         </header>
 
         {/* Filters & Search */}

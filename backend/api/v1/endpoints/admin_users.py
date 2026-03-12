@@ -25,6 +25,8 @@ class UserResponse(BaseModel):
     is_active: bool
     created_at: datetime
     profile: Optional[UserProfileSchema] = None
+    is_pro: bool = False
+    pro_expires_at: Optional[datetime] = None
     total_sessions: int = 0
     total_transactions: int = 0
     
@@ -101,6 +103,8 @@ async def list_users_admin(
             "is_active": user.is_active,
             "created_at": user.created_at,
             "profile": user.profile,
+            "is_pro": user.is_pro,
+            "pro_expires_at": user.pro_expires_at,
             "total_sessions": row[1],
             "total_transactions": row[2]
         }

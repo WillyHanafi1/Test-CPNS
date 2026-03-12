@@ -5,6 +5,7 @@ import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { Toaster } from "react-hot-toast";
 import { GoogleOAuthProvider } from "@react-oauth/google";
+import Script from "next/script";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,6 +38,11 @@ export default function RootLayout({
           <AuthProvider>
             {children}
             <Toaster />
+            <Script 
+              src="https://app.sandbox.midtrans.com/snap/snap.js" 
+              data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
+              strategy="afterInteractive"
+            />
           </AuthProvider>
         </GoogleOAuthProvider>
       </body>

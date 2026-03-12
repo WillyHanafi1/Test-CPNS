@@ -14,7 +14,8 @@ import {
   Ban,
   TrendingUp,
   Package as PackageIcon,
-  User as UserIcon
+  User as UserIcon,
+  Crown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -137,10 +138,10 @@ export default function TransactionsAdmin() {
 
   const columns: Column<any>[] = [
     { 
-      header: 'ID / Tanggal', 
+      header: 'Order ID / Tanggal', 
       render: (t) => (
         <div>
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-tighter">ID: {t.id.substring(0, 8)}</p>
+          <p className="text-[10px] font-black text-indigo-400 uppercase tracking-tighter">ORDER: {t.order_id || t.id.substring(0, 8)}</p>
           <p className="text-xs font-bold text-slate-300">
             {new Date(t.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
           </p>
@@ -157,11 +158,20 @@ export default function TransactionsAdmin() {
       )
     },
     { 
-      header: 'Paket', 
+      header: 'Paket / Type', 
       render: (t) => (
         <div className="flex items-center space-x-2">
-           <PackageIcon className="w-4 h-4 text-indigo-400" />
-           <p className="text-sm font-bold text-slate-300">{t.package.title}</p>
+           {t.transaction_type === 'pro_upgrade' ? (
+             <>
+               <Crown className="w-4 h-4 text-amber-500" />
+               <p className="text-sm font-bold text-amber-500">PRO ACCOUNT</p>
+             </>
+           ) : (
+             <>
+               <PackageIcon className="w-4 h-4 text-indigo-400" />
+               <p className="text-sm font-bold text-slate-300">{t.package?.title}</p>
+             </>
+           )}
         </div>
       )
     },
@@ -352,12 +362,16 @@ export default function TransactionsAdmin() {
                             <span className="text-xs font-mono text-indigo-400">{selectedTransaction.snap_token || 'N/A'}</span>
                          </div>
                          <div className="flex justify-between border-t border-slate-800/50 pt-4">
+                            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Type</span>
+                            <Badge variant="outline" className="text-[10px] uppercase font-black">{selectedTransaction.transaction_type.replace('_', ' ')}</Badge>
+                         </div>
+                         <div className="flex justify-between">
                             <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">User Email</span>
                             <span className="text-sm font-bold text-slate-200">{selectedTransaction.user.email}</span>
                          </div>
                          <div className="flex justify-between">
                             <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Paket</span>
-                            <span className="text-sm font-bold text-slate-200">{selectedTransaction.package.title}</span>
+                            <span className="text-sm font-bold text-slate-200">{selectedTransaction.package?.title || 'GLOBAL PRO'}</span>
                          </div>
                          <div className="flex justify-between">
                             <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Status</span>

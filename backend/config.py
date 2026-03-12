@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     MAIL_FROM_NAME: str = os.getenv("MAIL_FROM_NAME", "CAT CPNS Admin")
     MAIL_STARTTLS: bool = os.getenv("MAIL_STARTTLS", "True").lower() == "true"
     MAIL_SSL_TLS: bool = os.getenv("MAIL_SSL_TLS", "False").lower() == "true"
+    
+    # Midtrans
+    MIDTRANS_SERVER_KEY: str = os.getenv("MIDTRANS_SERVER_KEY", "")
+    MIDTRANS_CLIENT_KEY: str = os.getenv("MIDTRANS_CLIENT_KEY", "")
+    MIDTRANS_IS_PRODUCTION: bool = os.getenv("MIDTRANS_IS_PRODUCTION", "False").lower() == "true"
 
     @property
     def cors_origins_list(self) -> list[str]:

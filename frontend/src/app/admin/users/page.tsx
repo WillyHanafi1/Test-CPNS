@@ -14,7 +14,8 @@ import {
   X,
   Loader2,
   UserX,
-  UserCheck
+  UserCheck,
+  Crown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -166,13 +167,21 @@ export default function UsersAdmin() {
       className: 'max-w-xs',
       render: (u) => (
         <div className="flex items-center space-x-3">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black border tracking-tighter ${
+          <div className={`relative w-10 h-10 rounded-xl flex items-center justify-center font-black border tracking-tighter ${
             u.role === 'admin' ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400' : 'bg-slate-800 border-slate-700 text-slate-400'
           }`}>
              {u.profile?.full_name?.charAt(0).toUpperCase() || u.email.charAt(0).toUpperCase()}
+             {u.is_pro && (
+               <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center border-2 border-slate-950">
+                 <Crown className="w-2 h-2 text-white fill-white" />
+               </div>
+             )}
           </div>
           <div>
-            <p className="font-bold text-slate-200">{u.profile?.full_name || 'No Name'}</p>
+            <p className="font-bold text-slate-200 flex items-center gap-2">
+              {u.profile?.full_name || 'No Name'}
+              {u.is_pro && <Badge className="bg-amber-500/10 text-amber-500 border-0 text-[8px] h-4 px-1">PRO</Badge>}
+            </p>
             <p className="text-[10px] text-slate-500 font-medium">{u.email}</p>
           </div>
         </div>

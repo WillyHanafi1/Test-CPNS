@@ -26,61 +26,90 @@ flowchart TD
 
 | Area | Status | % Complete | Catatan Key Findings |
 |------|--------|-----------|----------------------|
-| 🔐 **Auth** | ✅ Done | 85% | JWT + HttpOnly Cookie. Login/Register/Logout stabil. Belum ada OAuth2. |
-| 🏠 **Dashboard** | ✅ Done | 85% | UI Premium. Stats & History terintegrasi. Ada hero section & leaderboard preview. |
-| 📋 **Catalog List** | ✅ Done | 90% | Server-side Search & Filter dengan Debounce. Caching Redis 5 menit. |
-| 📦 **Catalog Detail** | ✅ Done | 80% | UI Detail lengkap + RBAC check access. Payment gate placeholder (Midtrans missing). |
-| 🎮 **Exam Engine** | ✅ Done | 90% | **Server-side Timer (Source of Truth)**. Autosave Redis. Responsive Sidebar. |
-| ✅ **Result Page** | ✅ Done | 90% | Polling logic aman (Exponential Backoff). Kalkulasi BKN akurat. |
-| 📜 **History Page** | ✅ Done | 90% | Polling status "processing". Link result via session_id dinamis. |
-| 🏆 **Leaderboard** | ✅ Done | 95% | **Redis ZSET integration**. Podium Top 3 + Rank tracking user aktif. |
-| 💳 **Payment** | ⚠️ Partial | 30% | Model `UserTransaction` & Admin API Ready. Client-side Midtrans integration missing. |
-| 📱 **Responsive** | ✅ Done | 90% | Sidebar Exam toggle mobile. Dashboard grid adaptive. |
-| 🔒 **Security (RBAC)**| ✅ Done | 80% | Backend dependency `get_current_admin`. Package access middleware di frontend. |
-| 🌐 **Admin Panel** | ⚠️ Partial | 65% | API CRUD (User, Package, Quest, Transaksi) lengkap. Desktop-first dashboard. |
+| 🔐 **Auth** | ✅ Done | 90% | JWT + HttpOnly Cookie. **Pro Account status support** (is_pro) terintegrasi. |
+| 🏠 **Dashboard** | ✅ Done | 90% | Stats detail & Leaderboard Top 5. Responsive grid. |
+| 📋 **Catalog List** | ✅ Done | 90% | Server-side Search & Filter. Caching Redis 5 menit. |
+| 📦 **Catalog Detail** | ✅ Done | 85% | RBAC access check mendukung Pro Account (Global Access). |
+| 🎮 **Exam Engine** | ✅ Done | 95% | Autosave Redis. Server-side Timer. Sidebar Responsive. |
+| ✅ **Result Page** | ✅ Done | 95% | Polling logic stabil. Kalkulasi skor BKN akurat. |
+| 📜 **History Page** | ✅ Done | 90% | Dynamic status tracks (Ongoing/Calculating/Finished). |
+| 🏆 **Leaderboard** | ✅ Done | 95% | Redis ZSET. Ranking nasional real-time. |
+| 💳 **Payment** | 🚧 Ongoing | 60% | **Pro Upgrade API ready**. Midtrans Webhook & Fulfillment logic backend stabil. |
+| 📱 **Responsive** | ✅ Done | 90% | Optimized for Mobile & Desktop. |
+| 🔒 **Security (RBAC)**| ✅ Done | 90% | Pro Account bypass logic. Admin protection on all admin APIs. |
+| 🌐 **Admin Panel** | ✅ Done | 85% | **New: Analytics Dashboard & Transaction Status Override**. |
 
 ---
 
-## 🔍 Analisis Mendalam Tiap Area
+## 🔍 Analisis Mendalam Tiap Area (Updated V3.0)
 
-### 1. 🔐 Authentikasi & Otorisasi (85%)
-- **Teknis:** Menggunakan `jose` untuk JWT dan `FastAPI` dependencies untuk proteksi router. Token disimpan di `HttpOnly Cookie` (Sesuai GEMINI.md).
-- **Review:** Alur register otomatis membuat `UserProfile`. Otorisasi admin dipisah dengan dependency `get_current_admin`.
-- **Kekurangan:** Belum ada fitur "Forgot Password" dan "Social Login (Google)".
+### 1. 🌟 Pro Account & Global Access (New Feature)
+- **Teknis:** Penambahan field `is_pro` dan `pro_expires_at` pada tabel `users`.
+- **Logika:** Middleware `check_package_access` menggunakan shortcut logic: jika user adalah PRO, maka seluruh paket berbayar otomatis terbuka (`has_access: true`).
+- **Review:** Transaksi `pro_upgrade` seharga Rp 50.000 memicu aktivasi status Pro selama 1 tahun via `fulfill_transaction`.
 
-### 2. 🏠 Dashboard (85%)
-- **Teknis:** Melakukan agregasi data dari `/sessions/me/stats` untuk total ujian, skor terbaik, dan status kelulusan.
-- **Review:** UI sangat premium dengan Tailwind + Lucide icons. Ada preview Leaderboard Top 5 untuk trigger kompetisi.
-- **Bug Fix:** Navigasi redundan ke `/catalog` sudah diperbaiki dengan pemisahan visual yang jelas.
+### 2. 📊 Admin Analytics & Dashboard (New Feature)
+- **Revenue Tracking:** Total pendapatan dari transaksi `success` dihitung secara real-time.
+- **Exam Performance:** Analitik nasional mencakup rata-rata skor per kategori dan *Pass Rate* berdasarkan ambang batas BKN (TWK: 65, TIU: 80, TKP: 166).
+- **Trend:** Menampilkan grafik pendapatan harian (7-90 hari) dan share kategori paket populer.
 
-### 3. 📋 Katalog (List & Detail) (85%)
-- **Teknis:** Implementasi `Debounced Search` di frontend (300ms) untuk mengurangi beban API. Backend menggunakan `ILike` untuk pencarian fleksibel.
-- **Review:** Detail paket memiliki pengecekan akses (`/access`) yang membedakan paket Gratis vs Premium.
-- **Kekurangan:** Tombol "Beli Sekarang" belum memicu popup pembayaran (Snap Midtrans).
+### 3. 💳 Transaction Management & Midtrans
+- **Fulfillment Logic:** Penanganan webhook Midtrans yang robust (`capture`, `settlement`, `cancel`, `deny`).
+- **Manual Override:** Admin memiliki dashboard untuk mengubah status transaksi secara manual (`SET SUCCESS`), yang otomatis memberikan akses ke paket/pro account via fungsi `fulfill_transaction`.
+- **Snap Token:** Integrasi token Midtrans Snap tersimpan di DB untuk mempermudah tracking transaksi yang menggantung.
 
-### 4. 🎮 Exam Engine (90%)
-- **Teknis:** **State Management (Zustand)** menyimpan state ujian. Sinkronisasi waktu menggunakan `end_time` dari server untuk mencegah manipulasi waktu lokal.
-- **Review:** Fitur Autosave (fire-and-forget) ke Redis sangat cepat. Navigasi soal di mobile sudah diperbaiki dengan Sidebar Drawer.
-- **Security:** Seluruh 110 soal di-prefetch ke browser untuk toleransi offline (Sesuai GEMINI.md).
-
-### 5. ✅ Result & History (90%)
-- **Teknis:** Halaman Result melakukan `GET polling` ke endpoint `/result/{id}`. Scoring dilakukan secara asynchronous (Celery) di backend.
-- **Review:** Visualisasi breakdown (TWK/TIU/TKP) sudah menggunakan divisor yang benar (175/175/225).
-- **History:** Menampilkan status `ONGOING` jika ujian belum selesai dan `CALCULATING` saat scoring berjalan.
-
-### 6. 🏆 Leaderboard (95%)
-- **Teknis:** Memanfaatkan `Redis Sorted Sets (ZSET)` untuk ranking real-time nasional. Sangat cepat (O(log(N))).
-- **Review:** Tampilan podium juara 1, 2, dan 3 memberikan kesan eksklusif. Menampilkan posisi User saat ini di 100 besar.
+### 4. 🧩 Exam Engine Optimization
+- **Zustand State:** Penanganan state jawaban di frontend yang sinkron dengan Redis backend.
+- **Server Confidence:** Timer backend tetap menjadi *source of truth*, mencegah kecurangan durasi di sisi client.
 
 ---
 
-## 🛠️ Rekomendasi Langkah Selanjutnya (Roadmap)
+## 🛠️ Rekomendasi Langkah Selanjutnya (Roadmap V3.1)
 
-1. **Integrasi Payment Gateway:** Implementasi Midtrans Snap di frontend untuk transaksi paket premium.
-2. **Google OAuth 2.0:** Menambah opsi login cepat untuk meningkatkan konversi user.
-3. **Analitik Admin Lanjutan:** Menampilkan chart pertumbuhan user dan revenue di Dashboard Admin.
-4. **Discussion Engine:** Fitur bagi user untuk melihat pembahasan soal (saat ini data sudah ada di DB, tapi UI belum optimal).
+1. **Snap Frontend Integration (High Priority):** Menyambungkan tombol "Beli Sekarang" dengan window Snap Midtrans agar user bisa membayar langsung.
+2. **Google OAuth 2.0 (High Priority):** Menyelesaikan integrasi UI untuk login cepat guna meningkatkan konversi user.
+3. **Push Notifications (Medium Priority):** Implementasi Web Push API untuk notifikasi real-time terkait tryout.
+4. **Tryout Automation System (Strategic):** Sistem Manajemen Tryout Mingguan yang terotomasi.
 
 ---
-**OVERALL PROJECT COMPLETION: ~82%**
-`Core Exam Lifecycle: 95% | Financial/Payment: 30% | Admin/Operations: 65%`
+
+## 🔬 Analisis & Penilaian Fitur Strategis
+
+### A. Midtrans Snap Frontend Integration
+**Status:** Fondasi backend & script loader sudah ada, namun implementasi UI masih bersifat "Placeholder" atau hardcoded.
+
+- **Analisis & Aturan Bisnis:**
+  - **Sesuai Konfirmasi:** Jika akun user adalah **PRO**, maka mereka memiliki akses ke **seluruh package** (Global Access). Tombol "Beli Sekarang" pada detail paket seharusnya tidak muncul bagi user PRO.
+  - Untuk user non-PRO, sistem membutuhkan flow "Purchase Single Package" (Saat ini baru ada `/upgrade-pro`).
+  - Script Snap sudah di-load di `RootLayout.tsx`.
+- **File Penting untuk Di-Check:**
+  - [package_api.py](file:///d:/ProjectAI/Test-CPNS/backend/api/v1/endpoints/package_api.py): Lihat fungsi `check_package_access` (Line 84) — ini adalah logic utama yang **memprioritaskan status PRO** di atas transaksi satuan.
+  - [transactions_api.py](file:///d:/ProjectAI/Test-CPNS/backend/api/v1/endpoints/transactions_api.py): Tempat logika fulfillment (`fulfill_transaction`) berada.
+  - [page.tsx (Catalog Detail)](file:///d:/ProjectAI/Test-CPNS/frontend/src/app/catalog/%5Bid%5D/page.tsx): Perlu pengecekan state `user.is_pro` untuk menyembunyikan tombol beli jika sudah PRO.
+
+### B. Google OAuth 2.0
+**Status:** Backend siap (`/auth/google`), Provider frontend sudah terpasang.
+
+- **Analisis:**
+  - Backend sudah menggunakan `google-auth` untuk verifikasi token. Profil user dibuat otomatis jika belum ada.
+  - Frontend butuh komponen `GoogleLogin` (dari `@react-oauth/google`) di halaman login.
+- **File Penting untuk Di-Check:**
+  - [auth.py](file:///d:/ProjectAI/Test-CPNS/backend/api/v1/endpoints/auth.py): Lihat fungsi `google_login` (line 213).
+  - [page.tsx (Login)](file:///d:/ProjectAI/Test-CPNS/frontend/src/app/login/page.tsx): Perlu penempatan tombol login Google.
+
+### C. Best Practice: Weekly Tryouts & Push Notifications
+Untuk menangani tryout yang update setiap minggu secara efisien (*Enterprise Standard*):
+
+1. **Tryout Management (Backend):**
+   - **Template-based:** Gunakan sistem "Draft" untuk paket soal. Admin menyiapkan bank soal di hari kerja, lalu sistem merilisnya otomatis di hari Sabtu/Minggu.
+   - **CSV/Excel Bulk Import:** Karena soal berjumlah 110, admin dilarang input manual satu-satu. Gunakan `admin_import.py` yang sudah ada untuk upload massal.
+   - **Soft-Delete & Versioning:** Jangan hapus tryout minggu lalu. Simpan sebagai arsip untuk fitur "Latihan Mandiri".
+
+2. **Push Notifications (Architecture):**
+   - **Web Push API (VAPID):** Cara paling efisien untuk browser modern tanpa aplikasi native.
+   - **Celery Beat:** Gunakan scheduler untuk mengirim notifikasi 1 jam sebelum tryout dimulai.
+   - **Notifikasi Segmented:** Kirimkan notifikasi hanya ke user yang memiliki target instansi yang relevan dengan paket tryout tersebut.
+
+---
+**OVERALL PROJECT COMPLETION: ~88%**
+`Core Exam Lifecycle: 95% | Financial/Payment: 60% | Admin/Operations: 85%`

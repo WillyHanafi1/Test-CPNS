@@ -39,7 +39,7 @@ export default function PackageDetailPage() {
   const params = useParams();
   // Safe extraction: useParams can return string | string[] in Next.js
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
-  const { user } = useAuth();
+  const { user, refreshSession } = useAuth();
   const router = useRouter();
 
   const [pkg, setPkg] = useState<Package | null>(null);
@@ -97,14 +97,46 @@ export default function PackageDetailPage() {
     checkAccess();
   }, [pkg, user, id]);
 
-  const handleBuyNow = () => {
-    // TODO: integrate Midtrans Snap here
-    // midtrans.snap.pay(snapToken, { ... })
-    // Replaced alert with a visually less obstructive approach, though a real toast is best.
-    toast.error('Pembayaran sedang dalam pemeliharaan. Silakan hubungi Admin.', {
-      duration: 4000,
-      position: 'top-center',
-    });
+  const handleBuyNow = async () => {
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+
+    try {
+      setAccessState('loading');
+      const res = await fetch(`${API_URL}/api/v1/transactions/upgrade-pro`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      
+      if (!res.ok) throw new Error('Gagal membuat transaksi');
+      
+      const data = await res.json();
+      
+      if (window.snap) {
+        window.snap.pay(data.token, {
+          onSuccess: async function(result: any) {
+            toast.success('Pembayaran Berhasil! Akun Anda kini PRO.');
+            await refreshSession();
+          },
+          onPending: function(result: any) {
+            toast.success('Pembayaran Menunggu. Selesaikan di aplikasi pembayaran Anda.');
+          },
+          onError: function(result: any) {
+            toast.error('Pembayaran Gagal. Silakan coba lagi.');
+            setAccessState('denied');
+          },
+          onClose: function() {
+            setAccessState('denied');
+          }
+        });
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Terjadi kesalahan sistem.');
+      setAccessState('denied');
+    }
   };
 
   if (loading) {
@@ -155,6 +187,11 @@ export default function PackageDetailPage() {
                 ) : (
                   <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 px-3">
                     Gratis
+                  </Badge>
+                )}
+                {user?.is_pro && (
+                  <Badge className="bg-amber-500 text-slate-950 border-0 px-3 font-bold">
+                    <Zap className="w-3 h-3 mr-1 fill-slate-950" /> PRO MEMBER
                   </Badge>
                 )}
               </div>

@@ -8,6 +8,7 @@ interface User {
   email: string;
   role: string;
   full_name?: string;
+  is_pro?: boolean;
 }
 
 interface AuthContextType {
@@ -16,6 +17,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   register: (email: string, password: string, full_name: string) => Promise<void>;
+  refreshSession: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -51,7 +53,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               id: data.id, 
               email: data.email, 
               role: data.role,
-              full_name: data.profile?.full_name 
+              full_name: data.profile?.full_name,
+              is_pro: data.is_pro
             };
             setUser(freshUser);
             localStorage.setItem('user_info', JSON.stringify(freshUser));
@@ -86,7 +89,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (response.ok) {
       const data = await response.json();
-      const userData: User = { id: data.user_id, email: data.email, role: data.role };
+      const userData: User = { 
+        id: data.user_id, 
+        email: data.email, 
+        role: data.role,
+        is_pro: data.is_pro
+      };
       setUser(userData);
       localStorage.setItem('user_info', JSON.stringify(userData));
       
@@ -125,8 +133,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const refreshSession = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/v1/auth/me`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const freshUser: User = { 
+          id: data.id, 
+          email: data.email, 
+          role: data.role,
+          full_name: data.profile?.full_name,
+          is_pro: data.is_pro
+        };
+        setUser(freshUser);
+        localStorage.setItem('user_info', JSON.stringify(freshUser));
+      }
+    } catch (error) {
+      console.error("Refresh session failed", error);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, register, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, register, loading, refreshSession }}>
       {children}
     </AuthContext.Provider>
   );

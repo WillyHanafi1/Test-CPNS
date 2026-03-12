@@ -10,6 +10,7 @@ from backend.api.v1.endpoints.admin_packages import router as admin_packages_rou
 from backend.api.v1.endpoints.admin_users import router as admin_users_router
 from backend.api.v1.endpoints.admin_transactions import router as admin_transactions_router
 from backend.api.v1.endpoints.admin_analytics import router as admin_analytics_router
+from backend.api.v1.endpoints.transactions_api import router as transactions_router
 from backend.config import settings
 
 import logging
@@ -49,6 +50,7 @@ app.include_router(admin_packages_router, prefix="/api/v1")
 app.include_router(admin_users_router, prefix="/api/v1")
 app.include_router(admin_transactions_router, prefix="/api/v1")
 app.include_router(admin_analytics_router, prefix="/api/v1")
+app.include_router(transactions_router, prefix="/api/v1")
 
 @app.get("/")
 async def root():
