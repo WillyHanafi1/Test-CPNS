@@ -42,7 +42,7 @@ class UserUpdate(BaseModel):
     role: Optional[str] = None
     is_active: Optional[bool] = None
 
-@router.get("", response_model=UserListResponse)
+@router.get("/", response_model=UserListResponse)
 async def list_users_admin(
     page: int = Query(1, ge=1),
     size: int = Query(10, ge=1, le=100),

@@ -80,7 +80,7 @@ class PaginatedQuestionResponse(BaseModel):
     page: int
     size: int
 
-@router.get("", response_model=PaginatedQuestionResponse)
+@router.get("/", response_model=PaginatedQuestionResponse)
 async def list_questions(
     package_id: Optional[uuid.UUID] = None,
     segment: Optional[str] = None,
@@ -115,7 +115,7 @@ async def list_questions(
         "size": size
     }
 
-@router.post("", response_model=QuestionResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=QuestionResponse, status_code=status.HTTP_201_CREATED)
 async def create_question(
     question_in: QuestionCreate,
     db: AsyncSession = Depends(get_async_session),

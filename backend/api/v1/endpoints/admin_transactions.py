@@ -49,7 +49,7 @@ class TransactionSummaryResponse(BaseModel):
     pending_count: int
     failed_count: int
 
-@router.get("", response_model=TransactionListResponse)
+@router.get("/", response_model=TransactionListResponse)
 async def list_transactions_admin(
     page: int = Query(1, ge=1),
     size: int = Query(10, ge=1, le=100),

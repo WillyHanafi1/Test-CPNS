@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 
 router = APIRouter(prefix="/packages", tags=["packages"])
 
-@router.get("", response_model=List[PackageSchema])
+@router.get("/", response_model=List[PackageSchema])
 async def get_packages(
     skip: int = 0,
     limit: int = 10,

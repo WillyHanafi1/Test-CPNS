@@ -43,7 +43,7 @@ class PackageListResponse(BaseModel):
     page: int
     size: int
 
-@router.get("", response_model=PackageListResponse)
+@router.get("/", response_model=PackageListResponse)
 async def list_packages_admin(
     page: int = Query(1, ge=1),
     size: int = Query(10, ge=1, le=100),
@@ -96,7 +96,7 @@ async def list_packages_admin(
         "size": size
     }
 
-@router.post("", response_model=PackageResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=PackageResponse, status_code=status.HTTP_201_CREATED)
 async def create_package_admin(
     package_in: PackageCreate,
     db: AsyncSession = Depends(get_async_session),
