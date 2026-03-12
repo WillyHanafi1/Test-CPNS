@@ -7,7 +7,9 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { LogIn } from 'lucide-react';
+import { LogIn, Loader2 } from 'lucide-react';
+import { GoogleLogin } from '@react-oauth/google';
+import toast from 'react-hot-toast';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -36,6 +38,36 @@ export default function LoginPage() {
       await login(email, password);
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    setIsLoading(true);
+    setError('');
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+    try {
+      const res = await fetch(`${API_URL}/api/v1/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: credentialResponse.credential }),
+        credentials: 'include',
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        toast.success('Successfully logged in with Google');
+        // Refresh to update AuthContext state or use router.replace
+        // Forcing a hard reload often helps with cookie-based auth contexts
+        window.location.href = data.role === 'admin' ? '/admin' : '/dashboard';
+      } else {
+        const data = await res.json();
+        setError(data.detail || 'Google login failed');
+      }
+    } catch (err) {
+      setError('An error occurred during Google login');
     } finally {
       setIsLoading(false);
     }
@@ -72,7 +104,12 @@ export default function LoginPage() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-200" htmlFor="password">Password</label>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-slate-200" htmlFor="password">Password</label>
+                <Link href="/forgot-password" title="Forgot Password" className="text-xs text-indigo-400 hover:text-indigo-300">
+                  Forgot Password?
+                </Link>
+              </div>
               <Input 
                 id="password" 
                 type="password" 
@@ -86,13 +123,39 @@ export default function LoginPage() {
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
             <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white border-0 py-6 text-base font-semibold transition-all duration-200 ease-in-out transform hover:scale-[1.02]" disabled={isLoading}>
-              {isLoading ? 'Signing in...' : (
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing in...
+                </>
+              ) : (
                 <>
                   <LogIn className="mr-2 h-4 w-4" /> Sign In
                 </>
               )}
             </Button>
-            <p className="text-sm text-slate-400 text-center">
+
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-slate-800" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-[#0f172a] px-2 text-slate-500">Or continue with</span>
+              </div>
+            </div>
+
+            <div className="flex justify-center w-full">
+              <div className="w-full flex justify-center">
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={() => setError('Google Login Failed')}
+                  theme="filled_black"
+                  shape="pill"
+                  width="100%"
+                />
+              </div>
+            </div>
+
+            <p className="text-sm text-slate-400 text-center mt-6">
               Don&apos;t have an account?{' '}
               <Link href="/register" className="text-indigo-400 hover:text-indigo-300 font-medium">
                 Register here

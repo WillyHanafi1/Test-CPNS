@@ -1,19 +1,42 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from datetime import timedelta
+from datetime import timedelta, datetime, timezone
 import uuid
+from pydantic import BaseModel, EmailStr
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 
 from backend.db.session import get_async_session
 from backend.models.models import User, UserProfile
 from backend.schemas.user import UserCreate, User as UserSchema, UserWithProfile
 from backend.schemas.token import Token
 from sqlalchemy.orm import selectinload
-from backend.core.security import verify_password, get_password_hash, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM, SECRET_KEY
+from backend.core.security import (
+    verify_password, 
+    get_password_hash, 
+    create_access_token, 
+    create_reset_token,
+    verify_reset_token,
+    ACCESS_TOKEN_EXPIRE_MINUTES, 
+    ALGORITHM, 
+    SECRET_KEY
+)
 from backend.config import settings as app_settings
+from backend.core.email import send_reset_password_email
 from jose import JWTError, jwt
 # Cookie removed
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+class GoogleLoginRequest(BaseModel):
+    token: str
 
 async def get_current_user(
     request: Request,
@@ -141,3 +164,116 @@ async def logout(response: Response):
 @router.get("/me", response_model=UserWithProfile)
 async def get_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+# --- New Endpoints ---
+
+@router.post("/forgot-password")
+async def forgot_password(
+    request: ForgotPasswordRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_async_session)
+):
+    """Initiate password reset. Sends a link to the user's email."""
+    result = await db.execute(select(User).where(User.email == request.email))
+    user = result.scalar_one_or_none()
+    
+    if user:
+        reset_token = create_reset_token(user.email)
+        # In a real app, you'd send an email here.
+        frontend_url = app_settings.cors_origins_list[0]
+        reset_link = f"{frontend_url}/reset-password?token={reset_token}"
+        
+        # MOCK EMAIL SENDING
+        print(f"DEBUG: Password reset link for {user.email}: {reset_link}")
+
+        # REAL EMAIL SENDING
+        background_tasks.add_task(send_reset_password_email, user.email, reset_link)
+        
+    # Always return success to prevent email enumeration
+    return {"message": "If your email is registered, you will receive a password reset link."}
+
+@router.post("/reset-password")
+async def reset_password(request: ResetPasswordRequest, db: AsyncSession = Depends(get_async_session)):
+    """Reset password using a valid reset token."""
+    email = verify_reset_token(request.token)
+    if not email:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.hashed_password = get_password_hash(request.new_password)
+    await db.commit()
+    
+    return {"message": "Password has been reset successfully."}
+
+@router.post("/google")
+async def google_login(
+    request: GoogleLoginRequest,
+    response: Response,
+    db: AsyncSession = Depends(get_async_session)
+):
+    """Authenticate with Google ID Token."""
+    try:
+        # Verify Google Token
+        idinfo = id_token.verify_oauth2_token(
+            request.token, 
+            google_requests.Request(), 
+            app_settings.GOOGLE_CLIENT_ID
+        )
+        
+        email = idinfo['email']
+        full_name = idinfo.get('name', 'Google User')
+        
+        # Check if user exists
+        result = await db.execute(select(User).where(User.email == email))
+        user = result.scalar_one_or_none()
+        
+        # Auto-register if not found
+        if not user:
+            # Random password for SSO users
+            random_pw = str(uuid.uuid4())
+            user = User(
+                email=email,
+                hashed_password=get_password_hash(random_pw),
+                is_active=True,
+                role="participant"
+            )
+            db.add(user)
+            await db.flush()
+            
+            profile = UserProfile(user_id=user.id, full_name=full_name)
+            db.add(profile)
+            await db.commit()
+            await db.refresh(user)
+            
+        # Create session
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={"sub": user.email}, expires_delta=access_token_expires
+        )
+
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            expires=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            samesite="lax",
+            secure=app_settings.COOKIE_SECURE,
+        )
+        
+        return {
+            "message": "Successfully logged in via Google", 
+            "user_id": str(user.id), 
+            "email": user.email, 
+            "role": user.role
+        }
+
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Google token")
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))

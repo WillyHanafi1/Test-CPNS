@@ -30,3 +30,20 @@ def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+def create_reset_token(email: str) -> str:
+    """Generate a short-lived token (15 mins) for password reset."""
+    expire = datetime.now(timezone.utc) + timedelta(minutes=15)
+    to_encode = {"sub": email, "type": "reset", "exp": expire}
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+def verify_reset_token(token: str) -> Union[str, None]:
+    """Verify the reset token and return the email if valid."""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("type") != "reset":
+            return None
+        return payload.get("sub")
+    except Exception:
+        return None
+

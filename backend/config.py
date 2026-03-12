@@ -21,12 +21,29 @@ class Settings(BaseSettings):
     # Cookie security — set to True when running behind HTTPS in production
     COOKIE_SECURE: bool = os.getenv("ENV") == "production"
 
+    # Google SSO
+    GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
+
+    # Mail Settings (Optional for Forgot Password)
+    MAIL_USERNAME: str = os.getenv("MAIL_USERNAME", "")
+    MAIL_PASSWORD: str = os.getenv("MAIL_PASSWORD", "")
+    MAIL_FROM: str = os.getenv("MAIL_FROM", "noreply@test-cpns.com")
+    MAIL_PORT: int = int(os.getenv("MAIL_PORT", "587"))
+    MAIL_SERVER: str = os.getenv("MAIL_SERVER", "smtp.gmail.com")
+    MAIL_FROM_NAME: str = os.getenv("MAIL_FROM_NAME", "CAT CPNS Admin")
+    MAIL_STARTTLS: bool = os.getenv("MAIL_STARTTLS", "True").lower() == "true"
+    MAIL_SSL_TLS: bool = os.getenv("MAIL_SSL_TLS", "False").lower() == "true"
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
 
     model_config = SettingsConfigDict(
-        env_file=[".env", os.path.join(os.path.dirname(__file__), ".env")],
+        env_file=[
+            os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"), # Project Root .env
+            os.path.join(os.path.dirname(__file__), ".env"), # Backend .env (fallback)
+            ".env" # Current Dir
+        ],
         env_file_encoding="utf-8",
         case_sensitive=True,
         extra="ignore"

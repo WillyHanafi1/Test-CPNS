@@ -23,3 +23,6 @@ Thumbs.db
 
 # Docker
 postgres_data/
+
+# Local Dev scripts
+start-dev.bat
