@@ -103,12 +103,12 @@ async def get_exam_performance(
 
     # 3. Distribusi Skor using SQL CASE
     dist_stmt = select(
-        func.count(case((and_(ExamSession.total_score >= 0, ExamSession.total_score <= 100), 1))).label("bucket_0_100"),
-        func.count(case((and_(ExamSession.total_score >= 101, ExamSession.total_score <= 200), 1))).label("bucket_101_200"),
-        func.count(case((and_(ExamSession.total_score >= 201, ExamSession.total_score <= 300), 1))).label("bucket_201_300"),
-        func.count(case((and_(ExamSession.total_score >= 301, ExamSession.total_score <= 400), 1))).label("bucket_301_400"),
-        func.count(case((and_(ExamSession.total_score >= 401, ExamSession.total_score <= 500), 1))).label("bucket_401_500"),
-        func.count(case((ExamSession.total_score >= 501, 1))).label("bucket_501_plus")
+        func.count(case([(and_(ExamSession.total_score >= 0, ExamSession.total_score <= 100), 1)])).label("bucket_0_100"),
+        func.count(case([(and_(ExamSession.total_score >= 101, ExamSession.total_score <= 200), 1)])).label("bucket_101_200"),
+        func.count(case([(and_(ExamSession.total_score >= 201, ExamSession.total_score <= 300), 1)])).label("bucket_201_300"),
+        func.count(case([(and_(ExamSession.total_score >= 301, ExamSession.total_score <= 400), 1)])).label("bucket_301_400"),
+        func.count(case([(and_(ExamSession.total_score >= 401, ExamSession.total_score <= 500), 1)])).label("bucket_401_500"),
+        func.count(case([(ExamSession.total_score >= 501, 1)])).label("bucket_501_plus")
     ).where(ExamSession.status == "finished")
     
     dist_result = await db.execute(dist_stmt)
