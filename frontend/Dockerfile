@@ -1,44 +1,50 @@
-FROM node:18-alpine
-
+# ==========================================
+# Tahap 1: Install Dependencies (deps)
+# ==========================================
+FROM node:24-alpine AS deps
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Copy package info
-COPY package*.json ./
+COPY package.json package-lock.json* ./
+RUN npm ci
 
-# Install dependencies
-RUN npm install
+# ==========================================
+# Tahap 2: Build Aplikasi (builder)
+# ==========================================
+FROM node:24-alpine AS builder
+WORKDIR /app
 
-# Copy all code
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# ARGs are needed because NEXT_PUBLIC vars are baked into the build
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_MIDTRANS_CLIENT_KEY
 
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_MIDTRANS_CLIENT_KEY=$NEXT_PUBLIC_MIDTRANS_CLIENT_KEY
 
-# Build Next.js app in standalone mode
 RUN npm run build
 
-# Copy static assets to standalone folder as Next.js doesn't do it by default
-RUN cp -r public .next/standalone/ || true
-RUN mkdir -p .next/standalone/.next
-RUN cp -r .next/static .next/standalone/.next/ || true
+# ==========================================
+# Tahap 3: Runner Server Production (runner)
+# ==========================================
+FROM node:24-alpine AS runner
+WORKDIR /app
 
-# Change working directory to the standalone output
-WORKDIR /app/.next/standalone
-
-# Set runtime environment variables
+ENV NODE_ENV=production
 ENV HOSTNAME="0.0.0.0"
 ENV PORT=3000
 
-# Expose port
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+COPY --from=builder /app/public ./public
+
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+USER nextjs
+
 EXPOSE 3000
 
-# Set user to non-root for security
-# Ensure the node user can access the copied files
-USER node
-
-# Start application
 CMD ["node", "server.js"]
