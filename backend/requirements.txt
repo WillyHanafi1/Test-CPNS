@@ -78,3 +78,5 @@ websockets==16.0
 fastapi-mail
 google-auth
 requests
+pandas
+openpyxl
