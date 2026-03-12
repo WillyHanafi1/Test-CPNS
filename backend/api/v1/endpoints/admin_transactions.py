@@ -11,7 +11,7 @@ from backend.db.session import get_async_session
 from backend.models.models import UserTransaction, User, Package
 from backend.api.v1.endpoints.auth import get_current_admin
 
-router = APIRouter(prefix="/admin/transactions", tags=["admin-transactions"])
+router = APIRouter(prefix="/admin/transactions", tags=["admin-transactions"], strict_slashes=False)
 
 class TransactionUser(BaseModel):
     email: str

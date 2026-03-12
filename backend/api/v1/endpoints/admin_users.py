@@ -11,7 +11,7 @@ from backend.db.session import get_async_session
 from backend.models.models import User, UserProfile, ExamSession, UserTransaction
 from backend.api.v1.endpoints.auth import get_current_admin
 
-router = APIRouter(prefix="/admin/users", tags=["admin-users"])
+router = APIRouter(prefix="/admin/users", tags=["admin-users"], strict_slashes=False)
 
 class UserProfileSchema(BaseModel):
     full_name: str

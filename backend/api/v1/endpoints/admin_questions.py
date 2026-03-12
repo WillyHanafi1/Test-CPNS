@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, field_validator
 from sqlalchemy.orm import selectinload
 from sqlalchemy import delete
 
-router = APIRouter(prefix="/admin/questions", tags=["admin-questions"])
+router = APIRouter(prefix="/admin/questions", tags=["admin-questions"], strict_slashes=False)
 
 class OptionCreate(BaseModel):
     label: str
