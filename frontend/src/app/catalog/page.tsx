@@ -48,7 +48,7 @@ export default function CatalogPage() {
       if (category) params.append('category', category);
       if (debouncedSearch) params.append('search', debouncedSearch); // server-side search
 
-      const url = `${API_URL}/api/v1/packages/${params.toString() ? `?${params.toString()}` : ''}`;
+      const url = `${API_URL}/api/v1/packages${params.toString() ? `?${params.toString()}` : ''}`;
       const response = await fetch(url);
       if (!response.ok) throw new Error(`Server error: ${response.status}`);
       const data = await response.json();
