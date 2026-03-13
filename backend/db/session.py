@@ -4,7 +4,7 @@ from backend.config import settings
 
 engine = create_async_engine(
     settings.DATABASE_URL,
-    echo=True,
+    echo=(settings.LOG_LEVEL.upper() == "DEBUG"),
     connect_args={"statement_cache_size": 0}
 )
 
