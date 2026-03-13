@@ -2,8 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 import hashlib
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func, desc
 import uuid
+from typing import List, Optional
 from datetime import datetime, timedelta, timezone
 
 from backend.db.session import get_async_session
@@ -11,6 +12,8 @@ from backend.models.models import User, UserTransaction, Package
 from backend.api.v1.endpoints.auth import get_current_user
 from backend.core.midtrans import midtrans_service
 from backend.config import settings
+from backend.schemas.transaction import DonationRequest, DonationResponse, SupporterResponse, TopSupporter
+from sqlalchemy.orm import selectinload
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +100,134 @@ async def get_user_transactions(
     )
     transactions = result.scalars().all()
     return transactions
+
+@router.post("/donate", response_model=DonationResponse)
+async def create_donation_transaction(
+    request: DonationRequest,
+    db: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Create a donation transaction.
+    """
+    if request.amount < 1000:
+        raise HTTPException(status_code=400, detail="Minimal donasi adalah Rp 1.000")
+
+    order_id = f"DONATE-{current_user.id.hex[:8]}-{uuid.uuid4().hex[:6]}"
+    
+    new_transaction = UserTransaction(
+        user_id=current_user.id,
+        transaction_type="donation",
+        order_id=order_id,
+        amount=request.amount,
+        payment_status="pending",
+        message=request.message,
+        is_anonymous=request.is_anonymous
+    )
+    db.add(new_transaction)
+    await db.flush()
+    
+    item_details = [{
+        "id": "DONATION",
+        "price": request.amount,
+        "quantity": 1,
+        "name": f"Dukungan Komunitas - {'Anonim' if request.is_anonymous else current_user.email}"
+    }]
+    
+    customer_details = {
+        "email": current_user.email,
+        "first_name": "Donatur",
+    }
+    
+    try:
+        snap_response = midtrans_service.create_transaction(
+            order_id=order_id,
+            amount=request.amount,
+            item_details=item_details,
+            customer_details=customer_details
+        )
+        
+        new_transaction.snap_token = snap_response['token']
+        await db.commit()
+        
+        return {
+            "token": snap_response['token'],
+            "redirect_url": snap_response['redirect_url'],
+            "order_id": order_id
+        }
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to create Midtrans transaction: {str(e)}")
+
+@router.get("/donations/wall-of-fame", response_model=List[SupporterResponse])
+async def get_wall_of_fame(
+    db: AsyncSession = Depends(get_async_session)
+):
+    """
+    Get 20 latest successful donations for the wall of fame.
+    """
+    result = await db.execute(
+        select(UserTransaction)
+        .options(selectinload(UserTransaction.user))
+        .where(UserTransaction.transaction_type == "donation")
+        .where(UserTransaction.payment_status == "success")
+        .order_by(desc(UserTransaction.created_at))
+        .limit(20)
+    )
+    donations = result.scalars().all()
+    
+    response = []
+    for d in donations:
+        response.append({
+            "full_name": "Anonim" if d.is_anonymous else (d.user.profile.full_name if d.user.profile else d.user.email.split('@')[0]),
+            "amount": d.amount,
+            "message": d.message,
+            "created_at": d.created_at,
+            "is_anonymous": d.is_anonymous
+        })
+    return response
+
+@router.get("/donations/top", response_model=List[TopSupporter])
+async def get_top_supporters(
+    db: AsyncSession = Depends(get_async_session)
+):
+    """
+    Get top supporters by total amount.
+    """
+    # Join with User and Profile to get Names
+    from backend.models.models import UserProfile
+    
+    result = await db.execute(
+        select(
+            User.id,
+            func.sum(UserTransaction.amount).label("total_amount")
+        )
+        .join(UserTransaction, User.id == UserTransaction.user_id)
+        .where(UserTransaction.payment_status == "success")
+        .where(UserTransaction.transaction_type == "donation")
+        .where(UserTransaction.is_anonymous == False)
+        .group_by(User.id)
+        .order_by(desc("total_amount"))
+        .limit(10)
+    )
+    top_data = result.all()
+    
+    response = []
+    for user_id, total_amount in top_data:
+        # Get profile name
+        p_result = await db.execute(select(UserProfile).where(UserProfile.user_id == user_id))
+        profile = p_result.scalar_one_or_none()
+        
+        # Get user email as fallback
+        u_result = await db.execute(select(User).where(User.id == user_id))
+        user = u_result.scalar_one_or_none()
+        
+        name = profile.full_name if profile else (user.email.split('@')[0] if user else "Unknown")
+        response.append({
+            "full_name": name,
+            "total_amount": total_amount
+        })
+    return response
 
 @router.post("/webhook")
 async def midtrans_webhook(

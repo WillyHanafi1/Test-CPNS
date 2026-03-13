@@ -119,6 +119,8 @@ class UserTransaction(Base):
     payment_status: Mapped[str] = mapped_column(String(20), default="pending") # pending, success, failed
     amount: Mapped[int] = mapped_column(Integer)
     snap_token: Mapped[str] = mapped_column(String(255), nullable=True) # For Midtrans
+    message: Mapped[str] = mapped_column(Text, nullable=True) # For donation message
+    is_anonymous: Mapped[bool] = mapped_column(Boolean, default=False)
     access_expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 

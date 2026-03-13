@@ -3,7 +3,8 @@
 import React from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { BookOpen, CheckCircle2, Shield, Zap, Target, Users } from 'lucide-react';
+import { BookOpen, CheckCircle2, Shield, Zap, Target, Users, Heart } from 'lucide-react';
+import WallOfFame from '@/components/WallOfFame';
 
 export default function LandingPage() {
   return (
@@ -27,6 +28,9 @@ export default function LandingPage() {
             <Link href="/catalog" className="hover:text-white transition-colors">Katalog Paket</Link>
             <Link href="#features" className="hover:text-white transition-colors">Fitur Utama</Link>
             <Link href="#price" className="hover:text-white transition-colors">Harga</Link>
+            <Link href="/support" className="text-pink-400 hover:text-pink-300 transition-colors flex items-center gap-1">
+              <Heart className="w-3 h-3 fill-pink-500" /> Dukung Kami
+            </Link>
           </div>
           <div className="flex items-center space-x-4">
             <Link href="/login">
@@ -91,6 +95,24 @@ export default function LandingPage() {
               title="Analitik Mendalam"
               description="Laporan skor instan per kategori (TWK, TIU, TKP) lengkap dengan statistik kelulusan passing grade."
             />
+          </div>
+        </div>
+      </section>
+
+      {/* Community Support / Wall of Fame */}
+      <section className="py-24 relative overflow-hidden bg-slate-900/10">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-black mb-4 tracking-tight">Dukungan Dari <span className="text-indigo-500">Komunitas</span></h2>
+            <p className="text-slate-400 max-w-lg mx-auto italic mb-10">Platform ini terus hidup dan berkembang berkat dukungan tulus dari para peserta.</p>
+            <WallOfFame />
+            <div className="mt-12 text-center">
+              <Link href="/support">
+                <Button variant="outline" className="border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/10 rounded-xl">
+                  Lihat Supporter Hub Selengkapnya
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </section>

@@ -7,9 +7,10 @@ import { Button } from '@/components/ui/button';
 import {
   LogOut, User, BookOpen, History, Trophy,
   ChevronRight, TrendingUp, Target, Zap, Clock,
-  CheckCircle2, XCircle, AlertCircle
+  CheckCircle2, XCircle, AlertCircle, Heart
 } from 'lucide-react';
 import Link from 'next/link';
+import DonationModal from '@/components/DonationModal';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
@@ -37,6 +38,7 @@ export default function DashboardPage() {
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [statsLoading, setStatsLoading] = useState(true);
   const [leaderboardLoading, setLeaderboardLoading] = useState(true);
+  const [isDonationOpen, setIsDonationOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -251,6 +253,26 @@ export default function DashboardPage() {
               </Link>
             </div>
 
+            {/* Donation Card */}
+            <div className="bg-gradient-to-br from-indigo-900/40 to-slate-900 border border-indigo-500/20 rounded-3xl p-6">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="p-1.5 bg-pink-500/20 rounded-lg">
+                  <Heart className="h-4 w-4 text-pink-500 fill-pink-500" />
+                </div>
+                <h2 className="text-sm font-bold text-slate-100 italic">Tip Jar</h2>
+              </div>
+              <p className="text-xs text-slate-400 mb-4 leading-relaxed">
+                Platform ini gratis untuk semua. Dukung sistem kami agar tetap stabil dan up-to-date.
+              </p>
+              <Button 
+                onClick={() => setIsDonationOpen(true)}
+                className="w-full bg-pink-600 hover:bg-pink-700 text-white rounded-xl shadow-lg shadow-pink-500/20 group"
+              >
+                Kirim Dukungan
+                <Heart className="w-3.5 h-3.5 ml-2 group-hover:scale-125 transition-transform fill-white" />
+              </Button>
+            </div>
+
             {/* Quick Nav Cards */}
             <div className="grid grid-cols-1 gap-3">
               <QuickNavCard
@@ -281,8 +303,12 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
-
       </main>
+
+      <DonationModal 
+        isOpen={isDonationOpen} 
+        onClose={() => setIsDonationOpen(false)} 
+      />
     </div>
   );
 }
