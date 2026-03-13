@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import {
   LogOut, User, BookOpen, History, Trophy,
   ChevronRight, TrendingUp, Target, Zap, Clock,
-  CheckCircle2, XCircle, AlertCircle, Heart
+  CheckCircle2, XCircle, AlertCircle, Heart,
+  ShieldCheck, Quote
 } from 'lucide-react';
 import Link from 'next/link';
 import DonationModal from '@/components/DonationModal';
@@ -403,6 +404,59 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* Developer Greeting & Motivation Card */}
+        <section className="mt-20 px-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="relative overflow-hidden bg-slate-900/40 border border-slate-800/80 rounded-[2.5rem] p-8 md:p-12 group">
+              {/* Background Glow */}
+              <div className="absolute -top-24 -right-24 w-96 h-96 bg-indigo-500/10 blur-[100px] rounded-full" />
+              <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-purple-500/10 blur-[100px] rounded-full" />
+              
+              <div className="relative z-10 flex flex-col lg:flex-row items-center gap-10">
+                <div className="flex-1 space-y-6">
+                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-indigo-400 text-xs font-black uppercase tracking-widest">
+                    👋 Sepatah Kata dari Developer
+                  </div>
+                  <h3 className="text-2xl md:text-3xl font-black text-white italic leading-tight uppercase tracking-tight">
+                    "Platform ini bukan sekadar kode, <br/><span className="text-indigo-500">ini adalah bentuk dukungan saya untuk perjuangan kalian."</span>
+                  </h3>
+                  <div className="space-y-4 text-slate-400 text-base md:text-lg leading-relaxed font-medium">
+                    <p>
+                      Platform CAT CPNS ini dirancang, dibangun, dan dikelola secara mandiri oleh satu orang (**solo developer**). 
+                      Tujuan utamanya sederhana: mempermudah langkah kalian menuju impian menjadi ASN.
+                    </p>
+                    <p className="border-l-4 border-indigo-500/50 pl-4 py-2 bg-indigo-500/5 rounded-r-2xl italic text-white font-bold uppercase tracking-tight text-base">
+                      "Ingat, tidak ada jalan pintas menuju kesuksesan. NIP hanya bisa diraih dengan keringat, dedikasi, dan doa yang tak putus. Teruslah berjuang dan berikan yang terbaik!"
+                    </p>
+                  </div>
+                </div>
+
+                <div className="w-full lg:w-80 shrink-0">
+                  <div className="bg-slate-950/60 border border-slate-800 p-6 rounded-3xl space-y-4 shadow-2xl">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-2xl bg-indigo-500/20 flex items-center justify-center">
+                        <Zap className="h-5 w-5 text-indigo-400" />
+                      </div>
+                      <span className="text-xs font-black text-white uppercase tracking-widest">Butuh Bantuan?</span>
+                    </div>
+                    <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                      Punya saran fitur, menemukan kendala, atau butuh bantuan? Jangan ragu hubungi saya langsung.
+                    </p>
+                    <a 
+                      href="https://wa.me/6282319401259" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-2 w-full py-4 bg-white text-slate-950 font-black rounded-2xl hover:bg-indigo-50 transition-all active:scale-95 group"
+                    >
+                      Hubungi via WA <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* Premium Achievement Section (Footer) */}
         <section className="pt-40 border-t border-slate-800/50">
