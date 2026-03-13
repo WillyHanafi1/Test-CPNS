@@ -72,7 +72,7 @@ export default function SupportHubPage() {
 
           {/* Top Donors - 1/3 width */}
           <div className="space-y-6">
-            <Card className="bg-slate-900/60 border-indigo-500/20 shadow-xl overflow-hidden">
+            <Card className="bg-slate-900/60 border-indigo-500/20 shadow-xl overflow-hidden h-full">
                 <CardHeader className="bg-gradient-to-br from-indigo-900/40 to-slate-900 border-b border-slate-800">
                     <div className="flex items-center gap-2">
                         <Trophy className="h-5 w-5 text-amber-400" />
@@ -112,13 +112,18 @@ export default function SupportHubPage() {
                     )}
                 </CardContent>
             </Card>
-
-            <div className="p-6 bg-gradient-to-br from-slate-900 to-indigo-900/20 rounded-3xl border border-slate-800 text-center space-y-3">
-                <Zap className="h-8 w-8 text-indigo-400 mx-auto" />
-                <h4 className="font-bold text-white italic">Transparan & Aman</h4>
-                <p className="text-xs text-slate-500 italic">Semua dukungan langsung digunakan untuk pengembangan platform.</p>
-            </div>
           </div>
+        </div>
+
+        {/* Accountability Message at the bottom */}
+        <div className="flex flex-col items-center justify-center pt-10 text-center space-y-4 border-t border-slate-900/50">
+            <div className="flex items-center gap-3 bg-slate-900/50 px-6 py-3 rounded-2xl border border-slate-800">
+                <Zap className="h-5 w-5 text-indigo-400" />
+                <span className="font-bold text-white italic">Transparan & Aman</span>
+            </div>
+            <p className="text-sm text-slate-500 italic max-w-md">
+                "Semua dukungan langsung digunakan untuk pengembangan platform."
+            </p>
         </div>
       </main>
 
