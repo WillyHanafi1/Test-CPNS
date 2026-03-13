@@ -8,6 +8,7 @@ export interface Column<T> {
   accessor?: keyof T;
   render?: (item: T) => React.ReactNode;
   className?: string;
+  id?: string;
 }
 
 interface AdminDataTableProps<T> {
@@ -16,6 +17,9 @@ interface AdminDataTableProps<T> {
   loading?: boolean;
   emptyIcon?: React.ReactNode;
   emptyText?: string;
+  selectedIds?: Set<string | number>;
+  onSelectToggle?: (id: string | number) => void;
+  onSelectAll?: (allIds: (string | number)[]) => void;
 }
 
 export function AdminDataTable<T extends { id: string | number }>({
@@ -24,13 +28,28 @@ export function AdminDataTable<T extends { id: string | number }>({
   loading = false,
   emptyIcon,
   emptyText = "Belum ada data ditemukan",
+  selectedIds = new Set(),
+  onSelectToggle,
+  onSelectAll,
 }: AdminDataTableProps<T>) {
+  const isAllSelected = data.length > 0 && selectedIds.size === data.length;
+
   return (
-    <div className="bg-slate-900/20 border border-slate-800/40 rounded-[2.5rem] overflow-hidden">
+    <div className="bg-slate-900/20 border border-slate-800/40 rounded-[2.5rem] overflow-hidden shadow-2xl">
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-slate-900/50 border-b border-slate-800">
+              {onSelectAll && (
+                <th className="px-8 py-6 w-10">
+                  <input 
+                    type="checkbox" 
+                    className="w-4 h-4 rounded border-slate-700 bg-slate-950 accent-indigo-500 cursor-pointer"
+                    checked={isAllSelected}
+                    onChange={() => onSelectAll(data.map(d => d.id))}
+                  />
+                </th>
+              )}
               {columns.map((col, idx) => (
                 <th
                   key={idx}
@@ -52,7 +71,22 @@ export function AdminDataTable<T extends { id: string | number }>({
               ))
             ) : data.length > 0 ? (
               data.map((item) => (
-                <tr key={item.id} className="hover:bg-slate-900/30 transition-colors group">
+                <tr 
+                  key={item.id} 
+                  className={`hover:bg-slate-900/40 transition-all group border-b border-slate-800/30 font-medium ${
+                    selectedIds.has(item.id) ? 'bg-indigo-500/5' : ''
+                  }`}
+                >
+                  {onSelectToggle && (
+                    <td className="px-8 py-6">
+                      <input 
+                        type="checkbox" 
+                        className="w-4 h-4 rounded border-slate-700 bg-slate-950 accent-indigo-500 cursor-pointer"
+                        checked={selectedIds.has(item.id)}
+                        onChange={() => onSelectToggle(item.id)}
+                      />
+                    </td>
+                  )}
                   {columns.map((col, idx) => (
                     <td key={idx} className={`px-8 py-6 ${col.className || ''}`}>
                       {col.render ? col.render(item) : col.accessor ? String(item[col.accessor]) : null}

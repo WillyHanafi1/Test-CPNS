@@ -26,39 +26,68 @@ import {
   AdminPageHeader, 
   AdminDataTable, 
   AdminPagination, 
+  ConfirmModal,
   Column 
 } from '@/components/admin';
+import { useQuestions } from '@/hooks/useQuestions';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
 export default function QuestionsAdmin() {
-  const [questions, setQuestions] = useState<any[]>([]);
+  const {
+    questions,
+    loading,
+    total,
+    page,
+    setPage,
+    search,
+    setSearch,
+    selectedPackage,
+    setSelectedPackage,
+    message,
+    setMessage,
+    selectedIds,
+    setSelectedIds,
+    fetchQuestions,
+    deleteQuestion,
+    bulkDeleteQuestions,
+    toggleSelect,
+    toggleSelectAll
+  } = useQuestions();
+
   const [packages, setPackages] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState('');
-  const [selectedPackage, setSelectedPackage] = useState('');
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importLoading, setImportLoading] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importPackageId, setImportPackageId] = useState('');
   const [importErrors, setImportErrors] = useState<string[]>([]);
-  const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
+  
+  // Drawer State
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [currentQuestion, setCurrentQuestion] = useState<any>({
+    content: '',
+    segment: 'TWK',
+    number: 1,
+    image_url: '',
+    discussion: '',
+    options: [
+      { label: 'A', content: '', score: 0 },
+      { label: 'B', content: '', score: 0 },
+      { label: 'C', content: '', score: 0 },
+      { label: 'D', content: '', score: 0 },
+      { label: 'E', content: '', score: 0 },
+    ]
+  });
+
+  const [formLoading, setFormLoading] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<any>(null);
+  const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
 
   useEffect(() => {
     fetchPackages();
   }, []);
-
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      // Hanya reset ke halaman 1 jika user mulai mencari
-      if (search !== '') setPage(1); 
-      fetchQuestions();
-    }, 500);
-
-    return () => clearTimeout(delayDebounceFn);
-  }, [search, page, selectedPackage]);
 
   const fetchPackages = async () => {
     try {
@@ -73,27 +102,80 @@ export default function QuestionsAdmin() {
     }
   };
 
-  const fetchQuestions = async () => {
-    setLoading(true);
+  const handleDelete = async (questionId: string) => {
+    await deleteQuestion(questionId);
+    setDeleteConfirmOpen(false);
+    setItemToDelete(null);
+  };
+
+  const handleBulkDelete = async () => {
+    await bulkDeleteQuestions();
+    setBulkDeleteConfirmOpen(false);
+  };
+
+  const saveQuestion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormLoading(true);
+    
     try {
-      let url = `${API_URL}/api/v1/admin/questions?page=${page}&size=10`;
-      if (selectedPackage) url += `&package_id=${selectedPackage}`;
-      if (search) url += `&search=${encodeURIComponent(search)}`;
+      const isNew = !isEditing;
+      const url = isNew 
+        ? `${API_URL}/api/v1/admin/questions` 
+        : `${API_URL}/api/v1/admin/questions/${currentQuestion.id}`;
       
-      const response = await fetch(url, { 
+      const method = isNew ? 'POST' : 'PUT';
+      
+      const payload = { 
+        ...currentQuestion,
+        // Ensure option IDs are present if they exist in the incoming object for Upsert support
+        options: currentQuestion.options.map((opt: any) => ({
+          id: opt.id || undefined,
+          label: opt.label,
+          content: opt.content,
+          image_url: opt.image_url,
+          score: opt.score
+        }))
+      };
+      
+      if (isNew) payload.package_id = selectedPackage || importPackageId;
+
+      const response = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include' 
+        body: JSON.stringify(payload),
+        credentials: 'include'
       });
-      if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-      
-      const data = await response.json();
-      setQuestions(data.items);
-      setTotal(data.total);
-    } catch (error) {
-      console.error("Fetch questions error:", error);
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.detail || 'Gagal menyimpan soal');
+      }
+
+      setMessage({ type: 'success', text: `Soal berhasil ${isNew ? 'ditambah' : 'diupdate'}` });
+      setIsDrawerOpen(false);
+      fetchQuestions();
+    } catch (error: any) {
+      setMessage({ type: 'error', text: error.message });
     } finally {
-      setLoading(false);
+      setFormLoading(false);
     }
+  };
+
+  // --- SEGMENT AWARE SCORING ---
+  const handleScoreChange = (index: number, value: number) => {
+    const updatedOptions = [...currentQuestion.options];
+    
+    if (currentQuestion.segment === 'TKP') {
+      // TKP: All options can have scores 1-5
+      updatedOptions[index].score = value;
+    } else {
+      // TWK/TIU: Only one correct answer (score 5), others are 0
+      updatedOptions.forEach((opt, i) => {
+        opt.score = i === index ? 5 : 0;
+      });
+    }
+    
+    setCurrentQuestion({ ...currentQuestion, options: updatedOptions });
   };
 
   const handleImport = async (e: React.FormEvent) => {
@@ -179,10 +261,27 @@ export default function QuestionsAdmin() {
       className: 'text-center',
       render: (q) => (
         <div className="flex items-center justify-center space-x-2">
-          <Button variant="ghost" size="icon" className="w-10 h-10 rounded-xl hover:bg-slate-800 hover:text-white transition-all">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="w-10 h-10 rounded-xl hover:bg-slate-800 hover:text-white transition-all"
+            onClick={() => {
+              setIsEditing(true);
+              setCurrentQuestion({...q});
+              setIsDrawerOpen(true);
+            }}
+          >
             <Edit className="w-4 h-4" />
           </Button>
-          <Button variant="ghost" size="icon" className="w-10 h-10 rounded-xl hover:bg-rose-500/10 hover:text-rose-400 transition-all">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="w-10 h-10 rounded-xl hover:bg-rose-500/10 hover:text-rose-400 transition-all"
+            onClick={() => {
+              setItemToDelete(q);
+              setDeleteConfirmOpen(true);
+            }}
+          >
             <Trash2 className="w-4 h-4" />
           </Button>
           <Button variant="ghost" size="icon" className="w-10 h-10 rounded-xl hover:bg-slate-800">
@@ -208,7 +307,27 @@ export default function QuestionsAdmin() {
               <Upload className="w-5 h-5 mr-2" />
               Import Excel
             </Button>
-            <Button className="bg-indigo-600 hover:bg-indigo-700 rounded-2xl py-6 px-10 font-bold shadow-xl shadow-indigo-600/20">
+            <Button 
+              className="bg-indigo-600 hover:bg-indigo-700 rounded-2xl py-6 px-10 font-bold shadow-xl shadow-indigo-600/20"
+              onClick={() => {
+                setIsEditing(false);
+                setCurrentQuestion({
+                  content: '',
+                  segment: 'TWK',
+                  number: (questions.length > 0 ? Math.max(...questions.map(q => q.number)) + 1 : 1),
+                  image_url: '',
+                  discussion: '',
+                  options: [
+                    { label: 'A', content: '', score: 0 },
+                    { label: 'B', content: '', score: 0 },
+                    { label: 'C', content: '', score: 0 },
+                    { label: 'D', content: '', score: 0 },
+                    { label: 'E', content: '', score: 0 },
+                  ]
+                });
+                setIsDrawerOpen(true);
+              }}
+            >
               <Plus className="w-5 h-5 mr-2" />
               Tambah Manual
             </Button>
@@ -265,6 +384,9 @@ export default function QuestionsAdmin() {
         loading={loading}
         emptyIcon={<BookOpen className="w-12 h-12 text-slate-800" />}
         emptyText="Belum ada soal ditemukan"
+        selectedIds={selectedIds}
+        onSelectToggle={toggleSelect}
+        onSelectAll={toggleSelectAll}
       />
 
       <AdminPagination 
@@ -272,6 +394,182 @@ export default function QuestionsAdmin() {
         total={total}
         pageSize={10}
         onPageChange={setPage}
+      />
+
+      {/* --- BULK ACTIONS TOOLBAR --- */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-8 duration-500">
+          <div className="bg-slate-900 border-2 border-slate-800 rounded-3xl py-4 px-8 shadow-2xl flex items-center space-x-6 backdrop-blur-xl bg-opacity-90">
+            <div className="flex items-center space-x-4 pr-6 border-r border-slate-800">
+               <div className="w-8 h-8 bg-indigo-500 rounded-xl flex items-center justify-center font-black text-xs">
+                 {selectedIds.size}
+               </div>
+               <span className="text-sm font-bold text-slate-300">Soal Terpilih</span>
+            </div>
+            <Button 
+               variant="ghost" 
+               className="text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 font-bold rounded-xl"
+               onClick={() => setBulkDeleteConfirmOpen(true)}
+            >
+               <Trash2 className="w-4 h-4 mr-2" />
+               Hapus Massal
+            </Button>
+            <Button 
+               variant="ghost" 
+               className="text-slate-400 hover:text-white font-bold rounded-xl"
+               onClick={() => setSelectedIds(new Set())}
+            >
+               <X className="w-4 h-4 mr-2" />
+               Batal
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* --- DRAWER EDITOR --- */}
+      {isDrawerOpen && (
+        <div className="fixed inset-0 z-[70] overflow-hidden">
+           <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity" onClick={() => setIsDrawerOpen(false)} />
+           <div className={`absolute top-0 right-0 h-full w-full max-w-2xl bg-slate-950 border-l border-slate-800 shadow-2xl transform transition-transform duration-500 ease-in-out overflow-y-auto ${isDrawerOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+              <div className="p-10 pb-32">
+                 <div className="flex items-center justify-between mb-10">
+                    <div>
+                       <h2 className="text-3xl font-black tracking-tight">{isEditing ? 'Edit Soal' : 'Tambah Soal Baru'}</h2>
+                       <p className="text-xs font-bold text-indigo-400 uppercase tracking-widest mt-1">CAT CPNS Engine Editor</p>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={() => setIsDrawerOpen(false)} className="rounded-2xl hover:bg-slate-900">
+                       <X className="w-6 h-6" />
+                    </Button>
+                 </div>
+
+                 <form onSubmit={saveQuestion} className="space-y-8">
+                    {/* Basic Info */}
+                    <div className="grid grid-cols-2 gap-4">
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Segmen / Kategori</label>
+                          <select 
+                            className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 text-sm font-bold text-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none appearance-none"
+                            value={currentQuestion.segment}
+                            onChange={(e) => setCurrentQuestion({...currentQuestion, segment: e.target.value})}
+                          >
+                             <option value="TWK">TWK (Wawasan Kebangsaan)</option>
+                             <option value="TIU">TIU (Intelegensia Umum)</option>
+                             <option value="TKP">TKP (Karakteristik Pribadi)</option>
+                          </select>
+                       </div>
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Nomor Soal</label>
+                          <Input 
+                             type="number"
+                             value={currentQuestion.number}
+                             onChange={(e) => setCurrentQuestion({...currentQuestion, number: parseInt(e.target.value)})}
+                             className="bg-slate-900 border-slate-800 p-7 rounded-2xl font-bold"
+                          />
+                       </div>
+                    </div>
+
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Konten Pertanyaan</label>
+                       <textarea 
+                          className="w-full h-40 bg-slate-900 border border-slate-800 rounded-2xl p-6 text-sm font-medium text-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none leading-relaxed"
+                          value={currentQuestion.content}
+                          onChange={(e) => setCurrentQuestion({...currentQuestion, content: e.target.value})}
+                          placeholder="Ketik pertanyaan di sini..."
+                       />
+                    </div>
+
+                    {/* Options */}
+                    <div className="space-y-4">
+                       <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">Pilihan Jawaban & Skor</label>
+                       <div className="space-y-3">
+                          {currentQuestion.options.map((opt: any, index: number) => (
+                             <div key={index} className="flex gap-3 group">
+                                <div className="w-12 h-12 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center font-black text-slate-500 group-hover:border-indigo-500 group-hover:text-indigo-400 transition-colors">
+                                   {opt.label}
+                                </div>
+                                <Input 
+                                   className="flex-1 bg-slate-900 border-slate-800 p-6 rounded-2xl text-sm"
+                                   value={opt.content}
+                                   onChange={(e) => {
+                                      const newOpts = [...currentQuestion.options];
+                                      newOpts[index].content = e.target.value;
+                                      setCurrentQuestion({...currentQuestion, options: newOpts});
+                                   }}
+                                   placeholder={`Opsi ${opt.label}...`}
+                                />
+                                {currentQuestion.segment === 'TKP' ? (
+                                   <select 
+                                      className="w-20 bg-slate-900 border border-slate-800 rounded-2xl px-3 text-xs font-black text-indigo-400 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                      value={opt.score}
+                                      onChange={(e) => handleScoreChange(index, parseInt(e.target.value))}
+                                   >
+                                      {[1,2,3,4,5].map(v => <option key={v} value={v}>{v} Poin</option>)}
+                                   </select>
+                                ) : (
+                                   <div 
+                                      className={`w-12 h-12 rounded-2xl border flex items-center justify-center cursor-pointer transition-all ${
+                                         opt.score === 5 ? 'bg-indigo-500 border-indigo-400 text-white' : 'bg-slate-900 border-slate-800 text-slate-600 hover:border-indigo-500'
+                                      }`}
+                                      onClick={() => handleScoreChange(index, 5)}
+                                   >
+                                      <CheckCircle2 className="w-5 h-5" />
+                                   </div>
+                                )}
+                             </div>
+                          ))}
+                       </div>
+                    </div>
+
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Pembahasan (Opsional)</label>
+                       <textarea 
+                          className="w-full h-32 bg-slate-900 border border-slate-800 rounded-2xl p-6 text-sm font-medium text-slate-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none italic"
+                          value={currentQuestion.discussion || ''}
+                          onChange={(e) => setCurrentQuestion({...currentQuestion, discussion: e.target.value})}
+                          placeholder="Tuliskan pembahasan soal..."
+                       />
+                    </div>
+
+                    <div className="fixed bottom-0 right-0 w-full max-w-2xl bg-slate-950 p-6 border-t border-slate-800 flex space-x-4">
+                       <Button 
+                          type="button" 
+                          variant="ghost" 
+                          className="flex-1 py-7 rounded-2xl font-bold text-slate-400"
+                          onClick={() => setIsDrawerOpen(false)}
+                       >
+                          Batal
+                       </Button>
+                       <Button 
+                          type="submit" 
+                          className="flex-[2] bg-indigo-600 hover:bg-indigo-700 py-7 rounded-2xl font-bold shadow-xl shadow-indigo-600/20"
+                          disabled={formLoading}
+                       >
+                          {formLoading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <CheckCircle2 className="w-5 h-5 mr-2" />}
+                          Simpan Perubahan
+                       </Button>
+                    </div>
+                 </form>
+              </div>
+           </div>
+        </div>
+      )}
+
+      <ConfirmModal 
+        isOpen={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        onConfirm={() => itemToDelete && handleDelete(itemToDelete.id)}
+        title="Hapus Soal?"
+        description="Tindakan ini tidak dapat dibatalkan. Soal akan dihapus permanen dari database."
+        confirmText="Ya, Hapus"
+      />
+
+      <ConfirmModal 
+        isOpen={bulkDeleteConfirmOpen}
+        onClose={() => setBulkDeleteConfirmOpen(false)}
+        onConfirm={handleBulkDelete}
+        title="Hapus Massal?"
+        description={`Apakah Anda yakin ingin menghapus ${selectedIds.size} soal terpilih sekaligus?`}
+        confirmText="Ya, Hapus Semua"
       />
 
       {/* Import Modal */}

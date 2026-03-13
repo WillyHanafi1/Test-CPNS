@@ -93,15 +93,21 @@ async def list_questions(
     admin: User = Depends(get_current_admin)
 ):
     query = select(Question).options(selectinload(Question.options))
+    
+    # Base count query
+    count_query = select(func.count(Question.id))
+    
     if package_id:
         query = query.where(Question.package_id == package_id)
+        count_query = count_query.where(Question.package_id == package_id)
     if segment:
         query = query.where(Question.segment == segment)
+        count_query = count_query.where(Question.segment == segment)
     if search:
         query = query.where(Question.content.ilike(f"%{search}%"))
+        count_query = count_query.where(Question.content.ilike(f"%{search}%"))
     
-    # Count total
-    count_query = select(func.count()).select_from(query.subquery())
+    # Optimized Count
     total = await db.execute(count_query)
     total_count = total.scalar() or 0
     
@@ -116,6 +122,16 @@ async def list_questions(
         "page": page,
         "size": size
     }
+
+@router.delete("/bulk")
+async def bulk_delete_questions(
+    question_ids: List[uuid.UUID],
+    db: AsyncSession = Depends(get_async_session),
+    admin: User = Depends(get_current_admin)
+):
+    await db.execute(delete(Question).where(Question.id.in_(question_ids)))
+    await db.commit()
+    return {"message": f"{len(question_ids)} questions deleted successfully"}
 
 @router.post("", response_model=QuestionResponse, status_code=status.HTTP_201_CREATED)
 async def create_question(
@@ -200,21 +216,37 @@ async def update_question(
     for key, value in update_data.items():
         setattr(question, key, value)
         
-    # Update options logic (delete-recreate strategy)
+    # Update options logic (Upsert Strategy - preserve IDs)
     if question_in.options is not None:
-        # Delete old options
-        await db.execute(delete(QuestionOption).where(QuestionOption.question_id == question_id))
-        
-        # Insert new options
-        for opt in question_in.options:
-            new_opt = QuestionOption(
-                question_id=question.id,
-                label=opt.label,
-                content=opt.content,
-                image_url=opt.image_url,
-                score=opt.score
-            )
-            db.add(new_opt)
+        incoming_options = question_in.options
+        existing_options = {opt.id: opt for opt in question.options} if question.options else {}
+        incoming_ids = {opt.id for opt in incoming_options if opt.id}
+
+        # 1. Delete options that are not in incoming payload
+        if question.options:
+            for opt_id in list(existing_options.keys()):
+                if opt_id not in incoming_ids:
+                    await db.delete(existing_options[opt_id])
+
+        # 2. Update existing or Create new
+        for opt_in in incoming_options:
+            if opt_in.id and opt_in.id in existing_options:
+                # Update
+                target_opt = existing_options[opt_in.id]
+                target_opt.label = opt_in.label
+                target_opt.content = opt_in.content
+                target_opt.image_url = opt_in.image_url
+                target_opt.score = opt_in.score
+            else:
+                # Create NEW
+                new_opt = QuestionOption(
+                    question_id=question.id,
+                    label=opt_in.label,
+                    content=opt_in.content,
+                    image_url=opt_in.image_url,
+                    score=opt_in.score
+                )
+                db.add(new_opt)
             
     await db.commit()
     await db.refresh(question)
