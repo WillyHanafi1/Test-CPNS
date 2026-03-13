@@ -22,7 +22,7 @@ export default function LandingPage() {
       <section className="relative pt-24 pb-32 px-4">
         <div className="max-w-7xl mx-auto text-center">
           <div className="inline-flex items-center space-x-2 bg-indigo-500/10 border border-indigo-500/20 rounded-full py-1.5 px-4 mb-8 translate-y-0 opacity-100 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <span className="bg-indigo-500 text-white text-[10px] uppercase font-bold py-0.5 px-2 rounded h-5">Baru</span>
+            <Badge className="bg-indigo-500 text-white text-[10px] uppercase font-bold px-2 rounded h-5">Baru</Badge>
             <span className="text-xs font-medium text-indigo-400">Update Soal SKD & SKB 2026 Terbaru</span>
           </div>
           <h1 className="text-5xl md:text-8xl font-black tracking-tight mb-8 leading-[1.05] animate-in fade-in slide-in-from-bottom-6 duration-1000">
@@ -52,8 +52,8 @@ export default function LandingPage() {
       <section className="py-32 relative">
         <div className="max-w-4xl mx-auto px-4">
           <div className="text-center mb-16 space-y-4">
-             <HelpCircle className="w-12 h-12 text-indigo-500 mx-auto opacity-50 mb-4" />
-             <h2 className="text-4xl font-black tracking-tight">Pertanyaan Umum.</h2>
+            <HelpCircle className="w-12 h-12 text-indigo-500 mx-auto opacity-50 mb-4" />
+            <h2 className="text-4xl font-black tracking-tight">Pertanyaan Umum.</h2>
           </div>
           <div className="space-y-6">
             <FAQItem question="Bagaimana cara aktivasi akun PRO?" answer="Cukup daftar akun, masuk ke Katalog, dan pilih paket PRO. Pembayaran menggunakan Midtrans (E-wallet, Transfer, QRIS) dengan aktivasi instan otomatis." />
@@ -67,21 +67,21 @@ export default function LandingPage() {
       <section className="py-32 px-4 relative overflow-hidden">
         <div className="absolute inset-0 bg-indigo-600/10 opacity-50" />
         <div className="max-w-7xl mx-auto relative">
-           <div className="bg-gradient-to-br from-indigo-900 to-indigo-600 rounded-[3rem] p-16 md:p-24 text-center space-y-10 shadow-3xl">
-              <h2 className="text-4xl md:text-6xl font-black text-white leading-tight">
-                Masa Depan Anda <br /> Dimulai Hari Ini.
-              </h2>
-              <p className="text-indigo-100 text-xl max-w-2xl mx-auto opacity-80">
-                Jangan biarkan mimpi Anda menjadi ASN terhambat hanya karena kurang simulasi. Gabung dengan 50rb+ pejuang lainnya.
-              </p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-4">
-                <Link href="/register" className="w-full sm:w-auto">
-                  <Button className="h-16 px-12 text-xl font-black bg-white text-indigo-600 hover:bg-slate-100 rounded-2xl w-full shadow-2xl">
-                    Ambil Kesempatan Ini
-                  </Button>
-                </Link>
-              </div>
-           </div>
+          <div className="bg-gradient-to-br from-indigo-900 to-indigo-600 rounded-[3rem] p-16 md:p-24 text-center space-y-10 shadow-3xl">
+            <h2 className="text-4xl md:text-6xl font-black text-white leading-tight">
+              Masa Depan Anda <br /> Dimulai Hari Ini.
+            </h2>
+            <p className="text-indigo-100 text-xl max-w-2xl mx-auto opacity-80">
+              Jangan biarkan mimpi Anda menjadi ASN terhambat hanya karena kurang simulasi. Gabung dengan 50rb+ pejuang lainnya.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-4">
+              <Link href="/register" className="w-full sm:w-auto">
+                <Button className="h-16 px-12 text-xl font-black bg-white text-indigo-600 hover:bg-slate-100 rounded-2xl w-full shadow-2xl">
+                  Ambil Kesempatan Ini
+                </Button>
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -106,8 +106,8 @@ export default function LandingPage() {
               </ul>
             </div>
             <div>
-               <h4 className="font-bold mb-6 text-white uppercase text-xs tracking-widest">Dukungan</h4>
-               <ul className="space-y-4 text-sm text-slate-500">
+              <h4 className="font-bold mb-6 text-white uppercase text-xs tracking-widest">Dukungan</h4>
+              <ul className="space-y-4 text-sm text-slate-500">
                 <li><Link href="/support" className="hover:text-indigo-400 transition-colors">Support Hub</Link></li>
                 <li><Link href="/faq" className="hover:text-indigo-400 transition-colors">Pusat Bantuan</Link></li>
               </ul>
