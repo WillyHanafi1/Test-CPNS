@@ -30,6 +30,7 @@ services:
       - MIDTRANS_CLIENT_KEY=${MIDTRANS_CLIENT_KEY}
       - MIDTRANS_IS_PRODUCTION=${MIDTRANS_IS_PRODUCTION:-False}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
     depends_on:
       redis:
         condition: service_healthy
@@ -40,11 +41,12 @@ services:
       dockerfile: Dockerfile
     container_name: cat_worker
     restart: unless-stopped
-    command: celery -A backend.core.celery_app.celery_app worker --loglevel=info
+    command: celery -A backend.core.celery_app.celery_app worker --loglevel=${LOG_LEVEL:-INFO}
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=redis://redis:6379/0
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
     depends_on:
       redis:
         condition: service_healthy

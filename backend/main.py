@@ -15,7 +15,7 @@ from backend.config import settings
 
 import logging
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=settings.LOG_LEVEL.upper())
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
