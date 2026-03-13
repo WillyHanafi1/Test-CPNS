@@ -399,11 +399,20 @@ async def get_leaderboard(
             else:
                 display_name = email[:3] + "***"
 
-        # Potong 9 digit terakhir dengan membaginya menggunakan 10^9 (Integer Division)
-        # Misal: 400225100075 // 1000000000 = 400
+        # Decode Packed Score (Tie-Breaker Pattern)
+        # Total score: (total * 10^9) + (tkp * 10^6) + (tiu * 10^3) + twk
+        packed_score = int(score_map[email])
+        score_total = packed_score // 1000000000
+        score_tkp = (packed_score % 1000000000) // 1000000
+        score_tiu = (packed_score % 1000000) // 1000
+        score_twk = packed_score % 1000
+
         leaderboard.append({
             "name": display_name,
-            "score": int(score_map[email]) // 1000000000, # Decode integer shift
+            "score": score_total,
+            "score_twk": score_twk,
+            "score_tiu": score_tiu,
+            "score_tkp": score_tkp,
             "target": user.profile.target_instansi if user and user.profile else "Umum"
         })
         
@@ -445,11 +454,15 @@ async def get_my_rank(
     score = await redis_service.redis.zscore(lb_key, current_user.email)
     
     if rank is None:
-        return {"rank": None, "score": 0}
+        return {"rank": None, "score": 0, "score_twk": 0, "score_tiu": 0, "score_tkp": 0}
         
+    packed_score = int(score) if score is not None else 0
     return {
         "rank": rank + 1, # Convert to 1-indexed
-        "score": int(score) // 1000000000 if score is not None else 0
+        "score": packed_score // 1000000000,
+        "score_twk": packed_score % 1000,
+        "score_tiu": (packed_score % 1000000) // 1000,
+        "score_tkp": (packed_score % 1000000000) // 1000000
     }
 
 @router.get("/sessions/me", response_model=List[ExamSessionListItem])

@@ -8,6 +8,9 @@ import Link from 'next/link';
 interface LeaderboardEntry {
   name: string;
   score: number;
+  score_twk?: number;
+  score_tiu?: number;
+  score_tkp?: number;
   target: string;
 }
 
@@ -21,6 +24,13 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
 export default function NationalRankingTable({ packageId, packageTitle, currentUserEmail }: NationalRankingTableProps) {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [myRank, setMyRank] = useState<{ 
+    rank: number | null, 
+    score: number,
+    score_twk?: number,
+    score_tiu?: number,
+    score_tkp?: number
+  } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -29,12 +39,21 @@ export default function NationalRankingTable({ packageId, packageTitle, currentU
       return;
     }
 
-    const fetchLeaderboard = async () => {
+    const fetchData = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/v1/exam/leaderboard/${packageId}?limit=10`, { credentials: 'include' });
-        if (res.ok) {
-          const data = await res.json();
+        const [lbRes, rankRes] = await Promise.all([
+          fetch(`${API_URL}/api/v1/exam/leaderboard/${packageId}?limit=10`, { credentials: 'include' }),
+          fetch(`${API_URL}/api/v1/exam/my-rank/${packageId}`, { credentials: 'include' })
+        ]);
+        
+        if (lbRes.ok) {
+          const data = await lbRes.json();
           setLeaderboard(data);
+        }
+        
+        if (rankRes.ok) {
+          const rankData = await rankRes.json();
+          setMyRank(rankData);
         }
       } catch (err) {
         console.error("Failed to fetch national ranking", err);
@@ -43,7 +62,7 @@ export default function NationalRankingTable({ packageId, packageTitle, currentU
       }
     };
 
-    fetchLeaderboard();
+    fetchData();
   }, [packageId]);
 
   if (loading) {
@@ -83,8 +102,10 @@ export default function NationalRankingTable({ packageId, packageTitle, currentU
             <tr className="border-b border-slate-800/50">
               <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Rank</th>
               <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Peserta</th>
-              <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 hidden md:table-cell">Target Instansi</th>
-              <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 text-right">Skor Total</th>
+              <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 text-center hidden sm:table-cell">TWK</th>
+              <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 text-center hidden sm:table-cell">TIU</th>
+              <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 text-center hidden sm:table-cell">TKP</th>
+              <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 text-right">Total</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/30">
@@ -96,11 +117,9 @@ export default function NationalRankingTable({ packageId, packageTitle, currentU
               return (
                 <tr key={idx} className="group hover:bg-slate-800/30 transition-colors">
                   <td className="px-6 py-5">
-                    <div className="flex items-center gap-3">
-                      <span className={`text-lg font-black italic tracking-tighter ${rankColor} w-6 text-center`}>
-                        {rank}
-                      </span>
-                    </div>
+                    <span className={`text-lg font-black italic tracking-tighter ${rankColor} w-6 text-center`}>
+                      {rank}
+                    </span>
                   </td>
                   <td className="px-6 py-5">
                     <div className="flex items-center gap-3">
@@ -111,22 +130,72 @@ export default function NationalRankingTable({ packageId, packageTitle, currentU
                         <p className="font-bold text-slate-200 group-hover:text-white transition-colors text-sm uppercase tracking-tight">
                           {item.name}
                         </p>
-                        <p className="text-[10px] text-slate-500 font-medium md:hidden">{item.target}</p>
+                        <p className="text-[10px] text-slate-500 font-medium sm:hidden">
+                          {item.score_twk || 0}/{item.score_tiu || 0}/{item.score_tkp || 0}
+                        </p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-5 hidden md:table-cell">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{item.target}</span>
+                  <td className="px-4 py-5 text-center hidden sm:table-cell">
+                    <span className="text-sm font-bold text-slate-400">{item.score_twk || 0}</span>
+                  </td>
+                  <td className="px-4 py-5 text-center hidden sm:table-cell">
+                    <span className="text-sm font-bold text-slate-400">{item.score_tiu || 0}</span>
+                  </td>
+                  <td className="px-4 py-5 text-center hidden sm:table-cell">
+                    <span className="text-sm font-bold text-orange-400/80">{item.score_tkp || 0}</span>
                   </td>
                   <td className="px-6 py-5 text-right">
                     <span className="text-2xl font-black text-white italic tracking-tighter group-hover:scale-110 transition-transform inline-block">
                       {item.score}
                     </span>
-                    <span className="text-[10px] font-black uppercase tracking-tighter text-indigo-500 ml-1">Pts</span>
                   </td>
                 </tr>
               );
             })}
+
+            {/* Sticky Row for User (Rank > 10) */}
+            {myRank && myRank.rank && myRank.rank > 10 && (
+                <tr className="bg-indigo-600/10 border-t-2 border-indigo-500/30 relative z-10">
+                  <td className="px-6 py-5">
+                    <span className="text-lg font-black italic tracking-tighter text-indigo-400 w-6 text-center">
+                      {myRank.rank}
+                    </span>
+                  </td>
+                  <td className="px-6 py-5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center border bg-indigo-600 border-indigo-500 shadow-lg shadow-indigo-600/20">
+                        <User className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-white text-sm uppercase tracking-tight">
+                          Anda (Peringkat Nasional)
+                        </p>
+                        <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest animate-pulse sm:hidden">
+                          {myRank.score_twk || 0}/{myRank.score_tiu || 0}/{myRank.score_tkp || 0}
+                        </p>
+                        <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest hidden sm:block">
+                          Terus Berjuang!
+                        </p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-5 text-center hidden sm:table-cell">
+                    <span className="text-sm font-bold text-indigo-300/80">{myRank.score_twk || 0}</span>
+                  </td>
+                  <td className="px-4 py-5 text-center hidden sm:table-cell">
+                    <span className="text-sm font-bold text-indigo-300/80">{myRank.score_tiu || 0}</span>
+                  </td>
+                  <td className="px-4 py-5 text-center hidden sm:table-cell">
+                    <span className="text-sm font-bold text-orange-400/80">{myRank.score_tkp || 0}</span>
+                  </td>
+                  <td className="px-6 py-5 text-right">
+                    <span className="text-2xl font-black text-white italic tracking-tighter">
+                      {myRank.score}
+                    </span>
+                  </td>
+                </tr>
+            )}
           </tbody>
         </table>
         

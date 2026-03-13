@@ -405,15 +405,8 @@ export default function DashboardPage() {
         </div>
 
         {/* Premium Achievement Section (Footer) */}
-        <section className="pt-20 border-t border-slate-800/50 space-y-16">
-          <NationalRankingTable 
-            packageId={weeklyPackage?.id} 
-            packageTitle={weeklyPackage?.title} 
-          />
-          
-          <div className="pt-10 border-t border-slate-800/30">
-            <WallOfFame limit={12} compact />
-          </div>
+        <section className="pt-20 border-t border-slate-800/50">
+          <WallOfFame limit={12} compact />
         </section>
       </main>
 

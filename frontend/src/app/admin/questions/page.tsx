@@ -91,12 +91,19 @@ export default function QuestionsAdmin() {
 
   const fetchPackages = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/v1/admin/packages`, { 
+      // Peningkatan limit (size=100) agar semua paket muncul di dropdown admin
+      const response = await fetch(`${API_URL}/api/v1/admin/packages?size=100`, { 
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include' 
       });
       const data = await response.json();
-      setPackages(Array.isArray(data) ? data : []);
+      
+      // FIX: Backend mengirimkan { items: [], total: x, ... }, bukan Array langsung
+      if (data && data.items && Array.isArray(data.items)) {
+        setPackages(data.items);
+      } else {
+        setPackages(Array.isArray(data) ? data : []);
+      }
     } catch (error) {
       console.error("Fetch packages error:", error);
     }
