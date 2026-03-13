@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.pool import NullPool
 
 from backend.core.celery_app import celery_app
-from backend.models.models import ExamSession, Question, Answer
+from backend.models.models import ExamSession, Question, Answer, Package
 from backend.core.redis_service import redis_service
 from backend.config import settings
 

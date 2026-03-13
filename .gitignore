@@ -26,3 +26,4 @@ postgres_data/
 
 # Local Dev scripts
 start-dev.bat
+dev.bat
