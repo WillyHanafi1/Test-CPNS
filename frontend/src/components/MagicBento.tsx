@@ -386,9 +386,9 @@ const MagicBento = ({
     {
       label: 'Support',
       title: 'Butuh Bantuan?',
-      description: 'Jangan ragu hubungi saya via WA di 0823-1940-1259 untuk saran atau kendala.',
+      description: 'Jangan ragu hubungi saya via WA di 0851-1762-3819 untuk saran atau kendala.',
       icon: <MessageCircle className="w-5 h-5 text-indigo-400" />,
-      link: "https://wa.me/6282319401259"
+      link: "https://wa.me/6285117623819"
     },
     {
       label: 'Motivation',
