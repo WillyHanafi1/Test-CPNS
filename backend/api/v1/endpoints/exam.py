@@ -95,15 +95,40 @@ async def start_exam(
                 detail="Akses Anda ke paket ini telah kedaluwarsa."
             )
 
-    # 2. Check for duplicate "ongoing" session
-    existing_result = await db.execute(
-        select(ExamSession).where(
-            ExamSession.user_id == current_user.id,
-            ExamSession.package_id == package_id,
-            ExamSession.status == "ongoing"
+    # 2. Check for duplicate "ongoing" session or finished session for Weekly TO
+    if package.is_weekly:
+        check_result = await db.execute(
+            select(ExamSession).where(
+                ExamSession.user_id == current_user.id,
+                ExamSession.package_id == package_id
+            ).order_by(ExamSession.start_time.desc()).limit(1)
         )
-    )
-    existing_session = existing_result.scalar_one_or_none()
+        last_session = check_result.scalar_one_or_none()
+        
+        if last_session:
+            if last_session.status == "finished":
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Anda sudah menyelesaikan Tryout ini. Tryout mingguan hanya dapat dikerjakan satu kali."
+                )
+            if last_session.status == "ongoing":
+                # Allow resume
+                await populate_valid_options(last_session.id)
+                return {
+                    "session_id": last_session.id,
+                    "package": package,
+                    "end_time": last_session.end_time.replace(tzinfo=timezone.utc)
+                }
+    else:
+        # Standard practice: check for duplicate "ongoing" session
+        existing_result = await db.execute(
+            select(ExamSession).where(
+                ExamSession.user_id == current_user.id,
+                ExamSession.package_id == package_id,
+                ExamSession.status == "ongoing"
+            )
+        )
+        existing_session = existing_result.scalar_one_or_none()
     
     # --- TAMBAHKAN HELPER FUNCTION INI ---
     async def populate_valid_options(sess_id: uuid.UUID):
@@ -114,15 +139,6 @@ async def start_exam(
             await redis_service.redis.expire(valid_options_key, 10800)
     # -------------------------------------
 
-    if existing_session:
-        # PANGGIL HELPER DI SINI AGAR REDIS SET TERISI SAAT RESUME
-        await populate_valid_options(existing_session.id)
-        
-        return {
-            "session_id": existing_session.id,
-            "package": package,
-            "end_time": existing_session.end_time.replace(tzinfo=timezone.utc)
-        }
 
     # 3. Create session in DB
     # Standard SKD time is 100 minutes
@@ -293,6 +309,7 @@ async def finish_exam(
             await db.refresh(session)
             return {
                 "status": "finished",
+                "package_id": str(session.package_id),
                 "total_score": getattr(session, 'total_score', 0) or 0,
                 "score_twk": scoring_result.get('score_twk', getattr(session, 'score_twk', 0)) or 0,
                 "score_tiu": scoring_result.get('score_tiu', getattr(session, 'score_tiu', 0)) or 0,
@@ -328,22 +345,30 @@ async def get_exam_result(
     
     return {
         "status": session.status,
+        "package_id": str(session.package_id),
         "total_score": getattr(session, 'total_score', 0) or 0,
         "score_twk": getattr(session, 'score_twk', 0) or 0,
         "score_tiu": getattr(session, 'score_tiu', 0) or 0,
         "score_tkp": getattr(session, 'score_tkp', 0) or 0
     }
 
-@router.get("/national-leaderboard")
+@router.get("/leaderboard/{package_id}")
 async def get_leaderboard(
+    package_id: uuid.UUID,
     limit: int = 50,
     db: AsyncSession = Depends(get_async_session)
 ):
+    """
+    Weekly Leaderboard based on Package ID.
+    Required for accuracy (prevents "ghosting" with empty national keys).
+    """
     # Ensure limit is reasonable
     limit = max(1, min(limit, 100))
     
-    # 1. Fetch from Redis ZSET
-    raw_leaderboard = await redis_service.redis.zrevrange("leaderboard:national", 0, limit - 1, withscores=True)
+    lb_key = f"leaderboard:weekly:{package_id}"
+
+    # Fetch from Redis ZSET
+    raw_leaderboard = await redis_service.redis.zrevrange(lb_key, 0, limit - 1, withscores=True)
     
     if not raw_leaderboard:
         return []
@@ -408,13 +433,16 @@ async def get_my_stats(
         "total_passed": stats.passed or 0
     }
 
-@router.get("/my-rank")
+@router.get("/my-rank/{package_id}")
 async def get_my_rank(
+    package_id: uuid.UUID,
     current_user: User = Depends(get_current_user)
 ):
-    # Get user's rank (0-indexed, so 0 is #1)
-    rank = await redis_service.redis.zrevrank("leaderboard:national", current_user.email)
-    score = await redis_service.redis.zscore("leaderboard:national", current_user.email)
+    # Get user's rank for specific Weekly TO
+    lb_key = f"leaderboard:weekly:{package_id}"
+        
+    rank = await redis_service.redis.zrevrank(lb_key, current_user.email)
+    score = await redis_service.redis.zscore(lb_key, current_user.email)
     
     if rank is None:
         return {"rank": None, "score": 0}

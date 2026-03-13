@@ -1,47 +1,74 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, Trophy, Medal, Home, ArrowLeft, User, TrendingUp } from 'lucide-react';
+import { Loader2, Trophy, Medal, Home, ArrowLeft, User, TrendingUp, AlertTriangle } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
 export default function LeaderboardPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const package_id = searchParams.get('package_id');
+  
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [myRank, setMyRank] = useState<{ rank: number | null, score: number } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!package_id) {
+      setError("Package ID required to view leaderboard.");
+      setLoading(false);
+      return;
+    }
+
     const fetchData = async () => {
       try {
         const [lbRes, rankRes] = await Promise.all([
-          fetch(`${API_URL}/api/v1/exam/national-leaderboard?limit=100`, { credentials: 'include' }),
-          fetch(`${API_URL}/api/v1/exam/my-rank`, { credentials: 'include' })
+          fetch(`${API_URL}/api/v1/exam/leaderboard/${package_id}?limit=100`, { credentials: 'include' }),
+          fetch(`${API_URL}/api/v1/exam/my-rank/${package_id}`, { credentials: 'include' })
         ]);
+        
+        if (!lbRes.ok) throw new Error("Gagal mengambil data peringkat.");
         
         const lbData = await lbRes.json();
         const rankData = await rankRes.json();
         
         setLeaderboard(lbData);
         setMyRank(rankData);
-      } catch (error) {
-        console.error("Fetch error:", error);
+      } catch (err: any) {
+        console.error("Fetch error:", err);
+        setError(err.message || "An unexpected error occurred.");
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, []);
+  }, [package_id]);
 
   if (loading) {
+// ...
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white">
         <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4" />
         <p className="text-slate-400 font-medium animate-pulse">Memuat Peringkat Nasional...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white p-4">
+        <AlertTriangle className="w-16 h-16 text-rose-500 mb-4" />
+        <h1 className="text-2xl font-bold mb-2">Gagal Memuat</h1>
+        <p className="text-slate-400 mb-8">{error}</p>
+        <Button onClick={() => router.push('/catalog')} className="bg-slate-800 hover:bg-slate-700">
+          Kembali ke Katalog
+        </Button>
       </div>
     );
   }

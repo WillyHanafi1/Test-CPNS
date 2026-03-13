@@ -13,7 +13,7 @@ from backend.schemas.package import (
 )
 from backend.core.redis_service import redis_service
 from sqlalchemy.orm import selectinload
-from backend.api.v1.endpoints.auth import get_current_user
+from backend.api.v1.endpoints.auth import get_current_user, get_optional_user
 from datetime import datetime, timezone
 
 router = APIRouter(prefix="/packages", tags=["packages"])
@@ -23,12 +23,13 @@ async def get_packages(
     skip: int = 0,
     limit: int = 10,
     category: Optional[str] = None,
-    search: Optional[str] = None,      # ← server-side search added
-    db: AsyncSession = Depends(get_async_session)
+    search: Optional[str] = None,
+    db: AsyncSession = Depends(get_async_session),
+    current_user: Optional[User] = Depends(get_optional_user)
 ):
     """
-    Public: List exam packages with optional category filter and server-side search.
-    Results are Redis-cached for 5 minutes.
+    Public Catalog: Lists packages.
+    If authenticated, includes user's current status (ongoing/finished).
     """
     cache_key = f"packages:{category}:{search}:{skip}:{limit}"
     cached_data = await redis_service.get_cache(cache_key)
@@ -48,15 +49,48 @@ async def get_packages(
     result = await db.execute(query)
     packages = result.scalars().all()
 
-    # Set cache (use SCAN-safe short key, not KEYS)
-    packages_data = [PackageSchema.model_validate(p).model_dump() for p in packages]
-    await redis_service.set_cache(cache_key, packages_data, expire=300)
+    # If user is logged in, get their session statuses
+    user_session_map = {}
+    if current_user:
+        from backend.models.models import ExamSession
+        from sqlalchemy import and_
+        package_ids = [p.id for p in packages]
+        sessions_result = await db.execute(
+            select(ExamSession.package_id, ExamSession.status)
+            .where(
+                and_(
+                    ExamSession.user_id == current_user.id,
+                    ExamSession.package_id.in_(package_ids)
+                )
+            )
+        )
+        # In case of multiple sessions (practice), 'finished' takes precedence, then 'ongoing'
+        for pkg_id, status_val in sessions_result:
+            if pkg_id not in user_session_map or status_val == "finished":
+                user_session_map[pkg_id] = status_val
 
-    return packages
+    # Construct response objects manually to include user_status
+    response_packages = []
+    for p in packages:
+        p_data = PackageSchema.model_validate(p)
+        p_data.user_status = user_session_map.get(p.id)
+        response_packages.append(p_data)
+
+    # Note: We skip caching for authenticated users to ensure status accuracy,
+    # or we could cache only the base query result.
+    if not current_user:
+        packages_data = [p.model_dump() for p in response_packages]
+        await redis_service.set_cache(cache_key, packages_data, expire=300)
+
+    return response_packages
 
 
 @router.get("/{package_id}", response_model=PackagePublic)
-async def get_package(package_id: uuid.UUID, db: AsyncSession = Depends(get_async_session)):
+async def get_package(
+    package_id: uuid.UUID,
+    db: AsyncSession = Depends(get_async_session),
+    current_user: Optional[User] = Depends(get_optional_user)
+):
     """
     Public: Package detail for catalog display — uses PackagePublic schema.
     SECURITY: PackagePublic excludes score and discussion fields.

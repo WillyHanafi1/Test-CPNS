@@ -285,7 +285,7 @@ export default function ResultPage() {
           </Button>
           <Button
             className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-7 px-10 rounded-3xl shadow-2xl shadow-indigo-600/20 group"
-            onClick={() => { resetExam(); router.push('/leaderboard'); }}
+            onClick={() => { resetExam(); router.push(`/leaderboard?package_id=${result.package_id}`); }}
           >
             <BarChart3 className="w-5 h-5 mr-3 group-hover:scale-110 transition-transform" />
             <span>Lihat Ranking Nasional</span>

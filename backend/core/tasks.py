@@ -113,20 +113,40 @@ async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: s
             print(f"DEBUG: Committing to database")
             await db.commit()
 
-            # Update leaderboard with Tie-Breaker (Absolute Integer Pattern)
-            # Format: [Total 3 digits][TKP 3 digits][TIU 3 digits][TWK 3 digits]
-            # Max possible score: 550225175175 (Safe for ZSET double precision)
-            tie_breaker_score = (
-                (total_score * 1000000000) + 
-                (score_tkp * 1000000) + 
-                (score_tiu * 1000) + 
-                score_twk
-            )
+            # Update leaderboard only for Weekly Tryouts
+            # Logic: Latihan soal (is_weekly=False) tidak masuk leaderboard
+            result_package = await db.execute(select(Package).where(Package.id == session.package_id))
+            package_obj = result_package.scalar_one_or_none()
 
             redis_lb = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
             try:
-                # GT flag: only update if new score is Greater Than existing
-                await redis_lb.zadd("leaderboard:national", {user_email: tie_breaker_score}, gt=True)
+                if package_obj and package_obj.is_weekly:
+                    # CEK: Hanya masukkan ke leaderboard jika TO masih aktif (belum expired)
+                    # User PRO tetap boleh mengerjakan sampai selesai, tapi skornya tidak masuk ranking jika telat.
+                    is_active_to = True
+                    now_utc_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+                    
+                    if package_obj.end_at and now_utc_naive > package_obj.end_at:
+                        is_active_to = False
+                        print(f"DEBUG: Tryout expired ({package_obj.end_at}), skipping leaderboard update.")
+
+                    if is_active_to:
+                        # Update leaderboard with Tie-Breaker (Absolute Integer Pattern)
+                        # Key format: leaderboard:weekly:{package_id}
+                        lb_key = f"leaderboard:weekly:{session.package_id}"
+                        
+                        tie_breaker_score = (
+                            (total_score * 1000000000) + 
+                            (score_tkp * 1000000) + 
+                            (score_tiu * 1000) + 
+                            score_twk
+                        )
+                        # GT flag: only update if new score is Greater Than existing
+                        await redis_lb.zadd(lb_key, {user_email: tie_breaker_score}, gt=True)
+                    
+                    # Optional: Also update global if desired, but request says "hanya dari TO mingguan"
+                    # await redis_lb.zadd("leaderboard:national", {user_email: tie_breaker_score}, gt=True)
+
                 await redis_lb.delete(cache_key)
             finally:
                 await redis_lb.aclose()

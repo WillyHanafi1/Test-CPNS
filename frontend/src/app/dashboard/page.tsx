@@ -57,12 +57,9 @@ export default function DashboardPage() {
         .catch(() => setSessions([]))
         .finally(() => setStatsLoading(false));
 
-      // Fetch Top 5 Leaderboard
-      fetch(`${API_URL}/api/v1/exam/national-leaderboard?limit=5`, { credentials: 'include' })
-        .then(r => r.ok ? r.json() : [])
-        .then(setLeaderboard)
-        .catch(() => setLeaderboard([]))
-        .finally(() => setLeaderboardLoading(false));
+      // Leaderboard preview removed as it now requires a specific package_id.
+      // Users can see rankings via individual package results or the dedicated leaderboard page.
+      setLeaderboardLoading(false);
     }
   }, [user, loading, router]);
 
@@ -237,41 +234,21 @@ export default function DashboardPage() {
           </div>
 
           <div className="space-y-6">
-            {/* Top 5 Leaderboard Preview */}
+            {/* Leaderboard Redirection Card */}
             <div className="bg-slate-900/50 border border-slate-800 rounded-3xl p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-sm font-bold text-slate-100 flex items-center">
-                  <Trophy className="w-4 h-4 mr-2 text-amber-400" /> Peringkat Top 5
+                  <Trophy className="w-4 h-4 mr-2 text-amber-400" /> Peringkat Tryout
                 </h2>
-                <Link href="/leaderboard">
-                  <span className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 uppercase tracking-widest cursor-pointer">Lihat Semua</span>
-                </Link>
               </div>
-
-              <div className="space-y-2">
-                {leaderboardLoading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <div key={i} className="h-12 bg-slate-800/40 rounded-xl animate-pulse" />
-                  ))
-                ) : leaderboard.length > 0 ? (
-                  leaderboard.slice(0, 5).map((player, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 rounded-2xl bg-slate-800/30 border border-slate-800/50">
-                      <div className="flex items-center gap-3">
-                        <span className={`text-xs font-black ${i === 0 ? 'text-amber-400' : i === 1 ? 'text-slate-300' : i === 2 ? 'text-orange-400' : 'text-slate-600'}`}>
-                          #{i + 1}
-                        </span>
-                        <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center border border-slate-700">
-                          <User className="w-3.5 h-3.5 text-slate-500" />
-                        </div>
-                        <span className="text-xs font-bold text-slate-300 truncate w-24">{player.name}</span>
-                      </div>
-                      <span className="text-sm font-black text-white italic">{player.score}</span>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-[10px] text-slate-600 text-center py-4 uppercase font-bold tracking-widest">Belum ada data</p>
-                )}
-              </div>
+              <p className="text-xs text-slate-500 mb-4">
+                Lihat peringkat nasional untuk setiap paket Tryout Mingguan yang sedang aktif.
+              </p>
+              <Link href="/catalog">
+                <Button variant="secondary" size="sm" className="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl">
+                  Buka Katalog Tryout
+                </Button>
+              </Link>
             </div>
 
             {/* Quick Nav Cards */}

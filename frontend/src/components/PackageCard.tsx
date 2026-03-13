@@ -17,9 +17,10 @@ interface PackageProps {
   is_weekly?: boolean;
   start_at?: string | null;
   end_at?: string | null;
+  user_status?: "ongoing" | "finished" | null;
 }
 
-export function PackageCard({ id, title, description, price, is_premium, category, is_weekly, start_at, end_at }: PackageProps) {
+export function PackageCard({ id, title, description, price, is_premium, category, is_weekly, start_at, end_at, user_status }: PackageProps) {
   const now = new Date();
   const start = start_at ? new Date(start_at.endsWith('Z') ? start_at : start_at + 'Z') : null;
   const end = end_at ? new Date(end_at.endsWith('Z') ? end_at : end_at + 'Z') : null;
@@ -27,16 +28,23 @@ export function PackageCard({ id, title, description, price, is_premium, categor
   let statusLabel = null;
   let statusColor = "";
 
-  if (start && start > now) {
+  if (user_status === "finished") {
+    statusLabel = "Selesai";
+    statusColor = "bg-green-500/10 text-green-400 border-green-500/20";
+  } else if (user_status === "ongoing") {
+    statusLabel = "Sedang Dikerjakan";
+    statusColor = "bg-amber-500/10 text-amber-400 border-amber-500/20";
+  } else if (start && start > now) {
     statusLabel = "Upcoming";
     statusColor = "bg-blue-500/10 text-blue-400 border-blue-500/20";
   } else if (end && end < now) {
     statusLabel = "Expired";
     statusColor = "bg-rose-500/10 text-rose-400 border-rose-500/20";
   } else if (is_weekly) {
-    statusLabel = "Weekly";
+    statusLabel = "Weekly Tryout";
     statusColor = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
   }
+
   return (
     <Card className="flex flex-col h-full bg-slate-900/50 border-slate-800 hover:border-indigo-500/50 transition-all duration-300 group overflow-hidden">
       <CardHeader className="relative">
@@ -44,16 +52,18 @@ export function PackageCard({ id, title, description, price, is_premium, categor
           <Badge variant="secondary" className="bg-indigo-500/10 text-indigo-400 border-indigo-500/20 hover:bg-indigo-500/20">
             {category}
           </Badge>
-          {is_premium && (
-            <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/20">
-              <Star className="w-3 h-3 mr-1 fill-current" /> Premium
-            </Badge>
-          )}
-          {statusLabel && (
-            <Badge className={`${statusColor} animate-pulse px-3`}>
-              {statusLabel}
-            </Badge>
-          )}
+          <div className="flex flex-col gap-1 items-end">
+            {is_premium && (
+              <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/20">
+                <Star className="w-3 h-3 mr-1 fill-current" /> Premium
+              </Badge>
+            )}
+            {statusLabel && (
+              <Badge className={`${statusColor} ${user_status === 'ongoing' ? 'animate-pulse' : ''} px-3`}>
+                {statusLabel}
+              </Badge>
+            )}
+          </div>
         </div>
         <CardTitle className="text-xl font-bold text-white group-hover:text-indigo-400 transition-colors">
           {title}
@@ -85,8 +95,8 @@ export function PackageCard({ id, title, description, price, is_premium, categor
             </span>
           </div>
           <Link href={`/catalog/${id}`}>
-            <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20">
-              Lihat Detail
+            <Button size="sm" className={`${user_status === 'finished' ? 'bg-slate-700 hover:bg-slate-600' : 'bg-indigo-600 hover:bg-indigo-700'} text-white shadow-lg shadow-indigo-500/20`}>
+              {user_status === 'finished' ? 'Lihat Hasil' : (user_status === 'ongoing' ? 'Lanjutkan' : 'Lihat Detail')}
             </Button>
           </Link>
         </div>

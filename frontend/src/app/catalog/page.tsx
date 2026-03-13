@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { PackageCard } from '@/components/PackageCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { Search, Filter, BookOpen, AlertTriangle, RefreshCw, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
@@ -18,6 +19,7 @@ interface Package {
   is_weekly: boolean;
   start_at: string | null;
   end_at: string | null;
+  user_status?: "ongoing" | "finished" | null;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
@@ -49,7 +51,9 @@ export default function CatalogPage() {
       if (debouncedSearch) params.append('search', debouncedSearch); // server-side search
 
       const url = `${API_URL}/api/v1/packages${params.toString() ? `?${params.toString()}` : ''}`;
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        credentials: 'include'
+      });
       if (!response.ok) throw new Error(`Server error: ${response.status}`);
       const data = await response.json();
       setPackages(data);
@@ -163,7 +167,7 @@ export default function CatalogPage() {
           </div>
         )}
 
-        {/* Grid */}
+        {/* Grid and Sections */}
         {!error && (
           loading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -171,17 +175,46 @@ export default function CatalogPage() {
                 <div key={i} className="h-64 bg-slate-900/50 animate-pulse rounded-2xl border border-slate-800" />
               ))}
             </div>
-          ) : packages.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {packages.map((pkg) => (
-                <PackageCard key={pkg.id} {...pkg} />
-              ))}
-            </div>
           ) : (
-            <div className="text-center py-20 bg-slate-900/20 rounded-2xl border border-slate-800 border-dashed">
-              <Filter className="h-12 w-12 text-slate-700 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-slate-300 mb-2">Tidak ada paket ditemukan</h3>
-              <p className="text-slate-500">Coba ubah kata kunci pencarian atau filter kategori Anda.</p>
+            <div className="space-y-16">
+              {/* Tryout Mingguan Section */}
+              {packages.filter(p => p.is_weekly).length > 0 && (
+                <section>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-2 h-8 bg-indigo-500 rounded-full" />
+                    <h2 className="text-2xl font-bold">Tryout Mingguan</h2>
+                    <Badge className="bg-indigo-500/10 text-indigo-400 border-indigo-500/20">Peringkat Nasional</Badge>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {packages.filter(p => p.is_weekly).map((pkg) => (
+                      <PackageCard key={pkg.id} {...pkg} />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* Latihan Section */}
+              {packages.filter(p => !p.is_weekly).length > 0 && (
+                <section>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-2 h-8 bg-slate-700 rounded-full" />
+                    <h2 className="text-2xl font-bold text-slate-200">Latihan Mandiri</h2>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {packages.filter(p => !p.is_weekly).map((pkg) => (
+                      <PackageCard key={pkg.id} {...pkg} />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {packages.length === 0 && (
+                <div className="text-center py-20 bg-slate-900/20 rounded-2xl border border-slate-800 border-dashed">
+                  <Filter className="h-12 w-12 text-slate-700 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-slate-300 mb-2">Tidak ada paket ditemukan</h3>
+                  <p className="text-slate-500">Coba ubah kata kunci pencarian atau filter kategori Anda.</p>
+                </div>
+              )}
             </div>
           )
         )}

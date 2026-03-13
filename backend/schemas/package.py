@@ -99,5 +99,7 @@ class PackagePublic(BaseModel):
     start_at: Optional[datetime] = None
     end_at: Optional[datetime] = None
 
+    user_status: Optional[str] = None  # ongoing, finished, or None
+ 
     class Config:
         from_attributes = True

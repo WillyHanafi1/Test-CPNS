@@ -78,6 +78,15 @@ async def get_current_user(
         raise HTTPException(status_code=403, detail="Account is inactive")
     return user
 
+async def get_optional_user(
+    request: Request,
+    db: AsyncSession = Depends(get_async_session)
+) -> Optional[User]:
+    try:
+        return await get_current_user(request, db)
+    except HTTPException:
+        return None
+
 async def get_current_admin(
     current_user: User = Depends(get_current_user)
 ) -> User:
