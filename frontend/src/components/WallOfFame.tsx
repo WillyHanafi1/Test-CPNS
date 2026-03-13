@@ -135,7 +135,7 @@ export default function WallOfFame({ limit, compact }: WallOfFameProps) {
 
   // --- FULL DESIGN (Podium + List + Activity) ---
   return (
-    <div className="w-full space-y-12 py-8 pt-32">
+    <div className="w-full space-y-12 py-8 pt-0">
       {/* 1. Progress Monthly Goal */}
       {stats && stats.total_amount > 0 && (
         <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-6 relative overflow-hidden group">
