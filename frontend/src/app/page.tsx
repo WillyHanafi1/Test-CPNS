@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { BookOpen, CheckCircle2, Shield, Zap, Target, Users, Heart, ArrowRight, Star, HelpCircle } from 'lucide-react';
+import { BookOpen, CheckCircle2, Shield, Zap, Target, Users, User, Heart, ArrowRight, Star, HelpCircle } from 'lucide-react';
 import WallOfFame from '@/components/WallOfFame';
 
 export default function LandingPage() {
