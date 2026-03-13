@@ -25,15 +25,9 @@ jobs:
             git reset --hard origin/main
             
             # Build ulang dengan argumen variabel environment
-            # Pastikan variable ini sudah dIset di GitHub Secrets
-            docker compose build \
-              --build-arg NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }} \
-              --build-arg NEXT_PUBLIC_GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }} \
-              --build-arg NEXT_PUBLIC_MIDTRANS_CLIENT_KEY=${{ secrets.MIDTRANS_CLIENT_KEY }} \
-              --build-arg NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION=${{ secrets.MIDTRANS_IS_PRODUCTION }} \
-              frontend
-            
-            docker compose up -d --remove-orphans
+            # Build ulang dan nyalakan aplikasi
+            # docker-compose akan otomatis membaca file .env di server
+            docker compose up -d --build --remove-orphans
 
             # Menjalankan migrasi database agar tabel baru (Donation, dll) tercipta
             docker compose exec -T backend alembic upgrade head
