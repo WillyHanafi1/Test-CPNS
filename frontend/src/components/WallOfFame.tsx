@@ -51,7 +51,39 @@ export default function WallOfFame({ limit, compact }: WallOfFameProps) {
     );
   }
 
-  if (supporters.length === 0) return null;
+  if (supporters.length === 0) {
+    if (compact) {
+      return (
+        <div className="w-full">
+          <div className="flex items-center gap-2 mb-4">
+            <Heart className="h-4 w-4 text-slate-600" />
+            <h3 className="text-xs font-black text-slate-500 uppercase tracking-[0.2em]">Wall of Fame</h3>
+          </div>
+          <div className="bg-slate-900/20 border border-dashed border-slate-800 rounded-xl p-4 text-center">
+            <p className="text-[10px] text-slate-500 font-medium italic">Belum ada donasi. Jadilah pendukung pertama kami!</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="w-full space-y-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Heart className="h-5 w-5 text-slate-600" />
+          <h3 className="text-xl font-bold text-slate-400 uppercase italic tracking-tight">Wall of Fame</h3>
+        </div>
+        <div className="bg-slate-900/30 border-2 border-dashed border-slate-800 rounded-3xl p-12 text-center flex flex-col items-center">
+          <div className="p-4 bg-slate-800/40 rounded-2xl mb-4 group-hover:scale-110 transition-transform">
+            <Heart className="h-8 w-8 text-slate-600" />
+          </div>
+          <h4 className="text-lg font-bold text-slate-300 mb-2">Belum ada pendukung di sini</h4>
+          <p className="text-sm text-slate-500 max-w-sm">
+            Dukung pengembangan platform CAT CPNS ini agar tetap bisa diakses gratis oleh pejuang NIP di seluruh Indonesia.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (compact) {
     return (

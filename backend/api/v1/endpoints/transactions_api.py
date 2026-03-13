@@ -171,7 +171,7 @@ async def get_wall_of_fame(
     """
     result = await db.execute(
         select(UserTransaction)
-        .options(selectinload(UserTransaction.user))
+        .options(selectinload(UserTransaction.user).selectinload(User.profile))
         .where(UserTransaction.transaction_type == "donation")
         .where(UserTransaction.payment_status == "success")
         .order_by(desc(UserTransaction.created_at))
@@ -195,41 +195,37 @@ async def get_top_supporters(
     db: AsyncSession = Depends(get_async_session)
 ):
     """
-    Get top supporters by total amount.
+    Get top supporters by total amount. (Optimized with single query)
     """
-    # Join with User and Profile to get Names
     from backend.models.models import UserProfile
     
     result = await db.execute(
         select(
-            User.id,
+            User.email,
+            UserProfile.full_name,
             func.sum(UserTransaction.amount).label("total_amount")
         )
         .join(UserTransaction, User.id == UserTransaction.user_id)
+        .outerjoin(UserProfile, User.id == UserProfile.user_id)
         .where(UserTransaction.payment_status == "success")
         .where(UserTransaction.transaction_type == "donation")
         .where(UserTransaction.is_anonymous == False)
-        .group_by(User.id)
+        .group_by(User.id, User.email, UserProfile.full_name)
         .order_by(desc("total_amount"))
         .limit(10)
     )
+    
     top_data = result.all()
     
     response = []
-    for user_id, total_amount in top_data:
-        # Get profile name
-        p_result = await db.execute(select(UserProfile).where(UserProfile.user_id == user_id))
-        profile = p_result.scalar_one_or_none()
+    for email, full_name, total_amount in top_data:
+        display_name = full_name if full_name else (email.split('@')[0] if email else "Unknown")
         
-        # Get user email as fallback
-        u_result = await db.execute(select(User).where(User.id == user_id))
-        user = u_result.scalar_one_or_none()
-        
-        name = profile.full_name if profile else (user.email.split('@')[0] if user else "Unknown")
         response.append({
-            "full_name": name,
+            "full_name": display_name,
             "total_amount": total_amount
         })
+        
     return response
 
 @router.post("/webhook")
