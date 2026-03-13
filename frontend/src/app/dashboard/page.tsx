@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import DonationModal from '@/components/DonationModal';
+import WallOfFame from '@/components/WallOfFame';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
@@ -303,6 +304,11 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* Wall of Fame (Donors) */}
+        <section className="pt-10 border-t border-slate-800/50">
+          <WallOfFame limit={6} />
+        </section>
       </main>
 
       <DonationModal 
