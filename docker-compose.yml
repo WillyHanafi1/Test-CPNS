@@ -29,6 +29,7 @@ services:
       - MIDTRANS_SERVER_KEY=${MIDTRANS_SERVER_KEY}
       - MIDTRANS_CLIENT_KEY=${MIDTRANS_CLIENT_KEY}
       - MIDTRANS_IS_PRODUCTION=${MIDTRANS_IS_PRODUCTION:-False}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
     depends_on:
       redis:
         condition: service_healthy
@@ -43,6 +44,7 @@ services:
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=redis://redis:6379/0
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
     depends_on:
       redis:
         condition: service_healthy
