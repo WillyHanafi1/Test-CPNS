@@ -106,26 +106,83 @@ export default function LandingPage() {
               </div>
             </div>
             <div className="relative">
-              <div className="absolute inset-0 bg-indigo-500/20 blur-[100px] rounded-full" />
-              <div className="relative bg-slate-900/50 border border-slate-800 p-8 rounded-[2.5rem] backdrop-blur-sm shadow-2xl">
-                <div className="bg-slate-950 rounded-2xl p-6 border border-slate-800 shadow-inner">
-                  <div className="flex items-center justify-between mb-8">
-                    <div className="w-12 h-3 bg-slate-800 rounded-full" />
-                    <div className="w-12 h-3 bg-slate-800 rounded-full" />
+              <div className="absolute inset-0 bg-indigo-500/20 blur-[120px] rounded-full animate-pulse" />
+              <div className="relative bg-slate-900/40 border-2 border-slate-800 p-6 md:p-10 rounded-[3rem] backdrop-blur-md shadow-2xl overflow-hidden group">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-3xl rounded-full translate-x-10 -translate-y-10 group-hover:bg-indigo-500/20 transition-all duration-700" />
+                
+                <div className="bg-slate-950/80 rounded-[2rem] p-6 md:p-8 border border-slate-800 shadow-2xl relative z-10">
+                  {/* Top Bar / Profile Header */}
+                  <div className="flex items-center justify-between mb-10">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center border border-white/10 shadow-lg group-hover:rotate-6 transition-transform">
+                        <User className="w-6 h-6 text-white" />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="w-24 h-2.5 bg-slate-800 rounded-full" />
+                        <div className="w-16 h-2 bg-slate-900 rounded-full" />
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                       <div className="w-8 h-8 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center">
+                         <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+                       </div>
+                    </div>
                   </div>
-                  <div className="space-y-4">
-                    <div className="h-4 bg-indigo-500/20 rounded-full w-3/4" />
-                    <div className="h-4 bg-slate-800 rounded-full w-full" />
-                    <div className="h-4 bg-slate-800 rounded-full w-5/6" />
-                    <div className="grid grid-cols-2 gap-4 pt-4">
-                      <div className="h-20 bg-indigo-600/10 rounded-xl border border-indigo-500/20 flex flex-col items-center justify-center p-4">
-                        <span className="text-[10px] text-indigo-400 font-bold uppercase">SKOR TWK</span>
-                        <span className="text-xl font-black">115</span>
+
+                  {/* Body Content */}
+                  <div className="space-y-8">
+                    <div className="space-y-3">
+                      <div className="h-5 bg-gradient-to-r from-indigo-500/20 to-transparent rounded-lg w-3/4" />
+                      <div className="h-3 bg-slate-900 rounded-full w-full opacity-60" />
+                      <div className="h-3 bg-slate-900 rounded-full w-5/6 opacity-40" />
+                    </div>
+
+                    {/* Visual Stats Row */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="bg-slate-900/50 p-5 rounded-2xl border border-slate-800 flex items-center space-x-5 group/card hover:border-indigo-500/30 transition-all">
+                        <div className="relative w-14 h-14 flex items-center justify-center">
+                           <svg className="absolute inset-0 w-full h-full -rotate-90">
+                             <circle cx="28" cy="28" r="24" stroke="currentColor" strokeWidth="4" fill="transparent" className="text-slate-800" />
+                             <circle cx="28" cy="28" r="24" stroke="currentColor" strokeWidth="4" fill="transparent" strokeDasharray="150" strokeDashoffset="45" className="text-indigo-500" strokeLinecap="round" />
+                           </svg>
+                           <Zap className="w-5 h-5 text-indigo-400" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Score SKD</p>
+                          <p className="text-2xl font-black text-white italic">420<span className="text-xs text-indigo-500 not-italic ml-1">pts</span></p>
+                        </div>
                       </div>
-                      <div className="h-20 bg-purple-600/10 rounded-xl border border-purple-500/20 flex flex-col items-center justify-center p-4">
-                        <span className="text-[10px] text-purple-400 font-bold uppercase">SKOR TIU</span>
-                        <span className="text-xl font-black">150</span>
+
+                      <div className="bg-slate-900/50 p-5 rounded-2xl border border-slate-800 flex items-center space-x-5 group/card hover:border-indigo-500/30 transition-all">
+                        <div className="relative w-14 h-14 flex items-center justify-center">
+                           <svg className="absolute inset-0 w-full h-full -rotate-90">
+                             <circle cx="28" cy="28" r="24" stroke="currentColor" strokeWidth="4" fill="transparent" className="text-slate-800" />
+                             <circle cx="28" cy="28" r="24" stroke="currentColor" strokeWidth="4" fill="transparent" strokeDasharray="150" strokeDashoffset="20" className="text-emerald-500" strokeLinecap="round" />
+                           </svg>
+                           <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Accuracy</p>
+                          <p className="text-2xl font-black text-white italic">94<span className="text-xs text-emerald-500 not-italic ml-1">%</span></p>
+                        </div>
                       </div>
+                    </div>
+
+                    {/* Mini Ranking List */}
+                    <div className="pt-4 border-t border-slate-900 flex items-center justify-between">
+                       <div className="flex -space-x-3">
+                         {[1,2,3,4].map(i => (
+                           <div key={i} className="w-8 h-8 rounded-full bg-slate-800 border-2 border-slate-950 flex items-center justify-center overflow-hidden">
+                             <User className="w-4 h-4 text-slate-600" />
+                           </div>
+                         ))}
+                         <div className="w-8 h-8 rounded-full bg-indigo-600 border-2 border-slate-950 flex items-center justify-center">
+                           <span className="text-[10px] font-bold">+12</span>
+                         </div>
+                       </div>
+                       <div className="text-[10px] font-bold text-indigo-400 bg-indigo-500/10 px-3 py-1.5 rounded-full border border-indigo-500/20">
+                         LIVE RANKING
+                       </div>
                     </div>
                   </div>
                 </div>
