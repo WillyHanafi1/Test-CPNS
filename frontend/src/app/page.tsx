@@ -48,6 +48,158 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* How It Works / Value Prop */}
+      <section id="how-it-works" className="py-24 relative">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
+            <div className="space-y-12">
+              <div className="space-y-6">
+                <h2 className="text-4xl font-black italic tracking-tighter">Cara Kerja <span className="text-indigo-500">Platform Pro.</span></h2>
+                <p className="text-slate-400 leading-relaxed text-lg">Hanya dalam 3 langkah mudah, Anda siap menaklukkan seleksi CPNS dengan materi yang paling relevan.</p>
+              </div>
+              
+              <div className="space-y-8">
+                <StepItem number="01" title="Daftar Akun Gratis" description="Gunakan email atau Google Login untuk akses instan ke dasbor pejuang." />
+                <StepItem number="02" title="Pilih Paket Simulasi" description="Tersedia 1.000+ bank soal terbaru SKD (TWK, TIU, TKP) & SKB Instansi." />
+                <StepItem number="03" title="Mulai & Analisis Hasil" description="Selesaikan CAT dan dapatkan analisis kelemahan Anda secara mendalam." />
+              </div>
+            </div>
+
+            <div className="relative">
+              <div className="absolute inset-0 bg-indigo-500/20 blur-[80px] rounded-full translate-x-10 translate-y-10" />
+              <div className="relative bg-slate-900/60 border border-slate-800 rounded-[2.5rem] p-8 backdrop-blur-xl shadow-2xl">
+                <div className="space-y-8">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-8">
+                    <StatBox count="50rb+" label="Pejuang Aktif" />
+                    <StatBox count="98%" label="Sistem Uptime" />
+                  </div>
+                  
+                  <div className="space-y-6">
+                    <div className="p-6 rounded-3xl bg-slate-800/40 border border-slate-700/50 flex items-center justify-between group hover:border-indigo-500/40 transition-all">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 flex items-center justify-center">
+                          <Zap className="w-6 h-6 text-indigo-400" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Last Update</p>
+                          <p className="text-sm font-bold text-white uppercase italic">Bank Soal Maret 2026</p>
+                        </div>
+                      </div>
+                      <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">ONLINE</Badge>
+                    </div>
+
+                    <div className="flex gap-4">
+                      <div className="flex-1 p-6 rounded-3xl bg-slate-800/40 border border-slate-700/50 flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                          <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Accuracy</p>
+                          <p className="text-2xl font-black text-white italic">94<span className="text-xs text-emerald-500 not-italic ml-1">%</span></p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Mini Ranking List */}
+                    <div className="pt-4 border-t border-slate-900 flex items-center justify-between">
+                       <div className="flex -space-x-3">
+                         {[1,2,3,4].map(i => (
+                           <div key={i} className="w-8 h-8 rounded-full bg-slate-800 border-2 border-slate-950 flex items-center justify-center overflow-hidden">
+                             <User className="w-4 h-4 text-slate-600" />
+                           </div>
+                         ))}
+                         <div className="w-8 h-8 rounded-full bg-indigo-600 border-2 border-slate-950 flex items-center justify-center">
+                           <span className="text-[10px] font-bold">+12</span>
+                         </div>
+                       </div>
+                       <div className="text-[10px] font-bold text-indigo-400 bg-indigo-500/10 px-3 py-1.5 rounded-full border border-indigo-500/20">
+                         LIVE RANKING
+                       </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Grid */}
+      <section id="features" className="py-32 bg-slate-900/20 relative border-y border-slate-900/50">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="text-center mb-16 space-y-4">
+            <h2 className="text-4xl md:text-5xl font-black tracking-tight">Teknologi Persiapan <span className="text-indigo-500">Masa Depan.</span></h2>
+            <p className="text-slate-400 text-lg max-w-2xl mx-auto">Dirancang untuk keandalan tinggi dan akurasi materi maksimal.</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <FeatureCard 
+              icon={<Zap className="w-6 h-6 text-amber-400" />}
+              title="Real-time Performance"
+              description="Sistem anti-lag dengan autosave berbasis Redis. Jawaban tersimpan detik itu juga meski koneksi putus."
+            />
+            <FeatureCard 
+              icon={<Shield className="w-6 h-6 text-emerald-400" />}
+              title="Validasi Server-side"
+              description="Timer aman di sisi server. Tidak ada kecurangan waktu, hasil simulasi Anda benar-benar valid."
+            />
+            <FeatureCard 
+              icon={<Target className="w-6 h-6 text-indigo-400" />}
+              title="Analitik Mendalam"
+              description="Laporan skor instan per kategori (TWK, TIU, TKP) lengkap dengan statistik kelulusan passing grade."
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing / PRO Section */}
+      <section id="price" className="py-32 relative">
+         <div className="max-w-7xl mx-auto px-4">
+           <div className="text-center mb-20 space-y-4">
+             <h2 className="text-4xl md:text-5xl font-black tracking-tight">Investasi Untuk <span className="text-indigo-500">Masa Depan Anda.</span></h2>
+             <p className="text-slate-400 text-lg">Pilih jalur yang paling sesuai dengan ambisi Anda.</p>
+           </div>
+           
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+             {/* Free Tier */}
+             <div className="p-10 rounded-[2.5rem] bg-slate-950 border border-slate-900 flex flex-col space-y-8 hover:border-slate-800 transition-all">
+                <div className="space-y-2">
+                  <h3 className="text-2xl font-bold">Standard</h3>
+                  <p className="text-slate-500 text-sm">Untuk mencoba platform kami.</p>
+                </div>
+                <div className="text-4xl font-black">Rp 0<span className="text-sm font-medium text-slate-500 underline decoration-indigo-500/30">/selamanya</span></div>
+                <ul className="space-y-4 flex-grow">
+                  <PriceItem text="Akses Tryout Mingguan Gratis" />
+                  <PriceItem text="Ranking Nasional Terbatas" />
+                  <PriceItem text="Analitik Dasar" />
+                </ul>
+                <Link href="/register">
+                  <Button variant="outline" className="w-full h-12 rounded-xl border-slate-800">Daftar Gratis</Button>
+                </Link>
+             </div>
+
+             {/* PRO Tier */}
+             <div className="p-10 rounded-[2.5rem] bg-gradient-to-br from-indigo-600 to-purple-600 flex flex-col space-y-8 relative overflow-hidden shadow-2xl shadow-indigo-500/20 group">
+                <div className="absolute -top-4 -right-4 bg-white/20 px-8 py-2 rotate-12 text-[10px] font-black uppercase tracking-widest backdrop-blur-md">Paling Laris</div>
+                <div className="space-y-2">
+                  <h3 className="text-2xl font-bold text-white">PRO Lifecycle</h3>
+                  <p className="text-white/70 text-sm">Full access untuk persiapan intensif.</p>
+                </div>
+                <div className="text-4xl font-black text-white">Rp 50.000<span className="text-sm font-medium text-white/50">/tahun</span></div>
+                <ul className="space-y-4 flex-grow text-white/90">
+                  <PriceItem text="Akses Seluruh 1.000+ Paket Soal" white />
+                  <PriceItem text="Ranking Nasional Real-time" white />
+                  <PriceItem text="Pembahasan Soal Eksklusif" white />
+                  <PriceItem text="Prioritas Support 24/7" white />
+                  <PriceItem text="Update Soal Terbaru Otomatis" white />
+                </ul>
+                <Link href="/register">
+                  <Button className="w-full h-12 rounded-xl bg-white text-indigo-600 hover:bg-slate-100 font-bold">Aktivasi PRO Sekarang</Button>
+                </Link>
+             </div>
+           </div>
+         </div>
+      </section>
+
       {/* FAQ Section */}
       <section className="py-32 relative">
         <div className="max-w-4xl mx-auto px-4">
