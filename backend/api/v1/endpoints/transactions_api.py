@@ -113,6 +113,9 @@ async def create_donation_transaction(
     if request.amount < 1000:
         raise HTTPException(status_code=400, detail="Minimal donasi adalah Rp 1.000")
 
+    if request.message and len(request.message) > 150:
+        raise HTTPException(status_code=400, detail="Pesan dukungan maksimal 150 karakter.")
+
     order_id = f"DONATE-{current_user.id.hex[:8]}-{uuid.uuid4().hex[:6]}"
     
     new_transaction = UserTransaction(
