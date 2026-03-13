@@ -30,7 +30,7 @@ jobs:
             docker compose up -d --build --remove-orphans
 
             # Menjalankan migrasi database agar tabel baru (Donation, dll) tercipta
-            docker compose exec -T backend alembic upgrade head
+            docker compose exec -T backend alembic -c backend/alembic.ini upgrade head
             
             # Bersihkan sampah image agar hardisk Droplet tidak penuh
             docker image prune -f

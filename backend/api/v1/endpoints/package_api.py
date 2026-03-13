@@ -36,7 +36,7 @@ async def get_packages(
     if cached_data:
         return cached_data
 
-    query = select(Package).where(Package.is_published == True)
+    query = select(Package).where(Package.is_published == True, Package.is_weekly == False)
     if category:
         query = query.where(Package.category == category)
     if search:
@@ -83,6 +83,54 @@ async def get_packages(
         await redis_service.set_cache(cache_key, packages_data, expire=300)
 
     return response_packages
+
+
+@router.get("/weekly-active", response_model=Optional[PackageSchema])
+async def get_active_weekly_package(
+    db: AsyncSession = Depends(get_async_session),
+    current_user: Optional[User] = Depends(get_optional_user)
+):
+    """
+    Get the currently active weekly tryout (if any).
+    """
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    
+    query = (
+        select(Package)
+        .where(
+            Package.is_weekly == True,
+            Package.is_published == True,
+            Package.start_at <= now,
+            Package.end_at >= now
+        )
+        .order_by(Package.start_at.desc())
+        .limit(1)
+    )
+    
+    result = await db.execute(query)
+    package = result.scalar_one_or_none()
+    
+    if not package:
+        return None
+
+    user_status = None
+    if current_user:
+        from backend.models.models import ExamSession
+        session_result = await db.execute(
+            select(ExamSession.status)
+            .where(
+                ExamSession.user_id == current_user.id,
+                ExamSession.package_id == package.id
+            )
+            .order_by(ExamSession.start_time.desc())
+            .limit(1)
+        )
+        user_status = session_result.scalar()
+
+    p_data = PackageSchema.model_validate(package)
+    p_data.user_status = user_status
+    
+    return p_data
 
 
 @router.get("/{package_id}", response_model=PackagePublic)

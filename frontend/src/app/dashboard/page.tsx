@@ -36,6 +36,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [sessions, setSessions] = useState<RecentSession[]>([]);
   const [stats, setStats] = useState({ total_sessions: 0, best_score: 0, total_passed: 0 });
+  const [weeklyPackage, setWeeklyPackage] = useState<any>(null);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [statsLoading, setStatsLoading] = useState(true);
   const [leaderboardLoading, setLeaderboardLoading] = useState(true);
@@ -59,6 +60,12 @@ export default function DashboardPage() {
         .then(data => setSessions(data.slice(0, 5)))
         .catch(() => setSessions([]))
         .finally(() => setStatsLoading(false));
+
+      // Fetch active weekly tryout
+      fetch(`${API_URL}/api/v1/packages/weekly-active`, { credentials: 'include' })
+        .then(r => r.ok ? r.json() : null)
+        .then(setWeeklyPackage)
+        .catch(() => setWeeklyPackage(null));
 
       // Leaderboard preview removed as it now requires a specific package_id.
       // Users can see rankings via individual package results or the dedicated leaderboard page.
@@ -128,6 +135,75 @@ export default function DashboardPage() {
             </Link>
           </div>
         </div>
+
+        {/* Featured Weekly TO Card */}
+        {weeklyPackage && (
+          <div className="relative group overflow-hidden rounded-[2.5rem] bg-gradient-to-r from-amber-500/10 via-amber-500/20 to-orange-500/10 border-2 border-amber-500/30 p-1 shadow-2xl shadow-amber-500/10 animate-in slide-in-from-top-4 duration-1000">
+            <div className="absolute top-0 right-0 p-4">
+              <div className="flex items-center space-x-2 bg-amber-500 text-black px-4 py-1.5 rounded-full font-black text-[10px] uppercase tracking-widest shadow-lg animate-pulse">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-black opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-black"></span>
+                </span>
+                Live Tryout Mingguan
+              </div>
+            </div>
+            
+            <div className="bg-slate-950/40 backdrop-blur-md rounded-[2.3rem] p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-8">
+              <div className="flex-1 space-y-4 text-center md:text-left">
+                <h2 className="text-3xl md:text-4xl font-black italic tracking-tighter text-white">
+                  {weeklyPackage.title}
+                </h2>
+                <p className="text-slate-400 font-medium max-w-lg leading-relaxed">
+                  Tryout ini hanya dapat dikerjakan <span className="text-amber-400 font-bold">1 kali kesempatan</span>. 
+                  Skor Anda akan masuk ke Peringkat Nasional Mingguan!
+                </p>
+                <div className="flex flex-wrap justify-center md:justify-start gap-4 pt-2">
+                  <div className="bg-slate-900/80 px-4 py-2 rounded-xl border border-slate-800 flex items-center space-x-2">
+                    <Clock className="w-4 h-4 text-amber-400" />
+                    <span className="text-xs font-bold text-slate-300">
+                      Berakhir: {new Date(weeklyPackage.end_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                    </span>
+                  </div>
+                  {weeklyPackage.user_status && (
+                    <div className={`px-4 py-2 rounded-xl border flex items-center space-x-2 ${
+                      weeklyPackage.user_status === 'finished' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400'
+                    }`}>
+                      {weeklyPackage.user_status === 'finished' ? <CheckCircle2 className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
+                      <span className="text-xs font-bold uppercase tracking-widest">
+                        {weeklyPackage.user_status === 'finished' ? 'Sudah Dikerjakan' : 'Sedang Berlangsung'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              <div className="flex flex-col gap-3 w-full md:w-auto">
+                {weeklyPackage.user_status === 'finished' ? (
+                  <Link href={`/leaderboard?package_id=${weeklyPackage.id}`}>
+                    <Button className="w-full md:w-auto bg-amber-500 hover:bg-amber-400 text-black font-black py-8 px-10 rounded-2xl shadow-xl shadow-amber-500/20 text-lg group">
+                      <Trophy className="w-6 h-6 mr-3 group-hover:rotate-12 transition-transform" />
+                      Lihat Peringkat Nasional
+                    </Button>
+                  </Link>
+                ) : (
+                  <Link href={`/catalog/${weeklyPackage.id}`}>
+                    <Button className="w-full md:w-auto bg-white hover:bg-slate-200 text-black font-black py-8 px-12 rounded-2xl shadow-xl shadow-white/10 text-lg group">
+                      <Zap className="w-6 h-6 mr-3 text-amber-500 group-hover:scale-125 transition-transform" />
+                      Mulai Sekarang
+                      <ChevronRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                  </Link>
+                )}
+                <Link href="/catalog" className="text-center">
+                  <span className="text-xs text-slate-500 hover:text-slate-300 transition-colors font-bold uppercase tracking-widest cursor-pointer">
+                    Atau lihat paket lainnya
+                  </span>
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Stats Row */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
