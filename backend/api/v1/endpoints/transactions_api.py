@@ -4,7 +4,7 @@ import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc, distinct
 import uuid
-from typing import List, Optional
+from typing import List, Optional, Dict
 from datetime import datetime, timedelta, timezone
 
 from backend.db.session import get_async_session
@@ -218,7 +218,7 @@ async def get_top_supporters(
     anon_data = anon_query.scalars().all()
     
     # 3. Combine and transform
-    combined = []
+    combined: List[dict] = []
     
     # Add known users
     for email, full_name, total_amount in known_data:
@@ -246,7 +246,7 @@ async def get_donation_stats(
     """
     Get monthly donation statistics and progress towards goal.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     first_day_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     
     # Target goal from settings
