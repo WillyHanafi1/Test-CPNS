@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 import hashlib
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, func, desc, distinct
 import uuid
 from typing import List, Optional
 from datetime import datetime, timedelta, timezone
@@ -12,21 +12,10 @@ from backend.models.models import User, UserTransaction, Package
 from backend.api.v1.endpoints.auth import get_current_user
 from backend.core.midtrans import midtrans_service
 from backend.config import settings
-from backend.schemas.transaction import DonationRequest, DonationResponse, SupporterResponse, TopSupporter
+from backend.schemas.transaction import DonationRequest, DonationResponse, SupporterResponse, TopSupporter, DonationStats
 from sqlalchemy.orm import selectinload
 
 logger = logging.getLogger(__name__)
-
-# Official Midtrans IP Ranges (Simplified for check)
-# Note: In production, consider using a more robust CIDR checker if needed.
-MIDTRANS_IPS = {
-    "103.208.23.6", "103.127.17.6", "34.87.92.33", "34.87.59.67",
-    "35.186.147.251", "34.87.157.231", "13.228.166.126", "52.220.80.5",
-    "3.1.123.95", "108.136.204.114", "108.136.34.95", "108.137.159.245",
-    "108.137.135.225", "16.78.53.66", "43.218.2.230", "16.78.88.149",
-    "16.78.85.64", "16.78.69.49", "16.78.98.130", "16.78.9.40",
-    "43.218.223.26", "34.101.68.130", "34.101.92.69" # Plus others as needed
-}
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
@@ -80,7 +69,6 @@ async def create_pro_upgrade_transaction(
             "redirect_url": snap_response['redirect_url'],
             "order_id": order_id
         }
-        
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to create Midtrans transaction: {str(e)}")
@@ -195,7 +183,7 @@ async def get_top_supporters(
     db: AsyncSession = Depends(get_async_session)
 ):
     """
-    Get top supporters by total amount. (Optimized with single query)
+    Get top supporters by total amount.
     """
     from backend.models.models import UserProfile
     
@@ -228,6 +216,42 @@ async def get_top_supporters(
         
     return response
 
+@router.get("/donations/stats", response_model=DonationStats)
+async def get_donation_stats(
+    db: AsyncSession = Depends(get_async_session)
+):
+    """
+    Get monthly donation statistics and progress towards goal.
+    """
+    now = datetime.now(timezone.utc)
+    first_day_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    
+    # Target goal from settings
+    target_goal = settings.DONATION_MONTHLY_GOAL
+    
+    # Calculate stats
+    result = await db.execute(
+        select(
+            func.sum(UserTransaction.amount).label("total_amount"),
+            func.count(distinct(UserTransaction.user_id)).label("supporter_count")
+        )
+        .where(UserTransaction.transaction_type == "donation")
+        .where(UserTransaction.payment_status == "success")
+        .where(UserTransaction.created_at >= first_day_of_month)
+    )
+    stats_data = result.one()
+    
+    total_amount = stats_data.total_amount or 0
+    supporter_count = stats_data.supporter_count or 0
+    percentage = min((total_amount / target_goal) * 100.0, 100.0) if target_goal > 0 else 0.0
+    
+    return {
+        "total_amount": total_amount,
+        "target_amount": target_goal,
+        "percentage": float(f"{percentage:.2f}"),
+        "supporter_count": supporter_count
+    }
+
 @router.post("/webhook")
 async def midtrans_webhook(
     request: Request,
@@ -238,28 +262,17 @@ async def midtrans_webhook(
     """
     data = await request.json()
     
-    # 1. IP Whitelisting (Optional but Recommended)
-    # Get real IP if behind proxy
-    forwarded = request.headers.get("X-Forwarded-For")
-    client_ip = forwarded.split(",")[0] if forwarded else request.client.host
-    
-    # Note: If running on local with ngrok/expose, you might want to disable this temporarily
-    # if client_ip not in MIDTRANS_IPS:
-    #     logger.warning(f"Unauthorized Webhook attempt from IP: {client_ip}")
-    #     # raise HTTPException(status_code=403, detail="Forbidden IP")
-
-    # 2. Signature Key Verification (MANDATORY)
+    # Signature Key Verification
     order_id = data.get("order_id")
     status_code = data.get("status_code")
     gross_amount = data.get("gross_amount")
     signature_key_received = data.get("signature_key")
     
-    # SHA512(order_id + status_code + gross_amount + ServerKey)
     payload = f"{order_id}{status_code}{gross_amount}{settings.MIDTRANS_SERVER_KEY}"
     expected_signature = hashlib.sha512(payload.encode()).hexdigest()
     
     if signature_key_received != expected_signature:
-        logger.error(f"Invalid Midtrans Signature! Order: {order_id}. Received: {signature_key_received}")
+        logger.error(f"Invalid Midtrans Signature! Order: {order_id}")
         raise HTTPException(status_code=401, detail="Invalid signature key")
     
     try:
@@ -269,11 +282,12 @@ async def midtrans_webhook(
         fraud_status = status_response.get('fraud_status')
         
         target_status = "pending"
-        if transaction_status == 'capture':
-            if fraud_status == 'accept':
+        if transaction_status in ['capture', 'settlement']:
+            if transaction_status == 'capture':
+                if fraud_status == 'accept':
+                    target_status = "success"
+            else:
                 target_status = "success"
-        elif transaction_status == 'settlement':
-            target_status = "success"
         elif transaction_status in ['cancel', 'deny', 'expire']:
             target_status = "failed"
             
@@ -292,29 +306,21 @@ async def fulfill_transaction(db: AsyncSession, order_id: str, payment_status: s
     if not transaction:
         return
         
-    # Mencegah eksekusi ganda jika transaksi sudah berstatus success
     if transaction.payment_status == "success" and payment_status == "success":
         return
         
     transaction.payment_status = payment_status
     
-    # Get user
     user_result = await db.execute(select(User).where(User.id == transaction.user_id))
     user = user_result.scalar_one_or_none()
     
     if user and transaction.transaction_type == "pro_upgrade":
         if payment_status == "success":
             user.is_pro = True
-            
             now = datetime.now(timezone.utc).replace(tzinfo=None)
-            # Jika user MASIH PRO, tambahkan masa aktif dari tanggal expired-nya
             if user.pro_expires_at and user.pro_expires_at > now:
                 user.pro_expires_at = user.pro_expires_at + timedelta(days=365)
-            # Jika user BUKAN PRO atau sudah expired, hitung 1 tahun dari sekarang
             else:
                 user.pro_expires_at = now + timedelta(days=365)
                 
-        # HAPUS logika "elif payment_status in ['failed', ...]: user.is_pro = False". 
-        # Pembatalan transaksi baru tidak boleh merusak langganan lama yang sudah aktif!
-            
     await db.commit()

@@ -23,3 +23,9 @@ class SupporterResponse(BaseModel):
 class TopSupporter(BaseModel):
     full_name: str
     total_amount: int
+
+class DonationStats(BaseModel):
+    total_amount: int
+    target_amount: int
+    percentage: float
+    supporter_count: int

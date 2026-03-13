@@ -405,8 +405,19 @@ export default function DashboardPage() {
         </div>
 
         {/* Premium Achievement Section (Footer) */}
-        <section className="pt-20 border-t border-slate-800/50">
-          <WallOfFame limit={12} compact />
+        <section className="pt-40 border-t border-slate-800/50">
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-pink-500/10 border border-pink-500/20 rounded-full text-pink-500 text-xs font-black uppercase tracking-widest mb-4">
+              <Heart className="h-3 w-3 fill-pink-500" /> Komunitas CAT CPNS
+            </div>
+            <h2 className="text-3xl md:text-5xl font-black text-white italic tracking-tighter uppercase mb-4">
+              Premium Wall of Fame
+            </h2>
+            <p className="text-slate-400 max-w-2xl mx-auto text-sm md:text-base">
+              Setiap dukungan Anda membantu kami menjaga server tetap stabil dan menyediakan konten berkualitas bagi pejuang NIP di seluruh Indonesia.
+            </p>
+          </div>
+          <WallOfFame limit={12} />
         </section>
       </main>
 
