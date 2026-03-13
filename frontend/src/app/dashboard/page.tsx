@@ -12,6 +12,7 @@ import {
 import Link from 'next/link';
 import DonationModal from '@/components/DonationModal';
 import WallOfFame from '@/components/WallOfFame';
+import NationalRankingTable from '@/components/NationalRankingTable';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
@@ -29,7 +30,7 @@ interface RecentSession {
 }
 
 const PASSING_GRADES = { TWK: 65, TIU: 80, TKP: 166 };
-const MAX_SCORE = 175 + 175 + 225; // 575 total max
+const MAX_SCORE = 150 + 175 + 225; // 550 total max
 
 export default function DashboardPage() {
   const { user, logout, loading } = useAuth();
@@ -49,27 +50,30 @@ export default function DashboardPage() {
     }
     if (user) {
       // Fetch stats
-      fetch(`${API_URL}/api/v1/exam/sessions/me/stats`, { credentials: 'include' })
-        .then(r => r.ok ? r.json() : { total_sessions: 0, best_score: 0, total_passed: 0 })
-        .then(setStats)
-        .catch(() => setStats({ total_sessions: 0, best_score: 0, total_passed: 0 }));
+      const fetchDashboardData = async () => {
+        try {
+          const [statsRes, sessionsRes, weeklyRes] = await Promise.all([
+            fetch(`${API_URL}/api/v1/exam/sessions/me/stats`, { credentials: 'include' }),
+            fetch(`${API_URL}/api/v1/exam/sessions/me`, { credentials: 'include' }),
+            fetch(`${API_URL}/api/v1/packages/weekly-active`, { credentials: 'include' })
+          ]);
 
-      // Fetch recent sessions (limit for UI)
-      fetch(`${API_URL}/api/v1/exam/sessions/me`, { credentials: 'include' })
-        .then(r => r.ok ? r.json() : [])
-        .then(data => setSessions(data.slice(0, 5)))
-        .catch(() => setSessions([]))
-        .finally(() => setStatsLoading(false));
+          const statsData = statsRes.ok ? await statsRes.json() : { total_sessions: 0, best_score: 0, total_passed: 0 };
+          const sessionsData = sessionsRes.ok ? await sessionsRes.json() : [];
+          const weeklyData = weeklyRes.ok ? await weeklyRes.json() : null;
 
-      // Fetch active weekly tryout
-      fetch(`${API_URL}/api/v1/packages/weekly-active`, { credentials: 'include' })
-        .then(r => r.ok ? r.json() : null)
-        .then(setWeeklyPackage)
-        .catch(() => setWeeklyPackage(null));
+          setStats(statsData);
+          setSessions(sessionsData.slice(0, 5));
+          setWeeklyPackage(weeklyData);
+        } catch (error) {
+          console.error("Failed to fetch dashboard data:", error);
+        } finally {
+          setStatsLoading(false);
+          setLeaderboardLoading(false);
+        }
+      };
 
-      // Leaderboard preview removed as it now requires a specific package_id.
-      // Users can see rankings via individual package results or the dedicated leaderboard page.
-      setLeaderboardLoading(false);
+      fetchDashboardData();
     }
   }, [user, loading, router]);
 
@@ -140,7 +144,7 @@ export default function DashboardPage() {
             <div className="mt-10 relative group overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-amber-500/20 via-yellow-500/30 to-orange-600/20 border-2 border-amber-400/50 p-1 shadow-2xl shadow-amber-500/20 animate-in fade-in zoom-in duration-700">
               {/* Animated background pulse */}
               <div className="absolute inset-0 bg-amber-400/5 animate-pulse pointer-events-none" />
-              
+
               <div className="absolute top-0 right-0 p-4 z-10">
                 <div className="flex items-center space-x-2 bg-gradient-to-r from-amber-500 to-yellow-400 text-black px-4 py-2 rounded-full font-black text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-amber-500/40">
                   <span className="relative flex h-2 w-2">
@@ -150,11 +154,11 @@ export default function DashboardPage() {
                   Live Tryout Mingguan
                 </div>
               </div>
-              
+
               <div className="bg-slate-950/60 backdrop-blur-xl rounded-[2.3rem] p-8 md:p-12 flex flex-col md:flex-row items-center justify-between gap-10 relative">
                 {/* Decorative element */}
                 <div className="absolute -left-10 -bottom-10 w-40 h-40 bg-amber-500/20 rounded-full blur-[60px] pointer-events-none" />
-                
+
                 <div className="flex-1 space-y-6 text-center md:text-left relative z-10">
                   <div className="space-y-2">
                     <h2 className="text-4xl md:text-5xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white via-amber-200 to-amber-500 uppercase">
@@ -162,14 +166,14 @@ export default function DashboardPage() {
                     </h2>
                     <div className="h-1.5 w-24 bg-gradient-to-r from-amber-500 to-transparent rounded-full mx-auto md:mx-0" />
                   </div>
-                  
+
                   <p className="text-slate-300 text-lg font-medium max-w-lg leading-relaxed">
-                    {weeklyPackage.user_status === 'finished' 
+                    {weeklyPackage.user_status === 'finished'
                       ? "Selamat! Anda telah menyelesaikan tantangan ini. Cek posisi Anda di papan peringkat nasional sekarang."
                       : "Tantangan baru telah tiba! Tryout ini hanya dapat dikerjakan satu kali. Tunjukkan kemampuan terbaikmu!"
                     }
                   </p>
-                  
+
                   <div className="flex flex-wrap justify-center md:justify-start gap-4">
                     <div className="bg-slate-900/90 px-5 py-3 rounded-2xl border border-amber-500/30 flex items-center space-x-3 shadow-inner">
                       <Clock className="w-5 h-5 text-amber-400 animate-pulse" />
@@ -180,11 +184,10 @@ export default function DashboardPage() {
                         </span>
                       </div>
                     </div>
-                    
+
                     {weeklyPackage.user_status && (
-                      <div className={`px-5 py-3 rounded-2xl border flex items-center space-x-3 shadow-inner ${
-                        weeklyPackage.user_status === 'finished' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400'
-                      }`}>
+                      <div className={`px-5 py-3 rounded-2xl border flex items-center space-x-3 shadow-inner ${weeklyPackage.user_status === 'finished' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400'
+                        }`}>
                         {weeklyPackage.user_status === 'finished' ? <CheckCircle2 className="w-5 h-5" /> : <TrendingUp className="w-5 h-5" />}
                         <div className="flex flex-col">
                           <span className="text-[10px] uppercase tracking-widest opacity-60 font-bold">Status Anda</span>
@@ -196,7 +199,7 @@ export default function DashboardPage() {
                     )}
                   </div>
                 </div>
-                
+
                 <div className="flex flex-col gap-4 w-full md:w-auto relative z-10">
                   {weeklyPackage.user_status === 'finished' ? (
                     <Link href={`/leaderboard?package_id=${weeklyPackage.id}`}>
@@ -300,7 +303,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="grid grid-cols-3 gap-4">
                   {[
-                    { label: 'TWK', score: latestSession.score_twk, min: PASSING_GRADES.TWK, max: 175 },
+                    { label: 'TWK', score: latestSession.score_twk, min: PASSING_GRADES.TWK, max: 150 },
                     { label: 'TIU', score: latestSession.score_tiu, min: PASSING_GRADES.TIU, max: 175 },
                     { label: 'TKP', score: latestSession.score_tkp, min: PASSING_GRADES.TKP, max: 225 },
                   ].map(({ label, score, min, max }) => (
@@ -361,7 +364,7 @@ export default function DashboardPage() {
               <p className="text-xs text-slate-400 mb-4 leading-relaxed">
                 Platform ini gratis untuk semua. Dukung sistem kami agar tetap stabil dan up-to-date.
               </p>
-              <Button 
+              <Button
                 onClick={() => setIsDonationOpen(true)}
                 className="w-full bg-pink-600 hover:bg-pink-700 text-white rounded-xl shadow-lg shadow-pink-500/20 group"
               >
@@ -392,7 +395,7 @@ export default function DashboardPage() {
                   <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Standar BKN</span>
                 </div>
                 <div className="space-y-1.5 text-sm text-slate-400">
-                  <p>📝 TWK min. <span className="text-white font-bold">65</span> / 175</p>
+                  <p>📝 TWK min. <span className="text-white font-bold">65</span> / 150</p>
                   <p>🧠 TIU min. <span className="text-white font-bold">80</span> / 175</p>
                   <p>💡 TKP min. <span className="text-white font-bold">166</span> / 225</p>
                 </div>
@@ -401,15 +404,22 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Wall of Fame (Donors) */}
-        <section className="pt-10 border-t border-slate-800/50">
-          <WallOfFame limit={6} />
+        {/* Premium Achievement Section (Footer) */}
+        <section className="pt-20 border-t border-slate-800/50 space-y-16">
+          <NationalRankingTable 
+            packageId={weeklyPackage?.id} 
+            packageTitle={weeklyPackage?.title} 
+          />
+          
+          <div className="pt-10 border-t border-slate-800/30">
+            <WallOfFame limit={12} compact />
+          </div>
         </section>
       </main>
 
-      <DonationModal 
-        isOpen={isDonationOpen} 
-        onClose={() => setIsDonationOpen(false)} 
+      <DonationModal
+        isOpen={isDonationOpen}
+        onClose={() => setIsDonationOpen(false)}
       />
     </div>
   );
