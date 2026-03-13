@@ -64,8 +64,10 @@ export default function LoginPage() {
         const data = await res.json();
         setError(data.detail || 'Google login failed');
       }
-    } catch (err) {
-      setError('An error occurred during Google login');
+    } catch (err: any) {
+      console.error('Google login error:', err);
+      const errorMessage = err?.message || err?.detail || (typeof err === 'string' ? err : 'Terjadi kesalahan sistem saat login Google');
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }

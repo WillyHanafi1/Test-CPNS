@@ -114,6 +114,7 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(get_async_ses
     new_user = User(
         email=user_in.email,
         hashed_password=get_password_hash(user_in.password),
+        auth_provider="local"
     )
     db.add(new_user)
     await db.flush() # Get the user id
@@ -238,6 +239,10 @@ async def google_login(
         if idinfo['aud'] != app_settings.GOOGLE_CLIENT_ID:
             raise ValueError("Could not verify audience.")
 
+        # ✅ WAJIB: Pastikan email benar-benar milik user
+        if not idinfo.get('email_verified'):
+            raise ValueError("Email belum diverifikasi oleh Google.")
+
         email = idinfo['email']
         full_name = idinfo.get('name', 'Google User')
         
@@ -253,7 +258,8 @@ async def google_login(
                 email=email,
                 hashed_password=get_password_hash(random_pw),
                 is_active=True,
-                role="participant"
+                role="participant",
+                auth_provider="google"
             )
             db.add(user)
             await db.flush()
@@ -262,6 +268,16 @@ async def google_login(
             db.add(profile)
             await db.commit()
             await db.refresh(user)
+        else:
+            # 🚨 MITIGASI PRE-HIJACKING
+            # Jika user mendaftar lokal tapi login via Google, pastikan kita mengizinkannya
+            # hanya jika email Google sudah diverifikasi (sudah dicek di atas)
+            # Dan kita bisa update providernya jika diperlukan, atau biarkan tetap 'local'
+            # tapi kita catat bahwa dia trust Google provider sekarang.
+            if user.auth_provider == "local":
+                # Opsional: Paksa user link account atau otomatis update ke 'google' jika login sukses
+                user.auth_provider = "google"
+                await db.commit()
             
         # Create session
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
