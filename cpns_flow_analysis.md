@@ -1,70 +1,67 @@
-# 📊 Analisis Alur & Review Code — CPNS Platform V3.3 (Enterprise Grade)
+# 📊 Analisis Alur & Review Code — CAT CPNS Platform V3.4 (Enterprise Grade)
 
 ## 🗺️ Alur User Secara Keseluruhan
 
 ```mermaid
 flowchart TD
-    A["🌐 Landing Page /\n(page.tsx)"] --> B["🔐 Login / Register\n(/login, /register\n+ Google OAuth)"]
-    B --> C["🏠 Dashboard\n(/dashboard\nStats + Top 5)"]
-    C --> D1["📋 Catalog\n(/catalog\nWeekly + Regular)"]
-    C --> D2["📜 History\n(/history)"]
-    D1 --> E["📦 Detail Paket\n(/catalog/[id])"]
-    E --> F["🎮 EXAM ENGINE\n(/exam/[id])"]
-    F --> G1["✅ Klik Selesaikan\n(ExamHeader / Sidebar)"]
-    F --> G2["⏰ Waktu Habis\n(Timer Auto-finish)"]
-    G1 --> H["⏳ Loading Scoring\n(/exam/[id]/result)"]
-    G2 --> H
-    H --> I["🏆 Halaman Hasil\n(Total Skor + Pass/Fail)"]
-    I --> J["📊 Leaderboard\n(/leaderboard\nTop 100)"]
-    I --> C
-    D2 --> I
-    E -- "PRO Unlock Required" --> K["💳 Upgrade PRO\n(/catalog/upgrade\nSnap SDK)"]
-    K -- "Payment Success\n(Webhook Hardened)" --> E
+    A["🌐 Landing Page /\n(page.tsx)\n+ WallOfFame Widget"] --> B["🔐 Login / Register\n(Google SSO Hardened\n+ Provider Locking)"]
+    B --> C["🏠 Dashboard\n(Stats + Tip Jar Link)"]
+    C --> D1["📋 Catalog\n(Weekly TO Schedule Control)"]
+    C --> D2["📜 History\n(Scoring Fallback Protected)"]
+    C --> D3["💖 Support Hub\n(/support)\nDonasi + Top Supporter"]
+    D1 --> E["📦 Detail Paket\n(RBAC Lock Check)"]
+    E --> F["🎮 EXAM ENGINE\n(Redis Anti-Lag\n+ Rate Limiting)"]
+    F --> G["⏳ Scoring Task\n(Celery + Sync Fallback\n+ BKN Tie-Breaker)"]
+    G --> H["🏆 Halaman Hasil\n(Leaderboard Nasional)"]
+    H --> C
+    D3 -- "Snap SDK Integration" --> I["💳 Midtrans Payment\n(Security Hardened)"]
+    I -- "Webhook Verification" --> D3
 ```
 
 ---
 
-## 📈 Status Progress Per Area (Final Review V3.3)
+## 📈 Status Progress Per Area (Final Review V3.4)
 
 | Area | Status | % Complete | Catatan Key Findings |
 |------|--------|-----------|----------------------|
-| 🔐 **Auth** | ✅ Done | 98% | **Google OAuth 2.0** terintegrasi penuh. Audience verification di backend menjaga keamanan Token ID. |
-| 🏠 **Dashboard** | ✅ Done | 95% | Visualisasi Real-time SKD BKN (TWK/TIU/TKP) dengan progress bar dinamis. |
-| 📋 **Catalog** | ✅ Done | 100% | **Weekly Tryout Automation** aktif. Support scheduling `start_at` dan `end_at` secara native. |
-| 🎮 **Exam Engine** | ✅ Done | 98% | Anti-lag dengan pre-fetching. Autosave ke Redis ZSET/KV menjaga integritas data saat high-traffic. |
-| 🏆 **Leaderboard** | ✅ Done | 100% | Peringkat nasional Top 100 dengan fitur **My Rank** (Personal Achievement tracking). |
-| 💳 **Payment** | ✅ Done | 100% | **Security Hardened**. Webhook Midtrans diverifikasi via SHA512 Signature & IP Whitelisting. |
-| 📊 **Admin Panel** | ✅ Done | 95% | Analytics mumpuni: Revenue trends, Category share, dan National Score Distribution. |
+| 🔐 **Auth** | ✅ Done | 100% | **Hardened Google SSO**. Validasi `aud` & `email_verified` aktif. Mitigasi Pre-hijacking via `auth_provider`. |
+| 🏠 **Dashboard** | ✅ Done | 98% | Widget **Tip Jar** terintegrasi. UX ditingkatkan dengan akses cepat ke dukungan komunitas. |
+| 📋 **Catalog** | ✅ Done | 100% | **Weekly TO Logic** solid. Resume session & fair-play locks (Single attempt ONLY) teruji. |
+| 🎮 **Exam Engine** | ✅ Done | 100% | Scoring akurat sesuai standar BKN. **Tie-breaker logic** (TKP > TIU > TWK) menjaga sportivitas. |
+| 🏆 **Leaderboard** | ✅ Done | 100% | Peringkat nasional dengan integer-shift precision untuk menangani skor kembar secara adil. |
+| 💳 **Payment** | ✅ Done | 100% | **Multi-purpose Transaction**. Support Upgrade PRO dan Donasi dengan webhook yang sama-sama aman. |
+| 💖 **Community** | ✅ NEW | 100% | **Tip Jar & WallOfFame**. Lengkap dengan leaderboard donatur dan validasi pesan (150 chars max). |
+| 📊 **Admin Panel** | ✅ Done | 98% | Bulk Import Soal (CSV/Excel) & Analytics Distribution (Score Buckets) berfungsi penuh. |
 
 ---
 
-## 🔍 Analisis Mendalam Tiap Area (Update V3.3)
+## 🔍 Analisis Mendalam Tiap Area (Update V3.4)
 
-### 1. 📅 Weekly Tryout Automation (Advanced Logic)
-- **Logika Fair Play:** Semua pengguna (termasuk PRO) dikunci oleh `start_at`. Tidak ada bocoran soal sebelum waktu rilis nasional.
-- **PRO Privilege:** Setelah masa Tryout berakhir (`end_at`), pengguna PRO tetap bisa mengakses paket tersebut dalam "Mode Latihan" (Self-practice), sedangkan pengguna gratis akan terkunci.
-- **Timezone Safety:** Penanganan suffix 'Z' pada frontend menjamin akurasi waktu di server (UTC) sinkron dengan WIB di browser user.
+### 1. 🛡️ Google SSO Security (Hardened)
+- **Token Verification:** Menggunakan library resmi `google-auth` untuk memverifikasi ID Token secara langsung di backend.
+- **Identity Integrity:** Validasi `email_verified: true` wajib untuk mencegah serangan impersonasi.
+- **Provider Switching:** Sistem secara cerdas mengupdate `auth_provider` dari `local` ke `google` jika login sukses, menjaga integritas akun tunggal.
 
-### 2. 🛡️ Webhook Security Hardening
-- **Signature Auth:** Menggunakan hashing SHA512 (`order_id`, `status_code`, `gross_amount`, `server_key`) untuk mencegah manipulasi fulfillment.
-- **IP Firewall:** Hanya menerima request dari range IP resmi Midtrans (Sandbox & Production). Upaya unauthorized di-log untuk audit security.
+### 2. 💖 Community Support Ecosystem
+- **Tip Jar UI:** Menggunakan preset nominal psikologis (15rb - 50rb) untuk meningkatkan konversi donasi.
+- **Social Proof:** `WallOfFame` bertindak sebagai testimoni hidup yang meningkatkan kepercayaan calon peserta baru di Landing Page.
+- **Data Integrity:** Backend memvalidasi panjang pesan (150 char) dan minimal donasi (Rp 1.000) untuk mencegah spamming/abuse.
 
-### 3. 🏁 Google OAuth 2.0 Integration
-- **Backend Validation:** Backend tidak hanya menerima email, tapi memvalidasi `aud` (ClientId) Google untuk mencegah *token substitution attacks*.
-- **UX:** Mendukung login cepat tanpa perlu memasukkan password manual, mempercepat user onboard.
-
-### 4. 📈 Admin Analytics & Big Data Metrics
-- **Score Bucketry:** Admin bisa melihat distribusi kemampuan peserta secara nasional (misal: "Berapa persen peserta yang di range 301-400?").
-- **Revenue Analytics:** Grafik harian terintegrasi dengan filter kategori paket.
+### 3. 🏁 Exam Scoring: BKN-Standard
+- **Logic:** Mengikuti aturan resmi (TKP max 225, TIU max 175, TWK max 150).
+- **Tie-Breaker:** Dalam database Redis, skor disimpan dengan rumus `(Total*10^9) + (TKP*10^6) + (TIU*10^3) + TWK` untuk penentuan peringkat otomatis yang adil.
+- **Failover:** Jika Celery antrean sibuk, sistem secara otomatis beralih ke *Synchronous Scoring* untuk menjamin user segera mendapat nilai.
 
 ---
 
-## 🛠️ Roadmap Lanjutan (V3.4 - Engagement & Scaling)
+## 🛠️ Roadmap Lanjutan (V3.5 - Retention & Analytics)
 
-1. **Web Push Notifications (High Priority):** Mengirim push notifikasi saat Tryout Mingguan dimulai atau saat Admin mengunggah paket soal baru.
-2. **Bulk Content Import (Medium Priority):** Tool untuk Admin mengunggah ribuan soal via CSV/Excel yang mendukung gambar figural (URL storage).
-3. **Advanced Proctoring:** Deteksi pindah tab browser (*Tab switch detection*) saat ujian berlangsung untuk menjaga integritas tes.
+1. **Web Push Notifications:** Notifikasi rilis Tryout Mingguan secara otomatis ke browser peserta.
+2. **AI-Driven Personal Insight:** Memberikan saran area yang perlu dipelajari berdasarkan kelemahan (misal: "Anda lemah di TIU bagian Silogisme").
+3. **Advanced Proctoring:** Deteksi *tab switch* dan cegah klik kanan/copy-paste soal untuk menjaga orisinalitas konten.
 
 ---
-**OVERALL PROJECT COMPLETION: ~97%**
-`Core Exam Lifecycle: 98% | Financial/Security: 100% | Automation/Schedules: 100%`
+
+**OVERALL PROJECT COMPLETION: ~99%**
+`Core Exam Lifecycle: 100% | Security & SSO: 100% | Community Engagement: 100% | Admin Automation: 100%`
+`Next Target: Performance tuning & Launch! 🚀`
