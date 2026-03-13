@@ -134,76 +134,96 @@ export default function DashboardPage() {
               </Button>
             </Link>
           </div>
-        </div>
 
-        {/* Featured Weekly TO Card */}
-        {weeklyPackage && (
-          <div className="relative group overflow-hidden rounded-[2.5rem] bg-gradient-to-r from-amber-500/10 via-amber-500/20 to-orange-500/10 border-2 border-amber-500/30 p-1 shadow-2xl shadow-amber-500/10 animate-in slide-in-from-top-4 duration-1000">
-            <div className="absolute top-0 right-0 p-4">
-              <div className="flex items-center space-x-2 bg-amber-500 text-black px-4 py-1.5 rounded-full font-black text-[10px] uppercase tracking-widest shadow-lg animate-pulse">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-black opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-black"></span>
-                </span>
-                Live Tryout Mingguan
-              </div>
-            </div>
-            
-            <div className="bg-slate-950/40 backdrop-blur-md rounded-[2.3rem] p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-8">
-              <div className="flex-1 space-y-4 text-center md:text-left">
-                <h2 className="text-3xl md:text-4xl font-black italic tracking-tighter text-white">
-                  {weeklyPackage.title}
-                </h2>
-                <p className="text-slate-400 font-medium max-w-lg leading-relaxed">
-                  Tryout ini hanya dapat dikerjakan <span className="text-amber-400 font-bold">1 kali kesempatan</span>. 
-                  Skor Anda akan masuk ke Peringkat Nasional Mingguan!
-                </p>
-                <div className="flex flex-wrap justify-center md:justify-start gap-4 pt-2">
-                  <div className="bg-slate-900/80 px-4 py-2 rounded-xl border border-slate-800 flex items-center space-x-2">
-                    <Clock className="w-4 h-4 text-amber-400" />
-                    <span className="text-xs font-bold text-slate-300">
-                      Berakhir: {new Date(weeklyPackage.end_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
-                    </span>
-                  </div>
-                  {weeklyPackage.user_status && (
-                    <div className={`px-4 py-2 rounded-xl border flex items-center space-x-2 ${
-                      weeklyPackage.user_status === 'finished' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400'
-                    }`}>
-                      {weeklyPackage.user_status === 'finished' ? <CheckCircle2 className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
-                      <span className="text-xs font-bold uppercase tracking-widest">
-                        {weeklyPackage.user_status === 'finished' ? 'Sudah Dikerjakan' : 'Sedang Berlangsung'}
-                      </span>
-                    </div>
-                  )}
+          {/* Featured Weekly TO Card - Premium Hero Position */}
+          {weeklyPackage && (
+            <div className="mt-10 relative group overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-amber-500/20 via-yellow-500/30 to-orange-600/20 border-2 border-amber-400/50 p-1 shadow-2xl shadow-amber-500/20 animate-in fade-in zoom-in duration-700">
+              {/* Animated background pulse */}
+              <div className="absolute inset-0 bg-amber-400/5 animate-pulse pointer-events-none" />
+              
+              <div className="absolute top-0 right-0 p-4 z-10">
+                <div className="flex items-center space-x-2 bg-gradient-to-r from-amber-500 to-yellow-400 text-black px-4 py-2 rounded-full font-black text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-amber-500/40">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-black opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-black"></span>
+                  </span>
+                  Live Tryout Mingguan
                 </div>
               </div>
               
-              <div className="flex flex-col gap-3 w-full md:w-auto">
-                {weeklyPackage.user_status === 'finished' ? (
-                  <Link href={`/leaderboard?package_id=${weeklyPackage.id}`}>
-                    <Button className="w-full md:w-auto bg-amber-500 hover:bg-amber-400 text-black font-black py-8 px-10 rounded-2xl shadow-xl shadow-amber-500/20 text-lg group">
-                      <Trophy className="w-6 h-6 mr-3 group-hover:rotate-12 transition-transform" />
-                      Lihat Peringkat Nasional
-                    </Button>
+              <div className="bg-slate-950/60 backdrop-blur-xl rounded-[2.3rem] p-8 md:p-12 flex flex-col md:flex-row items-center justify-between gap-10 relative">
+                {/* Decorative element */}
+                <div className="absolute -left-10 -bottom-10 w-40 h-40 bg-amber-500/20 rounded-full blur-[60px] pointer-events-none" />
+                
+                <div className="flex-1 space-y-6 text-center md:text-left relative z-10">
+                  <div className="space-y-2">
+                    <h2 className="text-4xl md:text-5xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white via-amber-200 to-amber-500 uppercase">
+                      {weeklyPackage.title}
+                    </h2>
+                    <div className="h-1.5 w-24 bg-gradient-to-r from-amber-500 to-transparent rounded-full mx-auto md:mx-0" />
+                  </div>
+                  
+                  <p className="text-slate-300 text-lg font-medium max-w-lg leading-relaxed">
+                    {weeklyPackage.user_status === 'finished' 
+                      ? "Selamat! Anda telah menyelesaikan tantangan ini. Cek posisi Anda di papan peringkat nasional sekarang."
+                      : "Tantangan baru telah tiba! Tryout ini hanya dapat dikerjakan satu kali. Tunjukkan kemampuan terbaikmu!"
+                    }
+                  </p>
+                  
+                  <div className="flex flex-wrap justify-center md:justify-start gap-4">
+                    <div className="bg-slate-900/90 px-5 py-3 rounded-2xl border border-amber-500/30 flex items-center space-x-3 shadow-inner">
+                      <Clock className="w-5 h-5 text-amber-400 animate-pulse" />
+                      <div className="flex flex-col">
+                        <span className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Batas Waktu</span>
+                        <span className="text-sm font-black text-amber-200">
+                          {new Date(weeklyPackage.end_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {weeklyPackage.user_status && (
+                      <div className={`px-5 py-3 rounded-2xl border flex items-center space-x-3 shadow-inner ${
+                        weeklyPackage.user_status === 'finished' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400'
+                      }`}>
+                        {weeklyPackage.user_status === 'finished' ? <CheckCircle2 className="w-5 h-5" /> : <TrendingUp className="w-5 h-5" />}
+                        <div className="flex flex-col">
+                          <span className="text-[10px] uppercase tracking-widest opacity-60 font-bold">Status Anda</span>
+                          <span className="text-sm font-black uppercase tracking-wider">
+                            {weeklyPackage.user_status === 'finished' ? 'Selesai' : 'Sedang Dikerjakan'}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="flex flex-col gap-4 w-full md:w-auto relative z-10">
+                  {weeklyPackage.user_status === 'finished' ? (
+                    <Link href={`/leaderboard?package_id=${weeklyPackage.id}`}>
+                      <Button className="w-full md:w-auto bg-gradient-to-br from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-black font-black py-10 px-12 rounded-3xl shadow-2xl shadow-amber-500/40 text-xl group transition-all hover:scale-105 active:scale-95">
+                        <Trophy className="w-8 h-8 mr-4 group-hover:rotate-12 transition-transform" />
+                        Lihat Peringkat Nasional
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Link href={`/catalog/${weeklyPackage.id}`}>
+                      <Button className="w-full md:w-auto bg-white hover:bg-slate-100 text-black font-black py-10 px-12 rounded-3xl shadow-2xl shadow-white/10 text-xl group transition-all hover:scale-105 active:scale-95">
+                        <Zap className="w-8 h-8 mr-4 text-amber-500 group-hover:scale-125 transition-transform" />
+                        Kerjakan Sekarang (Hanya 1x)
+                        <ChevronRight className="w-6 h-6 ml-3 group-hover:translate-x-2 transition-transform" />
+                      </Button>
+                    </Link>
+                  )}
+                  <Link href="/catalog" className="text-center">
+                    <span className="text-xs text-slate-500 hover:text-amber-400 transition-colors font-bold uppercase tracking-[0.2em] cursor-pointer">
+                      Eksplor Paket Lainnya
+                    </span>
                   </Link>
-                ) : (
-                  <Link href={`/catalog/${weeklyPackage.id}`}>
-                    <Button className="w-full md:w-auto bg-white hover:bg-slate-200 text-black font-black py-8 px-12 rounded-2xl shadow-xl shadow-white/10 text-lg group">
-                      <Zap className="w-6 h-6 mr-3 text-amber-500 group-hover:scale-125 transition-transform" />
-                      Mulai Sekarang
-                      <ChevronRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-                    </Button>
-                  </Link>
-                )}
-                <Link href="/catalog" className="text-center">
-                  <span className="text-xs text-slate-500 hover:text-slate-300 transition-colors font-bold uppercase tracking-widest cursor-pointer">
-                    Atau lihat paket lainnya
-                  </span>
-                </Link>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Stats Row */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
