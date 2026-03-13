@@ -7,6 +7,7 @@ import { Zap, Heart, Trophy, MessageSquare, ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
 import WallOfFame from '@/components/WallOfFame';
 import DonationModal from '@/components/DonationModal';
+import Navbar from '@/components/Navbar';
 
 interface TopSupporter {
   full_name: string;
@@ -38,23 +39,9 @@ export default function SupportHubPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white pb-20">
-      {/* Header Section */}
-      <div className="bg-slate-900/60 backdrop-blur-xl border-b border-slate-800 sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href="/dashboard" className="flex items-center text-slate-400 hover:text-white transition-colors">
-            <ChevronLeft className="h-5 w-5 mr-1" />
-            <span className="text-sm font-medium">Kembali Ke Dashboard</span>
-          </Link>
-          <div className="flex items-center gap-2">
-            <div className="bg-pink-600/20 p-1.5 rounded-lg">
-              <Heart className="h-4 w-4 text-pink-500 fill-pink-500" />
-            </div>
-            <span className="font-bold text-sm tracking-tight italic">Support Hub</span>
-          </div>
-        </div>
-      </div>
+      <Navbar />
 
-      <main className="max-w-5xl mx-auto px-4 mt-12 space-y-16">
+      <main className="max-w-5xl mx-auto px-4 pt-32 space-y-16">
         {/* Intro */}
         <div className="text-center space-y-4">
           <h1 className="text-4xl md:text-5xl font-black tracking-tighter">
@@ -70,7 +57,7 @@ export default function SupportHubPage() {
                 className="bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-7 rounded-2xl text-xl font-bold shadow-2xl shadow-indigo-600/20 group transition-all hover:scale-105"
             >
               <Heart className="w-6 h-6 mr-3 group-hover:scale-125 transition-transform fill-white" />
-              Kirim Dukungan Sekaraang
+              Kirim Dukungan Sekarang
             </Button>
           </div>
         </div>

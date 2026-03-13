@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Search, Filter, BookOpen, AlertTriangle, RefreshCw, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
+import Navbar from '@/components/Navbar';
 
 interface Package {
   id: string;
@@ -77,24 +78,9 @@ export default function CatalogPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
-      {/* Navigation */}
-      <nav className="border-b border-slate-800 bg-slate-900/60 backdrop-blur-xl sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <Link href="/dashboard" className="flex items-center space-x-2 group">
-            <div className="bg-indigo-600 p-1.5 rounded-lg group-hover:bg-indigo-500 transition-colors">
-              <BookOpen className="w-5 h-5 text-white" />
-            </div>
-            <span className="font-bold text-lg">CAT CPNS</span>
-          </Link>
-          <Link href="/dashboard">
-            <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white hover:bg-slate-800">
-              Dashboard
-            </Button>
-          </Link>
-        </div>
-      </nav>
+      <Navbar />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-12">
         <header className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="max-w-2xl">
             <h1 className="text-4xl font-extrabold tracking-tight mb-3 bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">

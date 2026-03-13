@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { BookOpen, CheckCircle2, Shield, Zap, Target, Users, User, Heart, ArrowRight, Star, HelpCircle } from 'lucide-react';
 import WallOfFame from '@/components/WallOfFame';
+import Navbar from '@/components/Navbar';
 
 export default function LandingPage() {
   return (
@@ -15,33 +16,7 @@ export default function LandingPage() {
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/10 blur-[120px] rounded-full" />
       </div>
 
-      {/* Navigation */}
-      <nav className="relative z-50 border-b border-slate-800/50 bg-slate-950/50 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div className="bg-indigo-600 p-2 rounded-xl shadow-lg shadow-indigo-500/20">
-              <BookOpen className="w-6 h-6 text-white" />
-            </div>
-            <span className="font-bold text-xl tracking-tight">CAT CPNS <span className="text-indigo-500">PRO</span></span>
-          </div>
-          <div className="hidden md:flex items-center space-x-8 text-sm font-medium text-slate-400">
-            <Link href="/catalog" className="hover:text-white transition-colors">Katalog Paket</Link>
-            <Link href="#features" className="hover:text-white transition-colors">Fitur Utama</Link>
-            <Link href="#price" className="hover:text-white transition-colors">Harga</Link>
-            <Link href="/support" className="text-pink-400 hover:text-pink-300 transition-colors flex items-center gap-1">
-              <Heart className="w-3 h-3 fill-pink-500" /> Dukung Kami
-            </Link>
-          </div>
-          <div className="flex items-center space-x-4">
-            <Link href="/login">
-              <Button variant="ghost" className="text-slate-300 hover:text-white">Masuk</Button>
-            </Link>
-            <Link href="/register">
-              <Button className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/25">Daftar Sekarang</Button>
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <Navbar />
 
       {/* Hero Section */}
       <section className="relative pt-24 pb-32 px-4">

@@ -436,7 +436,7 @@ const MagicBento = ({
                     href={card.link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-6 inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-indigo-400 hover:text-indigo-300 transition-colors group"
+                    className="mt-6 inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-indigo-400 hover:text-indigo-300 transition-colors group relative z-50"
                   >
                     Hubungi via WA <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </a>
