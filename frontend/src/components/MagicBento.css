@@ -106,9 +106,29 @@
     grid-template-columns: repeat(3, 1fr);
   }
   
-  /* Feature the main message card */
+  /* Vision card */
   .magic-bento-card:nth-child(1) {
     grid-column: span 2;
+  }
+
+  /* Support card */
+  .magic-bento-card:nth-child(2) {
+    grid-column: span 1;
+  }
+
+  /* Motivation card - span full row for long quote */
+  .magic-bento-card:nth-child(3) {
+    grid-column: span 3;
+    min-height: auto;
+    padding: 3rem;
+  }
+
+  .magic-bento-card:nth-child(3) .magic-bento-card__description {
+    font-size: 1.125rem;
+    font-style: italic;
+    max-width: 100%;
+    color: #cbd5e1;
+    margin-top: 1rem;
   }
 }
 

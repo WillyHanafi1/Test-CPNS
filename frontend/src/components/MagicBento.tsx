@@ -379,15 +379,9 @@ const MagicBento = ({
     {
       label: 'Vision',
       title: 'Built by 1 Solo Developer',
-      description: 'Platform ini dirancang, dibangun, dan dikelola secara mandiri untuk membantu langkah kalian menuju impian ASN.',
+      description: 'Platform ini dirancang, dibangun, dan dikelola secara mandiri untuk membantu langkah kalian menuju impian.',
       icon: <Layout className="w-5 h-5" />,
       highlight: true
-    },
-    {
-      label: 'Motivation',
-      title: 'Sweat & Dedication',
-      description: 'NIP hanya bisa diraih dengan keringat dan doa yang tak putus. Terus berjuang!',
-      icon: <Heart className="w-5 h-5 text-indigo-400" />
     },
     {
       label: 'Support',
@@ -395,6 +389,12 @@ const MagicBento = ({
       description: 'Jangan ragu hubungi saya via WA di 0823-1940-1259 untuk saran atau kendala.',
       icon: <MessageCircle className="w-5 h-5 text-indigo-400" />,
       link: "https://wa.me/6282319401259"
+    },
+    {
+      label: 'Motivation',
+      title: 'Sweat & Dedication',
+      description: '"Tidak ada jalan pintas menuju kesuksesan. Kesuksesan hanya bisa diraih dengan keringat, dedikasi, dan doa yang tak putus. Kalian mungkin akan merasa lelah dan banyak berkorban hari ini. Percayalah, kelak semua itu akan terbayar lunas dengan kesuksesan dan senyum kebanggaan yang mengubah hidupmu"',
+      icon: <Heart className="w-5 h-5 text-indigo-400" />
     }
   ];
 
