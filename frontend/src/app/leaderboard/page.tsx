@@ -1,14 +1,14 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, Trophy, Medal, Home, ArrowLeft, User, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Loader2, Trophy, User, Home, ArrowLeft, TrendingUp, AlertTriangle } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
-export default function LeaderboardPage() {
+function LeaderboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const package_id = searchParams.get('package_id');
@@ -51,7 +51,6 @@ export default function LeaderboardPage() {
   }, [package_id]);
 
   if (loading) {
-// ...
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white">
         <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4" />
@@ -216,6 +215,19 @@ export default function LeaderboardPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LeaderboardPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white">
+        <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4" />
+        <p className="text-slate-400 font-medium animate-pulse">Menyiapkan halaman...</p>
+      </div>
+    }>
+      <LeaderboardContent />
+    </Suspense>
   );
 }
 
