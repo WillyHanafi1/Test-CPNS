@@ -465,7 +465,7 @@ export default function DashboardPage() {
               <Heart className="h-3 w-3 fill-pink-500" /> Komunitas CAT CPNS
             </div>
             <h2 className="text-3xl md:text-5xl font-black text-white italic tracking-tighter uppercase mb-4">
-              Premium Wall of Fame
+              Wall of Fame
             </h2>
             <p className="text-slate-400 max-w-2xl mx-auto text-sm md:text-base">
               Setiap dukungan Anda membantu kami menjaga server tetap stabil dan menyediakan konten berkualitas bagi pejuang NIP di seluruh Indonesia.
