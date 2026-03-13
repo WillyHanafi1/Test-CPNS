@@ -170,7 +170,7 @@ async def get_wall_of_fame(
     response = []
     for d in donations:
         response.append({
-            "full_name": "Anonim" if d.is_anonymous else (d.user.profile.full_name if d.user.profile else d.user.email.split('@')[0]),
+            "full_name": "Orang Baik" if d.is_anonymous else (d.user.profile.full_name if d.user.profile else d.user.email.split('@')[0]),
             "amount": d.amount,
             "message": d.message,
             "created_at": d.created_at,
@@ -183,11 +183,13 @@ async def get_top_supporters(
     db: AsyncSession = Depends(get_async_session)
 ):
     """
-    Get top supporters by total amount.
+    Get top supporters. Known users are grouped/summed, 
+    while anonymous donations are listed individually as 'Orang Baik'.
     """
     from backend.models.models import UserProfile
     
-    result = await db.execute(
+    # 1. Get summed amounts for known users (is_anonymous=False)
+    known_users_query = await db.execute(
         select(
             User.email,
             UserProfile.full_name,
@@ -202,19 +204,40 @@ async def get_top_supporters(
         .order_by(desc("total_amount"))
         .limit(10)
     )
+    known_data = known_users_query.all()
     
-    top_data = result.all()
+    # 2. Get individual anonymous donations (Top 10 only)
+    anon_query = await db.execute(
+        select(UserTransaction.amount)
+        .where(UserTransaction.payment_status == "success")
+        .where(UserTransaction.transaction_type == "donation")
+        .where(UserTransaction.is_anonymous == True)
+        .order_by(desc(UserTransaction.amount))
+        .limit(10)
+    )
+    anon_data = anon_query.scalars().all()
     
-    response = []
-    for email, full_name, total_amount in top_data:
-        display_name = full_name if full_name else (email.split('@')[0] if email else "Unknown")
-        
-        response.append({
+    # 3. Combine and transform
+    combined = []
+    
+    # Add known users
+    for email, full_name, total_amount in known_data:
+        display_name = full_name if full_name else (email.split('@')[0] if email else "User")
+        combined.append({
             "full_name": display_name,
             "total_amount": total_amount
         })
         
-    return response
+    # Add anonymous entries individually
+    for amount in anon_data:
+        combined.append({
+            "full_name": "Orang Baik",
+            "total_amount": amount
+        })
+        
+    # 4. Final sort and limit
+    combined.sort(key=lambda x: x["total_amount"], reverse=True)
+    return combined[:10]
 
 @router.get("/donations/stats", response_model=DonationStats)
 async def get_donation_stats(
