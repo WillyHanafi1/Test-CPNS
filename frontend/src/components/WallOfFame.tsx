@@ -144,7 +144,7 @@ export default function WallOfFame({ limit, compact }: WallOfFameProps) {
           </div>
           <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="text-center md:text-left">
-              <h4 className="text-sm font-black text-slate-500 uppercase tracking-[0.3em] mb-1">Maintenance Fund</h4>
+              <h4 className="text-sm font-black text-slate-500 uppercase tracking-[0.3em] mb-1">Operasional Server</h4>
               <div className="flex items-baseline gap-2">
                 <span className="text-2xl font-black text-white">Rp {stats.total_amount.toLocaleString('id-ID')}</span>
                 <span className="text-xs font-bold text-slate-500">/ Rp {stats.target_amount.toLocaleString('id-ID')}</span>
@@ -153,8 +153,8 @@ export default function WallOfFame({ limit, compact }: WallOfFameProps) {
             
             <div className="flex-1 w-full max-w-xl">
               <div className="flex justify-between items-end mb-2">
-                <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">{stats.percentage}% Goal Tercapai</span>
-                <span className="text-[10px] font-bold text-slate-500 italic">Target Server Bulan Ini</span>
+                <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">{stats.percentage}% Biaya Terpenuhi</span>
+                <span className="text-[10px] font-bold text-slate-500 italic">Kebutuhan Server & Website</span>
               </div>
               <div className="h-3 w-full bg-slate-800/50 rounded-full overflow-hidden border border-slate-700/50 p-0.5" id="monthly-donation-progress">
                 <div 
