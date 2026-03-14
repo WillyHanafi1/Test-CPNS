@@ -57,7 +57,7 @@ export default function LoginPage() {
         body: JSON.stringify({ token: credentialResponse.credential }),
         credentials: 'include',
       });
-      
+
       if (res.ok) {
         const data = await res.json();
         await refreshSession();
@@ -78,7 +78,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-950 via-slate-900 to-black p-4">
       <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))] pb-40" />
-      
+
       <Card className="w-full max-w-md bg-slate-900/50 border-slate-800 backdrop-blur-xl shadow-2xl relative">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center text-white">Welcome Back</CardTitle>
@@ -101,10 +101,10 @@ export default function LoginPage() {
             )}
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-200" htmlFor="email">Email</label>
-              <Input 
-                id="email" 
-                type="email" 
-                placeholder="name@example.com" 
+              <Input
+                id="email"
+                type="email"
+                placeholder="name@example.com"
                 className="bg-slate-950/50 border-slate-800 text-white placeholder:text-slate-500"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -118,10 +118,10 @@ export default function LoginPage() {
                   Forgot Password?
                 </Link>
               </div>
-              <Input 
-                id="password" 
-                type="password" 
-                placeholder="••••••••" 
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
                 className="bg-slate-950/50 border-slate-800 text-white placeholder:text-slate-500"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
