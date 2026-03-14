@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 import hashlib
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,6 +24,7 @@ router = APIRouter(prefix="/transactions", tags=["transactions"])
 @limiter.limit("5/minute")
 async def create_pro_upgrade_transaction(
     request: Request,
+    response: Response,
     db: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_user)
 ):
@@ -96,6 +97,7 @@ async def get_user_transactions(
 @limiter.limit("5/minute")
 async def create_donation_transaction(
     request: Request,
+    response: Response,
     payload: DonationRequest = Depends(),
     db: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_user)
@@ -284,6 +286,7 @@ async def get_donation_stats(
 @limiter.limit("30/minute")
 async def midtrans_webhook(
     request: Request,
+    response: Response,
     db: AsyncSession = Depends(get_async_session)
 ):
     """

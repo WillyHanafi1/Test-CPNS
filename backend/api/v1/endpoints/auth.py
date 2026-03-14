@@ -102,7 +102,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/register", response_model=UserSchema, status_code=status.HTTP_201_CREATED)
 @limiter.limit("3/minute")
-async def register(request: Request, user_in: UserCreate, db: AsyncSession = Depends(get_async_session)):
+async def register(request: Request, response: Response, user_in: UserCreate, db: AsyncSession = Depends(get_async_session)):
     # Check if user already exists
     result = await db.execute(select(User).where(User.email == user_in.email))
     user = result.scalar_one_or_none()
@@ -185,6 +185,7 @@ async def get_me(current_user: User = Depends(get_current_user)):
 @limiter.limit("3/minute")
 async def forgot_password(
     request: Request,
+    response: Response,
     payload: ForgotPasswordRequest = Body(...),
     db: AsyncSession = Depends(get_async_session)
 ):
