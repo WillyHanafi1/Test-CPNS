@@ -98,7 +98,7 @@ async def get_user_transactions(
 async def create_donation_transaction(
     request: Request,
     response: Response,
-    payload: DonationRequest = Depends(),
+    payload: DonationRequest,
     db: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_user)
 ):
@@ -117,7 +117,7 @@ async def create_donation_transaction(
         user_id=current_user.id,
         transaction_type="donation",
         order_id=order_id,
-        amount=request.amount,
+        amount=payload.amount,
         payment_status="pending",
         message=payload.message,
         is_anonymous=payload.is_anonymous
