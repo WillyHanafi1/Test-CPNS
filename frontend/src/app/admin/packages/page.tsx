@@ -49,7 +49,8 @@ export default function PackagesAdmin() {
     description: '',
     price: 0,
     category: 'Mix',
-    is_premium: false
+    is_premium: false,
+    is_published: false
   });
 
   useEffect(() => {
@@ -96,7 +97,8 @@ export default function PackagesAdmin() {
       description: '',
       price: 0,
       category: 'Mix',
-      is_premium: false
+      is_premium: false,
+      is_published: false
     });
     setIsFormModalOpen(true);
   };
@@ -108,7 +110,8 @@ export default function PackagesAdmin() {
       description: pkg.description,
       price: pkg.price,
       category: pkg.category,
-      is_premium: pkg.is_premium
+      is_premium: pkg.is_premium,
+      is_published: pkg.is_published
     });
     setIsFormModalOpen(true);
   };
@@ -180,7 +183,14 @@ export default function PackagesAdmin() {
              <Package className="w-5 h-5 text-indigo-400" />
           </div>
           <div>
-            <p className="font-bold text-slate-200">{pkg.title}</p>
+            <div className="flex items-center space-x-2">
+              <p className="font-bold text-slate-200">{pkg.title}</p>
+              {pkg.is_published ? (
+                <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" title="Published" />
+              ) : (
+                <div className="w-2 h-2 rounded-full bg-slate-600" title="Draft" />
+              )}
+            </div>
             <p className="text-[10px] text-slate-500 truncate max-w-[150px]">{pkg.description}</p>
           </div>
         </div>
@@ -404,6 +414,18 @@ export default function PackagesAdmin() {
                        <div className="relative inline-flex items-center cursor-pointer" onClick={() => setFormData({...formData, is_premium: !formData.is_premium})}>
                           <div className={`w-12 h-6 rounded-full transition-colors ${formData.is_premium ? 'bg-indigo-600' : 'bg-slate-800'}`}>
                              <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${formData.is_premium ? 'translate-x-6' : ''}`} />
+                          </div>
+                       </div>
+                    </div>
+
+                    <div className="flex items-center justify-between p-4 bg-slate-950/50 rounded-2xl border border-slate-800">
+                       <div>
+                          <p className="text-sm font-bold text-slate-200">Publish Paket</p>
+                          <p className="text-[10px] text-slate-500">Munculkan paket ini di katalog publik</p>
+                       </div>
+                       <div className="relative inline-flex items-center cursor-pointer" onClick={() => setFormData({...formData, is_published: !formData.is_published})}>
+                          <div className={`w-12 h-6 rounded-full transition-colors ${formData.is_published ? 'bg-emerald-600' : 'bg-slate-800'}`}>
+                             <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${formData.is_published ? 'translate-x-6' : ''}`} />
                           </div>
                        </div>
                     </div>
