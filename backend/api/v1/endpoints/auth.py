@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Response, Request, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request, BackgroundTasks, Body
 from typing import Optional, List
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,8 +26,8 @@ from backend.core.security import (
 )
 from backend.config import settings as app_settings
 from backend.core.email import send_reset_password_email
+from backend.core.rate_limiter import limiter
 from jose import JWTError, jwt
-# Cookie removed
 
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
@@ -101,7 +101,8 @@ async def get_current_admin(
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/register", response_model=UserSchema, status_code=status.HTTP_201_CREATED)
-async def register(user_in: UserCreate, db: AsyncSession = Depends(get_async_session)):
+@limiter.limit("3/minute")
+async def register(request: Request, user_in: UserCreate, db: AsyncSession = Depends(get_async_session)):
     # Check if user already exists
     result = await db.execute(select(User).where(User.email == user_in.email))
     user = result.scalar_one_or_none()
@@ -132,7 +133,9 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(get_async_ses
     return new_user
 
 @router.post("/login")
+@limiter.limit("5/minute")
 async def login(
+    request: Request,
     response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(), 
     db: AsyncSession = Depends(get_async_session)
@@ -178,27 +181,28 @@ async def get_me(current_user: User = Depends(get_current_user)):
 
 # --- New Endpoints ---
 
-@router.post("/forgot-password")
+@router.post("/forgot-password", response_model=None)
+@limiter.limit("3/minute")
 async def forgot_password(
-    request: ForgotPasswordRequest,
-    background_tasks: BackgroundTasks,
+    request: Request,
+    payload: ForgotPasswordRequest = Body(...),
     db: AsyncSession = Depends(get_async_session)
 ):
     """Initiate password reset. Sends a link to the user's email."""
-    result = await db.execute(select(User).where(User.email == request.email))
+    result = await db.execute(select(User).where(User.email == payload.email))
     user = result.scalar_one_or_none()
     
     if user:
         reset_token = create_reset_token(user.email)
-        # In a real app, you'd send an email here.
         frontend_url = app_settings.cors_origins_list[0]
         reset_link = f"{frontend_url}/reset-password?token={reset_token}"
         
         # MOCK EMAIL SENDING
         print(f"DEBUG: Password reset link for {user.email}: {reset_link}")
 
-        # REAL EMAIL SENDING
-        background_tasks.add_task(send_reset_password_email, user.email, reset_link)
+        # Fire-and-forget email sending (avoids BackgroundTasks/slowapi conflict)
+        import asyncio
+        asyncio.create_task(send_reset_password_email(user.email, reset_link))
         
     # Always return success to prevent email enumeration
     return {"message": "If your email is registered, you will receive a password reset link."}
@@ -222,16 +226,18 @@ async def reset_password(request: ResetPasswordRequest, db: AsyncSession = Depen
     return {"message": "Password has been reset successfully."}
 
 @router.post("/google")
+@limiter.limit("10/minute")
 async def google_login(
-    request: GoogleLoginRequest,
-    response: Response,
+    request: Request,
+    payload: GoogleLoginRequest = Body(...),
+    response: Response = None,
     db: AsyncSession = Depends(get_async_session)
 ):
     """Authenticate with Google ID Token."""
     try:
         # Verify Google Token
         idinfo = id_token.verify_oauth2_token(
-            request.token, 
+            payload.token, 
             google_requests.Request(), 
             app_settings.GOOGLE_CLIENT_ID
         )

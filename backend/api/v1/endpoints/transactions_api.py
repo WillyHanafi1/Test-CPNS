@@ -13,6 +13,7 @@ from backend.api.v1.endpoints.auth import get_current_user
 from backend.core.midtrans import midtrans_service
 from backend.config import settings
 from backend.schemas.transaction import DonationRequest, DonationResponse, SupporterResponse, TopSupporter, DonationStats
+from backend.core.rate_limiter import limiter
 from sqlalchemy.orm import selectinload
 
 logger = logging.getLogger(__name__)
@@ -20,7 +21,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
 @router.post("/upgrade-pro")
+@limiter.limit("5/minute")
 async def create_pro_upgrade_transaction(
+    request: Request,
     db: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_user)
 ):
@@ -90,18 +93,20 @@ async def get_user_transactions(
     return transactions
 
 @router.post("/donate", response_model=DonationResponse)
+@limiter.limit("5/minute")
 async def create_donation_transaction(
-    request: DonationRequest,
+    request: Request,
+    payload: DonationRequest = Depends(),
     db: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_user)
 ):
     """
     Create a donation transaction.
     """
-    if request.amount < 1000:
+    if payload.amount < 1000:
         raise HTTPException(status_code=400, detail="Minimal donasi adalah Rp 1.000")
 
-    if request.message and len(request.message) > 150:
+    if payload.message and len(payload.message) > 150:
         raise HTTPException(status_code=400, detail="Pesan dukungan maksimal 150 karakter.")
 
     order_id = f"DONATE-{current_user.id.hex[:8]}-{uuid.uuid4().hex[:6]}"
@@ -112,17 +117,17 @@ async def create_donation_transaction(
         order_id=order_id,
         amount=request.amount,
         payment_status="pending",
-        message=request.message,
-        is_anonymous=request.is_anonymous
+        message=payload.message,
+        is_anonymous=payload.is_anonymous
     )
     db.add(new_transaction)
     await db.flush()
     
     item_details = [{
         "id": "DONATION",
-        "price": request.amount,
+        "price": payload.amount,
         "quantity": 1,
-        "name": f"Dukungan Komunitas - {'Anonim' if request.is_anonymous else current_user.email}"
+        "name": f"Dukungan Komunitas - {'Anonim' if payload.is_anonymous else current_user.email}"
     }]
     
     customer_details = {
@@ -133,7 +138,7 @@ async def create_donation_transaction(
     try:
         snap_response = midtrans_service.create_transaction(
             order_id=order_id,
-            amount=request.amount,
+            amount=payload.amount,
             item_details=item_details,
             customer_details=customer_details
         )
@@ -276,6 +281,7 @@ async def get_donation_stats(
     }
 
 @router.post("/webhook")
+@limiter.limit("30/minute")
 async def midtrans_webhook(
     request: Request,
     db: AsyncSession = Depends(get_async_session)

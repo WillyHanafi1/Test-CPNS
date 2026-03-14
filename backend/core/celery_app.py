@@ -14,5 +14,12 @@ celery_app.conf.update(
     result_serializer="json",
     timezone="Asia/Jakarta",
     enable_utc=True,
-    broker_connection_retry_on_startup=True
+    broker_connection_retry_on_startup=True,
+    # Celery Beat — periodic tasks
+    beat_schedule={
+        "auto-finish-expired-sessions": {
+            "task": "backend.core.tasks.auto_finish_expired_sessions",
+            "schedule": 120.0,  # every 2 minutes
+        },
+    },
 )

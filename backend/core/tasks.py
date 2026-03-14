@@ -174,3 +174,120 @@ def calculate_exam_score(session_id: str, user_id: str, user_email: str):
         return loop.run_until_complete(async_run_scoring(session_id, user_id, user_email))
     finally:
         loop.close()
+
+
+# ====================================================================
+# Celery Beat Task: Auto-Finish Expired Exam Sessions
+# ====================================================================
+
+async def async_auto_finish_expired():
+    """
+    Scan for sessions with status 'ongoing' or 'processing' that have
+    exceeded their end_time by a 5-minute grace period. For each:
+      1. Try to run scoring (same as manual finish).
+      2. If scoring fails, mark as 'expired' to prevent infinite retries.
+    """
+    from datetime import timedelta
+    import logging
+
+    logger = logging.getLogger("celery.beat.auto_finish")
+
+    engine = create_async_engine(
+        settings.DATABASE_URL,
+        echo=False,
+        poolclass=NullPool
+    )
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    grace_period = timedelta(minutes=5)
+    cutoff_time = datetime.now(timezone.utc).replace(tzinfo=None) - grace_period
+
+    finished_count = 0
+    error_count = 0
+
+    try:
+        async with session_factory() as db:
+            # Find expired sessions
+            result = await db.execute(
+                select(ExamSession)
+                .where(
+                    ExamSession.status.in_(["ongoing", "processing"]),
+                    ExamSession.end_time != None,  # noqa: E711
+                    ExamSession.end_time < cutoff_time
+                )
+            )
+            expired_sessions = result.scalars().all()
+
+            if not expired_sessions:
+                return {"status": "ok", "message": "No expired sessions found"}
+
+            logger.info(f"Found {len(expired_sessions)} expired session(s) to auto-finish")
+
+            # Fetch user emails in batch
+            from backend.models.models import User
+            user_ids = list({s.user_id for s in expired_sessions})
+            user_result = await db.execute(
+                select(User).where(User.id.in_(user_ids))
+            )
+            users_map = {u.id: u.email for u in user_result.scalars().all()}
+
+        # Process each expired session (outside the DB session to avoid long-held locks)
+        for session in expired_sessions:
+            user_email = users_map.get(session.user_id, "unknown@user.com")
+            try:
+                scoring_result = await async_run_scoring(
+                    str(session.id), str(session.user_id), user_email
+                )
+                if scoring_result.get("status") == "success":
+                    finished_count += 1
+                    logger.info(f"Auto-finished session {session.id} for {user_email}")
+                elif scoring_result.get("status") == "skipped":
+                    finished_count += 1  # already finished, count as success
+                else:
+                    # Scoring returned an error — mark as expired to prevent retry loop
+                    await _mark_session_expired(session_factory, session.id)
+                    error_count += 1
+                    logger.warning(f"Scoring failed for session {session.id}, marked as expired")
+            except Exception as e:
+                await _mark_session_expired(session_factory, session.id)
+                error_count += 1
+                logger.error(f"Exception auto-finishing session {session.id}: {e}")
+
+        return {
+            "status": "ok",
+            "finished": finished_count,
+            "errors": error_count,
+            "total_found": len(expired_sessions),
+        }
+
+    except Exception as e:
+        import traceback
+        logger.error(f"Auto-finish task failed: {traceback.format_exc()}")
+        return {"status": "error", "message": str(e)}
+
+    finally:
+        await engine.dispose()
+
+
+async def _mark_session_expired(session_factory, session_id: uuid.UUID):
+    """Mark a session as 'expired' so it won't be retried by the periodic task."""
+    async with session_factory() as db:
+        result = await db.execute(
+            select(ExamSession).where(ExamSession.id == session_id)
+        )
+        session = result.scalar_one_or_none()
+        if session and session.status in ("ongoing", "processing"):
+            session.status = "expired"
+            session.end_time = datetime.now(timezone.utc).replace(tzinfo=None)
+            await db.commit()
+
+
+@celery_app.task(name="backend.core.tasks.auto_finish_expired_sessions")
+def auto_finish_expired_sessions():
+    """Celery Beat entry point — runs every 2 minutes."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        return loop.run_until_complete(async_auto_finish_expired())
+    finally:
+        loop.close()

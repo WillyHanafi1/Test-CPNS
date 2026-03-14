@@ -1,5 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler as _default_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from backend.api.v1.endpoints.auth import router as auth_router
 from backend.api.v1.endpoints.package_api import router as package_router
@@ -12,6 +15,7 @@ from backend.api.v1.endpoints.admin_transactions import router as admin_transact
 from backend.api.v1.endpoints.admin_analytics import router as admin_analytics_router
 from backend.api.v1.endpoints.transactions_api import router as transactions_router
 from backend.config import settings
+from backend.core.rate_limiter import limiter, rate_limit_exceeded_handler
 
 import logging
 
@@ -33,6 +37,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Rate Limiting — slowapi backed by Redis
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 @app.middleware("http")
 async def log_requests(request, call_next):
