@@ -75,42 +75,57 @@ export default function QuestionDisplay() {
         </p>
 
         {question.image_url && (
-          <div className="rounded-2xl overflow-hidden border border-slate-800 max-w-2xl">
+          <div className="rounded-2xl overflow-hidden border border-slate-800 max-w-lg shadow-2xl">
             <img src={question.image_url} alt="Question Diagram" className="w-full h-auto" />
           </div>
         )}
       </div>
 
-      {/* Options Grid */}
-      <div className="grid grid-cols-1 gap-4">
+      {/* Options Grid - Dynamic layout for images vs text */}
+      <div className={`grid gap-4 ${
+          question.options.some(o => o.image_url) 
+            ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' 
+            : 'grid-cols-1'
+        }`}>
         {question.options.map((option) => (
           <button
             key={option.id}
             onClick={() => handleSelectOption(option.id)}
-            className={`flex items-center p-5 rounded-2xl border transition-all duration-200 text-left group ${selectedOptionId === option.id
+            className={`flex items-center p-4 rounded-2xl border transition-all duration-200 text-left group ${selectedOptionId === option.id
                 ? 'bg-indigo-600/20 border-indigo-500 ring-1 ring-indigo-500'
                 : 'bg-slate-900/50 border-slate-800 hover:border-slate-700 hover:bg-slate-900'
-              }`}
+              } ${option.image_url ? 'flex-col space-y-3 items-start' : 'items-center'}`}
           >
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold mr-4 shrink-0 transition-colors ${selectedOptionId === option.id ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-400 group-hover:bg-slate-700'
-              }`}>
-              {option.label}
+            <div className="flex items-center w-full">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold mr-4 shrink-0 transition-colors ${selectedOptionId === option.id ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-400 group-hover:bg-slate-700'
+                }`}>
+                {option.label}
+              </div>
+              
+              <div className="flex-1">
+                {option.content && !option.image_url && (
+                  <span className={`text-lg ${selectedOptionId === option.id ? 'text-white' : 'text-slate-300'}`}>
+                    {option.content}
+                  </span>
+                )}
+                {selectedOptionId === option.id && !option.image_url && (
+                  <Check className="w-5 h-5 text-indigo-500 ml-auto" />
+                )}
+              </div>
             </div>
-            
-            <div className="flex-1 flex flex-col space-y-2">
-              {option.content && (
-                <span className={`text-lg ${selectedOptionId === option.id ? 'text-white' : 'text-slate-300'}`}>
-                  {option.content}
-                </span>
-              )}
-              {option.image_url && (
-                <div className="rounded-lg overflow-hidden border border-slate-700 bg-white/5 max-w-[200px]">
-                  <img src={option.image_url} alt={`Option ${option.label}`} className="w-full h-auto" />
+
+            {option.image_url && (
+              <div className="relative w-full">
+                <div className="rounded-xl overflow-hidden border border-slate-700 bg-white/5 w-full aspect-square flex items-center justify-center">
+                  <img src={option.image_url} alt={`Option ${option.label}`} className="w-full h-full object-contain" />
                 </div>
-              )}
-            </div>
-            
-            {selectedOptionId === option.id && <Check className="w-5 h-5 text-indigo-500 ml-4 shrink-0" />}
+                {selectedOptionId === option.id && (
+                  <div className="absolute top-2 right-2 bg-indigo-500 rounded-full p-1 shadow-lg">
+                    <Check className="w-4 h-4 text-white" />
+                  </div>
+                )}
+              </div>
+            )}
           </button>
         ))}
       </div>
