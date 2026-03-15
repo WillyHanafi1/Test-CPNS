@@ -11,6 +11,7 @@ class OptionBase(BaseModel):
     label: str  # A, B, C, D, E
     content: str
     score: int = 0
+    image_url: Optional[str] = None
 
 class OptionCreate(OptionBase):
     pass
@@ -73,6 +74,7 @@ class OptionPublic(BaseModel):
     id: uuid.UUID
     label: str
     content: str
+    image_url: Optional[str] = None
 
     class Config:
         from_attributes = True

@@ -5,6 +5,7 @@ export type Option = {
   id: string;
   label: string;
   content: string;
+  image_url?: string;
   // NOTE: score field is intentionally absent here.
   // The backend's public API (OptionPublic schema) never exposes score.
 };

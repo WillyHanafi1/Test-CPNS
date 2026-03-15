@@ -92,14 +92,25 @@ export default function QuestionDisplay() {
                 : 'bg-slate-900/50 border-slate-800 hover:border-slate-700 hover:bg-slate-900'
               }`}
           >
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold mr-4 transition-colors ${selectedOptionId === option.id ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-400 group-hover:bg-slate-700'
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold mr-4 shrink-0 transition-colors ${selectedOptionId === option.id ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-400 group-hover:bg-slate-700'
               }`}>
               {option.label}
             </div>
-            <span className={`flex-1 text-lg ${selectedOptionId === option.id ? 'text-white' : 'text-slate-300'}`}>
-              {option.content}
-            </span>
-            {selectedOptionId === option.id && <Check className="w-5 h-5 text-indigo-500 ml-4" />}
+            
+            <div className="flex-1 flex flex-col space-y-2">
+              {option.content && (
+                <span className={`text-lg ${selectedOptionId === option.id ? 'text-white' : 'text-slate-300'}`}>
+                  {option.content}
+                </span>
+              )}
+              {option.image_url && (
+                <div className="rounded-lg overflow-hidden border border-slate-700 bg-white/5 max-w-[200px]">
+                  <img src={option.image_url} alt={`Option ${option.label}`} className="w-full h-auto" />
+                </div>
+              )}
+            </div>
+            
+            {selectedOptionId === option.id && <Check className="w-5 h-5 text-indigo-500 ml-4 shrink-0" />}
           </button>
         ))}
       </div>
