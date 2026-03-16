@@ -102,27 +102,32 @@ async def start_exam(
     # Fix #6: RBAC enforcement — verify user has access to premium packages
     if package.is_premium and package.price > 0:
         now = datetime.now(timezone.utc).replace(tzinfo=None)
-        tx_result = await db.execute(
-            select(UserTransaction)
-            .where(
-                UserTransaction.user_id == current_user.id,
-                UserTransaction.package_id == package_id,
-                UserTransaction.payment_status == "success",
+        
+        # PRO users bypass individual package purchase
+        is_pro = current_user.is_pro and (not current_user.pro_expires_at or current_user.pro_expires_at > now)
+        
+        if not is_pro:
+            tx_result = await db.execute(
+                select(UserTransaction)
+                .where(
+                    UserTransaction.user_id == current_user.id,
+                    UserTransaction.package_id == package_id,
+                    UserTransaction.payment_status == "success",
+                )
+                .order_by(UserTransaction.created_at.desc())
+                .limit(1)
             )
-            .order_by(UserTransaction.created_at.desc())
-            .limit(1)
-        )
-        transaction = tx_result.scalar_one_or_none()
-        if not transaction:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Anda belum memiliki akses ke paket ini. Silakan beli terlebih dahulu."
-            )
-        if transaction.access_expires_at and transaction.access_expires_at < now:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Akses Anda ke paket ini telah kedaluwarsa."
-            )
+            transaction = tx_result.scalar_one_or_none()
+            if not transaction:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Anda belum memiliki akses ke paket ini. Silakan beli terlebih dahulu atau upgrade ke PRO."
+                )
+            if transaction.access_expires_at and transaction.access_expires_at < now:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Akses Anda ke paket ini telah kedaluwarsa."
+                )
 
     # 2. Check for duplicate "ongoing" session or finished session for Weekly TO
     if package.is_weekly:
