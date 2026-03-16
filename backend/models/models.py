@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timezone
+from typing import Optional
 from sqlalchemy import String, Boolean, DateTime, ForeignKey, Integer, Text, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.db.session import Base
@@ -59,6 +60,7 @@ class Question(Base):
     image_url: Mapped[str] = mapped_column(String(500), nullable=True)
     discussion: Mapped[str] = mapped_column(Text, nullable=True)
     segment: Mapped[str] = mapped_column(String(50)) # TWK, TIU, TKP
+    sub_category: Mapped[Optional[str]] = mapped_column(String(100)) # Analogi, Pelayanan Publik, dll
     number: Mapped[int] = mapped_column(Integer) # Question number in package (1-110)
 
     package: Mapped["Package"] = relationship(back_populates="questions")
@@ -91,6 +93,10 @@ class ExamSession(Base):
     score_tkp: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(20), default="ongoing")
     is_passed: Mapped[bool] = mapped_column(Boolean, default=False)
+    
+    # AI Analysis Fields
+    ai_analysis: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    ai_status: Mapped[str] = mapped_column(String(20), default="none") # none, processing, completed, failed
 
     user: Mapped["User"] = relationship(back_populates="sessions")
     package: Mapped["Package"] = relationship(back_populates="sessions")

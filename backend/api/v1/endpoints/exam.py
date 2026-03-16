@@ -378,7 +378,9 @@ async def get_exam_result(
         "total_score": getattr(session, 'total_score', 0) or 0,
         "score_twk": getattr(session, 'score_twk', 0) or 0,
         "score_tiu": getattr(session, 'score_tiu', 0) or 0,
-        "score_tkp": getattr(session, 'score_tkp', 0) or 0
+        "score_tkp": getattr(session, 'score_tkp', 0) or 0,
+        "ai_analysis": session.ai_analysis,
+        "ai_status": session.ai_status
     }
 
 @router.get("/session/{session_id}/review", response_model=ReviewSessionResponse)

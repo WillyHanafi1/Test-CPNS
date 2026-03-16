@@ -55,6 +55,7 @@ async def import_questions(
         'content': ['content', 'teks soal', 'soal'],
         'image_url': ['image_url', 'url gambar soal', 'gambar_soal'],
         'discussion': ['discussion', 'teks pembahasan', 'pembahasan'],
+        'sub_category': ['sub_category', 'materi', 'sub materi', 'kategori materi'],
         'option_a': ['option_a', 'opsi a'],
         'score_a': ['score_a', 'nilai a'],
     }
@@ -137,7 +138,8 @@ async def import_questions(
                 segment=str(row[essential['seg_col']]).upper(),
                 content=str(row[essential['con_col']]).strip(),
                 image_url=str(row[q_img]).strip() if q_img and str(row[q_img]).strip() else None,
-                discussion=str(row[q_disc]).strip() if q_disc and str(row[q_disc]).strip() else None
+                discussion=str(row[q_disc]).strip() if q_disc and str(row[q_disc]).strip() else None,
+                sub_category=str(row[find_col(mapping['sub_category'])]).strip() if find_col(mapping['sub_category']) and str(row[find_col(mapping['sub_category'])]).strip() else None
             )
 
             options = []

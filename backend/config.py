@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     MIDTRANS_SERVER_KEY: str = os.getenv("MIDTRANS_SERVER_KEY", "")
     MIDTRANS_CLIENT_KEY: str = os.getenv("MIDTRANS_CLIENT_KEY", "")
     MIDTRANS_IS_PRODUCTION: bool = os.getenv("MIDTRANS_IS_PRODUCTION", "False").lower() == "true"
+    
+    # Google Gemini AI
+    GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
 
     # Logging
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")

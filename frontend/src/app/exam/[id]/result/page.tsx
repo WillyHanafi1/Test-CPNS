@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, CheckCircle, XCircle, Award, BarChart3, Home, ArrowRight, BookOpen } from 'lucide-react';
 import { useExamStore } from '@/store/useExamStore';
+import AIAnalysisCard from '@/components/AIAnalysisCard';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
@@ -22,6 +23,7 @@ export default function ResultPage() {
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [user, setUser] = useState<any>(null);
   const [retryTrigger, setRetryTrigger] = useState(0);
   const retryCountRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
@@ -122,13 +124,20 @@ export default function ResultPage() {
           if (!pollRes.ok) throw new Error("Gagal mengambil hasil");
 
           const pollData = await pollRes.json();
+          setResult(pollData);
+
           if (pollData.status === 'finished' || pollData.status === 'already finished') {
             if (!controller.signal.aborted) {
-              setResult(pollData);
               setLoading(false);
             }
+            
+            // IF AI is still processing, keep polling but maybe slower?
+            if (pollData.ai_status === 'processing') {
+              pollDelay = Math.min(pollDelay * 1.5, 5000); // Poll every ~5s for AI
+              if (!controller.signal.aborted) pollResult();
+            }
           } else if (pollData.status === 'processing') {
-            // Keep polling with exponential backoff (max 10 seconds)
+            // Main scoring still in progress
             pollDelay = Math.min(pollDelay * 1.5, 10000);
             if (!controller.signal.aborted) pollResult();
           }
@@ -142,6 +151,14 @@ export default function ResultPage() {
       }, pollDelay);
     };
 
+    const fetchUser = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/v1/auth/me`, { credentials: 'include' });
+        if (res.ok) setUser(await res.json());
+      } catch (e) {}
+    };
+
+    fetchUser();
     fetchResult();
 
     return () => {
@@ -244,6 +261,13 @@ export default function ResultPage() {
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em] mt-2">Total Skor SKD Nasional</p>
           </div>
         </div>
+
+        {/* AI Analysis Section */}
+        <AIAnalysisCard 
+          status={result.ai_status} 
+          data={result.ai_analysis} 
+          isPro={user?.is_pro || false} 
+        />
 
         {/* Categories Breakdown */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

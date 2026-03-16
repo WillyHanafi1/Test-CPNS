@@ -28,6 +28,7 @@ class QuestionBase(BaseModel):
     image_url: Optional[str] = None
     discussion: Optional[str] = None
     segment: str  # TWK, TIU, TKP
+    sub_category: Optional[str] = None # Analogi, Silogisme, dll
     number: int
 
 class QuestionCreate(QuestionBase):
