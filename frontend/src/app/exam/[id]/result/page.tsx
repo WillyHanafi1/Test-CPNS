@@ -223,9 +223,8 @@ export default function ResultPage() {
       });
       
       if (res.ok) {
-        // Optimistically update status to trigger polling if not already started
-        setResult((prev: any) => ({ ...prev, ai_status: 'processing' }));
-        // The existing useEffect will pick up the 'processing' status and continue polling
+        // [PERBAIKAN]: Trigger ulang useEffect agar polling berjalan lagi
+        setRetryTrigger(prev => prev + 1); 
       } else {
         const errorData = await res.json();
         alert(errorData.detail || "Gagal memulai analisis AI");
