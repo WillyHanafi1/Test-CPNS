@@ -45,7 +45,12 @@ export default function ExamPage() {
           credentials: 'include'
         });
 
-        if (!response.ok) throw new Error("Failed to start exam");
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          const msg = errData.detail || "Gagal memulai ujian";
+          router.push(`/catalog/${id}?error=${encodeURIComponent(msg)}`);
+          return;
+        }
 
         const data = await response.json();
 

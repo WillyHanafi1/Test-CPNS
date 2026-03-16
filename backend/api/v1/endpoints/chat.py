@@ -37,9 +37,7 @@ async def start_chat(
     current_user: User = Depends(get_current_user)
 ):
     # Only for PRO users
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
-    is_pro = current_user.is_pro and (not current_user.pro_expires_at or current_user.pro_expires_at > now)
-    if not is_pro:
+    if not current_user.is_pro_active:
         raise HTTPException(status_code=403, detail="Hanya pengguna PRO yang dapat menggunakan fitur Chat Mentor AI.")
 
     title = "Konsultasi Materi CPNS"

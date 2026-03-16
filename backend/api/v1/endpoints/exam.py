@@ -99,14 +99,17 @@ async def start_exam(
     if not package:
         raise HTTPException(status_code=404, detail="Package not found")
 
+    # DEFINISIKAN HELPER SEBELUM DIPAKAI
+    async def populate_valid_options(sess_id: uuid.UUID):
+        valid_options_key = f"valid_options:{sess_id}"
+        valid_ids = [str(opt.id) for q in package.questions for opt in q.options]
+        if valid_ids:
+            await redis_service.redis.sadd(valid_options_key, *valid_ids)
+            await redis_service.redis.expire(valid_options_key, 10800)
+
     # Fix #6: RBAC enforcement — verify user has access to premium packages
     if package.is_premium and package.price > 0:
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
-        
-        # PRO users bypass individual package purchase
-        is_pro = current_user.is_pro and (not current_user.pro_expires_at or current_user.pro_expires_at > now)
-        
-        if not is_pro:
+        if not current_user.is_pro_active:
             tx_result = await db.execute(
                 select(UserTransaction)
                 .where(
@@ -153,7 +156,6 @@ async def start_exam(
                     "package": package,
                     "end_time": last_session.end_time.replace(tzinfo=timezone.utc)
                 }
-    else:
         # Standard practice: check for duplicate "ongoing" session
         existing_result = await db.execute(
             select(ExamSession).where(
@@ -163,15 +165,15 @@ async def start_exam(
             )
         )
         existing_session = existing_result.scalar_one_or_none()
+        
+        if existing_session:
+            await populate_valid_options(existing_session.id)
+            return {
+                "session_id": existing_session.id,
+                "package": package,
+                "end_time": existing_session.end_time.replace(tzinfo=timezone.utc)
+            }
     
-    # --- TAMBAHKAN HELPER FUNCTION INI ---
-    async def populate_valid_options(sess_id: uuid.UUID):
-        valid_options_key = f"valid_options:{sess_id}"
-        valid_ids = [str(opt.id) for q in package.questions for opt in q.options]
-        if valid_ids:
-            await redis_service.redis.sadd(valid_options_key, *valid_ids)
-            await redis_service.redis.expire(valid_options_key, 10800)
-    # -------------------------------------
 
 
     # 3. Create session in DB
@@ -609,9 +611,7 @@ async def generate_manual_ai(
     Only for PRO users.
     """
     # 1. Validation: PRO User
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
-    is_pro = current_user.is_pro and (not current_user.pro_expires_at or current_user.pro_expires_at > now)
-    if not is_pro:
+    if not current_user.is_pro_active:
         raise HTTPException(status_code=403, detail="Hanya pengguna PRO yang dapat menggunakan fitur Analisis AI.")
 
     # 2. Validation: Sesi milik user dan sudah selesai

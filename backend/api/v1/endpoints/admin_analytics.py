@@ -9,6 +9,8 @@ from pydantic import BaseModel
 from backend.db.session import get_async_session
 from backend.models.models import User, UserTransaction, ExamSession, Package, Question
 from backend.api.v1.endpoints.auth import get_current_admin
+from backend.core.constants import PASSING_GRADE
+from backend.core.redis_service import redis_service
 
 router = APIRouter(prefix="/admin/analytics", tags=["admin-analytics"])
 
@@ -40,7 +42,7 @@ class RevenueAnalytics(BaseModel):
 @router.get("/overview", response_model=OverviewStats)
 async def get_overview_stats(
     db: AsyncSession = Depends(get_async_session),
-    admin: str = Depends(get_current_admin)
+    admin: User = Depends(get_current_admin)
 ):
     # Counts
     user_count = await db.scalar(select(func.count(User.id)))
@@ -53,9 +55,16 @@ async def get_overview_stats(
     
     trans_count = await db.scalar(select(func.count(UserTransaction.id)).where(UserTransaction.payment_status == "success"))
     
-    # Active exams (started in last 2 hours)
+    # Active exams (started in last 2 hours AND still ongoing)
     two_hours_ago = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=2)
-    active_exams = await db.scalar(select(func.count(ExamSession.id)).where(ExamSession.start_time >= two_hours_ago))
+    active_exams = await db.scalar(
+        select(func.count(ExamSession.id)).where(
+            and_(
+                ExamSession.status == "ongoing",
+                ExamSession.start_time >= two_hours_ago
+            )
+        )
+    )
 
     return {
         "total_users": user_count or 0,
@@ -69,8 +78,13 @@ async def get_overview_stats(
 @router.get("/exam-performance", response_model=ExamAnalytics)
 async def get_exam_performance(
     db: AsyncSession = Depends(get_async_session),
-    admin: str = Depends(get_current_admin)
+    admin: User = Depends(get_current_admin)
 ):
+    cache_key = "analytics:exam_performance"
+    cached = await redis_service.get_cache(cache_key)
+    if cached:
+        return cached
+
     # 1. Hitung Total Sesi Selesai & Rata-rata langsung di DB
     stats_stmt = select(
         func.count(ExamSession.id).label("total_exams"),
@@ -89,13 +103,13 @@ async def get_exam_performance(
             "pass_rate": 0, "score_distribution": []
         }
 
-    # 2. Hitung Pass Rate di DB (National SKD Passing Grade: TWK 65, TIU 80, TKP 166)
+    # 2. Hitung Pass Rate di DB (Standardized in constants.py)
     passed_stmt = select(func.count(ExamSession.id)).where(
         and_(
             ExamSession.status == "finished",
-            ExamSession.score_twk >= 65,
-            ExamSession.score_tiu >= 80,
-            ExamSession.score_tkp >= 166
+            ExamSession.score_twk >= PASSING_GRADE["TWK"],
+            ExamSession.score_tiu >= PASSING_GRADE["TIU"],
+            ExamSession.score_tkp >= PASSING_GRADE["TKP"]
         )
     )
     passed_count = await db.scalar(passed_stmt) or 0
@@ -123,7 +137,7 @@ async def get_exam_performance(
         {"label": "500+", "value": float(d.bucket_501_plus or 0)},
     ]
 
-    return {
+    result_data = {
         "avg_total_score": round(float(stats.avg_total or 0), 1),
         "avg_twk": round(float(stats.avg_twk or 0), 1),
         "avg_tiu": round(float(stats.avg_tiu or 0), 1),
@@ -131,19 +145,30 @@ async def get_exam_performance(
         "pass_rate": round(float(pass_rate), 1),
         "score_distribution": dist
     }
+    
+    # Cache for 10 minutes
+    await redis_service.set_cache(cache_key, result_data, expire=600)
+    
+    return result_data
 
 @router.get("/revenue-trends", response_model=RevenueAnalytics)
 async def get_revenue_trends(
     days: int = Query(7, ge=1, le=90),
     db: AsyncSession = Depends(get_async_session),
-    admin: str = Depends(get_current_admin)
+    admin: User = Depends(get_current_admin)
 ):
     start_date = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
     
-    # Daily Revenue
+    # Daily Revenue (Exclude donations for consistent package analytics)
     stmt = (
         select(cast(UserTransaction.created_at, Date), func.sum(UserTransaction.amount))
-        .where(and_(UserTransaction.payment_status == "success", UserTransaction.created_at >= start_date))
+        .where(
+            and_(
+                UserTransaction.payment_status == "success", 
+                UserTransaction.created_at >= start_date,
+                UserTransaction.transaction_type != "donation"
+            )
+        )
         .group_by(cast(UserTransaction.created_at, Date))
         .order_by(cast(UserTransaction.created_at, Date))
     )

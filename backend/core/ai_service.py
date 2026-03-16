@@ -4,7 +4,16 @@ import logging
 from backend.config import settings
 from backend.core.knowledge_service import knowledge_service
 
+from pydantic import BaseModel
+from typing import Optional, List
+
 logger = logging.getLogger("backend.core.ai_service")
+
+class AIAnalysisResult(BaseModel):
+    summary: str
+    weaknesses: List[str]
+    action_plan: List[str]
+    motivation: str
 
 class AIService:
     def __init__(self):
@@ -71,7 +80,9 @@ class AIService:
                 generation_config={"response_mime_type": "application/json"}
             )
             
-            return json.loads(response.text)
+            raw_data = json.loads(response.text)
+            # Pydantic Validation & Normalization
+            return AIAnalysisResult(**raw_data).model_dump()
             
         except Exception as e:
             logger.error(f"Failed to generate AI analysis: {str(e)}")
@@ -133,13 +144,25 @@ class AIService:
             role_label = "User" if msg['role'] == 'user' else "Tutor AI"
             chat_history += f"{role_label}: {msg['content']}\n"
         
-        full_final_prompt = f"{system_instruction}\n\n{context_str}\n\nRIWAYAT CHAT:\n{chat_history}\n\nUser: {current_query}\nTutor AI:"
+        # Defense against Prompt Injection with XML tags
+        full_final_prompt = f"""{system_instruction}
+
+{context_str}
+
+RIWAYAT CHAT:
+{chat_history}
+
+<user_message>
+{current_query}
+</user_message>
+
+Tutor AI:"""
 
         try:
             response = self.model.generate_content(full_final_prompt)
             return response.text.strip()
         except Exception as e:
             logger.error(f"Failed to get AI chat response: {str(e)}")
-            return "Maaf, terjadi gangguan koneksi saat Tutor AI mencoba membalas. Silakan coba lagi."
+            return "Maaf, terjadi gangguan koneksi saat Tutor AI mencoba membalas."
 
 ai_service = AIService()

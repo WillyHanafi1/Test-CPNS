@@ -176,6 +176,10 @@ async def check_package_access(
     """
     result = await db.execute(select(Package).where(Package.id == package_id))
     package = result.scalar_one_or_none()
+    
+    if not package:
+        raise HTTPException(status_code=404, detail="Package not found")
+
     # Fix: use timezone-aware datetime
     now = datetime.now(timezone.utc).replace(tzinfo=None)
 
@@ -184,7 +188,7 @@ async def check_package_access(
         return {"has_access": False, "reason": "upcoming", "start_at": package.start_at}
 
     # 2. CEK STATUS PRO (Bisa akses soal meski masa tryout mingguan sudah lewat)
-    if current_user.is_pro and (not current_user.pro_expires_at or current_user.pro_expires_at > now):
+    if current_user.is_pro_active:
         return {"has_access": True, "reason": "pro_account"}
 
     # 3. MENGUNCI PENGGUNA GRATIS JIKA MASA TRYOUT SUDAH HABIS

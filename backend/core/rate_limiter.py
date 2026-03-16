@@ -15,21 +15,38 @@ from starlette.responses import JSONResponse
 from backend.config import settings
 
 
+import ipaddress
+
+# IP nginx/container range - Bisa berupa IP tunggal atau Subnet (CIDR)
+TRUSTED_PROXIES = [
+    ipaddress.ip_network("127.0.0.1/32"),
+    ipaddress.ip_network("172.19.0.0/16"), # Subnet yang ditemukan di Droplet kamu
+]
+
+def _is_ip_trusted(ip_str: str) -> bool:
+    try:
+        ip = ipaddress.ip_address(ip_str)
+        for network in TRUSTED_PROXIES:
+            if ip in network:
+                return True
+    except ValueError:
+        pass
+    return False
+
 def _get_client_ip(request: Request) -> str:
     """
-    Extract real client IP considering reverse proxies.
-    Priority: X-Forwarded-For → X-Real-IP → client.host
+    Extract real client IP considering trusted reverse proxies.
     """
-    forwarded_for = request.headers.get("X-Forwarded-For")
-    if forwarded_for:
-        # Take the first IP (original client) from comma-separated list
-        return forwarded_for.split(",")[0].strip()
+    client_host = request.client.host if request.client else None
     
-    real_ip = request.headers.get("X-Real-IP")
-    if real_ip:
-        return real_ip.strip()
-    
-    return request.client.host if request.client else "unknown"
+    # Hanya percaya X-Forwarded-For jika request dari proxy yang dikenal
+    if client_host and _is_ip_trusted(client_host):
+        forwarded_for = request.headers.get("X-Forwarded-For")
+        if forwarded_for:
+            # Take the first IP (original client)
+            return forwarded_for.split(",")[0].strip()
+            
+    return client_host or "unknown"
 
 
 # Initialize limiter with Redis storage backend

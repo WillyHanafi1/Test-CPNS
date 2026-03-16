@@ -50,7 +50,7 @@ async def list_users_admin(
     role: Optional[str] = None,
     is_active: Optional[bool] = None,
     db: AsyncSession = Depends(get_async_session),
-    admin: str = Depends(get_current_admin)
+    admin: User = Depends(get_current_admin)
 ):
     # 1. Create Subqueries for stats
     sess_sub = select(
@@ -121,7 +121,7 @@ async def list_users_admin(
 async def get_user_detail_admin(
     user_id: uuid.UUID,
     db: AsyncSession = Depends(get_async_session),
-    admin: str = Depends(get_current_admin)
+    admin: User = Depends(get_current_admin)
 ):
     result = await db.execute(
         select(User).options(selectinload(User.profile)).where(User.id == user_id)
@@ -146,7 +146,7 @@ async def update_user_admin(
     user_id: uuid.UUID,
     user_in: UserUpdate,
     db: AsyncSession = Depends(get_async_session),
-    admin: str = Depends(get_current_admin)
+    admin: User = Depends(get_current_admin)
 ):
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()

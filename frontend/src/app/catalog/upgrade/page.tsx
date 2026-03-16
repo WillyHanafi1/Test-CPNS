@@ -42,6 +42,7 @@ export default function UpgradeProPage() {
   const { user, refreshSession } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   const handleUpgrade = async () => {
     if (!user) {
@@ -60,16 +61,11 @@ export default function UpgradeProPage() {
       if (!res.ok) throw new Error('Gagal membuat transaksi');
       const data = await res.json();
       
-      if (window.snap) {
-        window.snap.pay(data.token, {
-          onSuccess: async function(result: any) {
-            toast.success('Pembayaran Berhasil! Sedang memverifikasi...');
-            // Beri waktu 3 detik agar Webhook Midtrans selesai memproses di server
-            setTimeout(async () => {
-              await refreshSession();
-              toast.success('Akun PRO sudah aktif!');
-              router.push('/dashboard');
-            }, 3000);
+      if (typeof window !== 'undefined' && (window as any).snap) {
+        (window as any).snap.pay(data.token, {
+          onSuccess: function(result: any) {
+            toast.success('Pembayaran Berhasil! Sedang memverifikasi akun Anda...');
+            setIsVerifying(true);
           },
           onPending: function(result: any) {
             toast.success('Pembayaran Menunggu. Selesaikan proses di aplikasi Anda.');
@@ -83,12 +79,44 @@ export default function UpgradeProPage() {
             setLoading(false);
           }
         });
+      } else {
+        toast.error('Layanan pembayaran belum siap. Mohon tunggu sebentar atau refresh halaman.');
+        setLoading(false);
       }
     } catch (err: any) {
       toast.error(err.message || 'Gagal memulai transaksi.');
       setLoading(false);
     }
   };
+
+  // Polling logic when isVerifying is true
+  React.useEffect(() => {
+    if (!isVerifying) return;
+
+    let attempts = 0;
+    const maxAttempts = 20; // ~60 seconds total
+
+    const poll = setInterval(async () => {
+      attempts++;
+      await refreshSession();
+      
+      // AuthContext.user will be updated by refreshSession()
+      // We check the 'is_pro' property on the user object (need to check if it updates in the closure)
+      // Since 'user' is a dependency of the component, it might be better to check it in another effect
+      // but interval closure will see the 'user' from the render when it was created unless we use a ref.
+    }, 3000);
+
+    return () => clearInterval(poll);
+  }, [isVerifying, refreshSession]);
+
+  // Effect to watch user.is_pro change during verification
+  React.useEffect(() => {
+    if (isVerifying && user?.is_pro) {
+      toast.success('Akun PRO sudah aktif! Selamat belajar.');
+      setIsVerifying(false);
+      router.push('/dashboard');
+    }
+  }, [isVerifying, user?.is_pro, router]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-white relative overflow-hidden">
@@ -136,33 +164,45 @@ export default function UpgradeProPage() {
               <CardTitle className="text-slate-400 uppercase tracking-widest text-sm font-bold">Lifetime Access</CardTitle>
             </CardHeader>
             <CardContent className="text-center py-6">
-               <div className="flex items-center justify-center gap-2 mb-2">
-                 <span className="text-slate-600 line-through text-2xl font-medium">Rp 200.000</span>
-                 <Badge className="bg-emerald-500 text-white border-0">Hemat 75%</Badge>
-               </div>
-               <div className="text-6xl font-black text-white mb-2">
-                 Rp 50.000
-               </div>
-               <p className="text-slate-500 text-sm">Hanya sekali bayar, tanpa biaya bulanan.</p>
+              {isVerifying ? (
+                <div className="py-8 flex flex-col items-center gap-4">
+                  <Loader2 className="w-12 h-12 text-indigo-500 animate-spin" />
+                  <p className="text-indigo-400 font-bold animate-pulse text-lg">Memverifikasi Pembayaran...</p>
+                  <p className="text-slate-500 text-sm max-w-[200px] mx-auto">Tunggu sebentar, kami sedang mengaktifkan fitur PRO Anda.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <span className="text-slate-600 line-through text-2xl font-medium">Rp 200.000</span>
+                    <Badge className="bg-emerald-500 text-white border-0">Hemat 75%</Badge>
+                  </div>
+                  <div className="text-6xl font-black text-white mb-2">
+                    Rp 50.000
+                  </div>
+                  <p className="text-slate-500 text-sm">Hanya sekali bayar, tanpa biaya bulanan.</p>
+                </>
+              )}
             </CardContent>
             <CardFooter className="flex flex-col gap-4">
-              <Button 
-                onClick={handleUpgrade}
-                disabled={loading}
-                className="w-full bg-indigo-600 hover:bg-indigo-500 h-16 text-xl font-bold rounded-2xl shadow-2xl shadow-indigo-600/30 group"
-              >
-                {loading ? (
-                  <Loader2 className="w-6 h-6 animate-spin" />
-                ) : (
-                  <>
-                    <Zap className="w-6 h-6 mr-2 fill-yellow-300 text-yellow-300 group-hover:scale-125 transition-transform" />
-                    Aktifkan PRO Sekarang
-                  </>
-                )}
-              </Button>
+              {!isVerifying && (
+                <Button 
+                  onClick={handleUpgrade}
+                  disabled={loading}
+                  className="w-full bg-indigo-600 hover:bg-indigo-500 h-16 text-xl font-bold rounded-2xl shadow-2xl shadow-indigo-600/30 group"
+                >
+                  {loading ? (
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                  ) : (
+                    <>
+                      <Zap className="w-6 h-6 mr-2 fill-yellow-300 text-yellow-300 group-hover:scale-125 transition-transform" />
+                      Aktifkan PRO Sekarang
+                    </>
+                  )}
+                </Button>
+              )}
               <div className="flex items-center justify-center gap-2 text-xs text-slate-600 font-medium">
                 <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                Pembayaran Aman via Midtrans
+                {isVerifying ? 'Jangan tutup halaman ini' : 'Pembayaran Aman via Midtrans'}
               </div>
             </CardFooter>
           </Card>

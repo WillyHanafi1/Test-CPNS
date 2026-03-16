@@ -1,13 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
+from sqlalchemy.orm import selectinload
 import uuid
 from typing import List, Optional
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 
 from backend.db.session import get_async_session
-from backend.models.models import Package, Question, User
+from backend.models.models import Package, Question, User, QuestionOption
 from backend.api.v1.endpoints.auth import get_current_admin
 from backend.core.redis_service import redis_service
 
@@ -183,3 +184,63 @@ async def delete_package_admin(
     await redis_service.clear_pattern("package_public:*")
     
     return {"message": "Package deleted successfully"}
+
+@router.post("/{package_id}/copy", response_model=PackageResponse, status_code=status.HTTP_201_CREATED)
+async def copy_package_admin(
+    package_id: uuid.UUID,
+    new_start_at: datetime,
+    new_end_at: datetime,
+    db: AsyncSession = Depends(get_async_session),
+    admin: User = Depends(get_current_admin)
+):
+    """Duplikasi package beserta semua soalnya untuk TO minggu berikutnya."""
+    result = await db.execute(
+        select(Package)
+        .options(selectinload(Package.questions).selectinload(Question.options))
+        .where(Package.id == package_id)
+    )
+    source = result.scalar_one_or_none()
+    if not source:
+        raise HTTPException(status_code=404, detail="Package not found")
+
+    # Buat package baru
+    new_pkg = Package(
+        title=f"{source.title} (Copy)",  # Tambahkan penanda agar admin tahu ini hasil copy
+        description=source.description,
+        is_weekly=True,
+        is_published=False,  # draft dulu, publish manual
+        start_at=new_start_at.replace(tzinfo=None), # naive for DB
+        end_at=new_end_at.replace(tzinfo=None),
+        category=source.category,
+        price=source.price,
+        is_premium=source.is_premium
+    )
+    db.add(new_pkg)
+    await db.flush()
+
+    # Copy semua soal dan opsi
+    for q in source.questions:
+        new_q = Question(
+            package_id=new_pkg.id,
+            content=q.content,
+            segment=q.segment,
+            number=q.number,
+            image_url=q.image_url,
+            discussion=q.discussion,
+            sub_category=q.sub_category
+        )
+        new_q.options = [
+            QuestionOption(label=o.label, content=o.content, score=o.score, image_url=o.image_url)
+            for o in q.options
+        ]
+        db.add(new_q)
+
+    await db.commit()
+    await db.refresh(new_pkg)
+    new_pkg.question_count = len(source.questions)
+    
+    # Invalidate Cache
+    await redis_service.clear_pattern("packages:*")
+    await redis_service.clear_pattern("package_public:*")
+    
+    return new_pkg

@@ -68,11 +68,14 @@ export default function CatalogPage() {
 
   useEffect(() => {
     fetchPackages();
-    // Cleanup debounce timer on unmount
+  }, [fetchPackages]);
+
+  // Separate effect for global cleanup on unmount
+  useEffect(() => {
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
     };
-  }, [fetchPackages]);
+  }, []);
 
   // No client-side filter needed — results come pre-filtered from the server
 

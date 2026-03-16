@@ -57,7 +57,7 @@ async def list_transactions_admin(
     status: Optional[str] = None, # pending, success, failed
     package_id: Optional[uuid.UUID] = None,
     db: AsyncSession = Depends(get_async_session),
-    admin: str = Depends(get_current_admin)
+    admin: User = Depends(get_current_admin)
 ):
     stmt = select(UserTransaction).options(
         selectinload(UserTransaction.user),
@@ -92,7 +92,7 @@ async def list_transactions_admin(
 @router.get("/summary", response_model=TransactionSummaryResponse)
 async def get_transaction_summary_admin(
     db: AsyncSession = Depends(get_async_session),
-    admin: str = Depends(get_current_admin)
+    admin: User = Depends(get_current_admin)
 ):
     # Total Revenue (Success only)
     rev_stmt = select(func.sum(UserTransaction.amount)).where(UserTransaction.payment_status == "success")
@@ -115,12 +115,14 @@ async def get_transaction_summary_admin(
         "failed_count": counts.get("failed", 0)
     }
 
+from typing import List, Optional, Literal
+
 @router.put("/{transaction_id}/status")
 async def update_transaction_status_admin(
     transaction_id: uuid.UUID,
-    new_status: str, # pending, success, failed
+    new_status: Literal["pending", "success", "failed"],
     db: AsyncSession = Depends(get_async_session),
-    admin: str = Depends(get_current_admin)
+    admin: User = Depends(get_current_admin)
 ):
     from backend.api.v1.endpoints.transactions_api import fulfill_transaction
     

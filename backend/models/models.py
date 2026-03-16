@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, Integer, Text, JSON
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, Integer, Text, JSON, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.db.session import Base
 
@@ -18,16 +18,21 @@ class User(Base):
     pro_expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
-    profile: Mapped["UserProfile"] = relationship(back_populates="user", uselist=False)
-    sessions: Mapped[list["ExamSession"]] = relationship(back_populates="user")
-    transactions: Mapped[list["UserTransaction"]] = relationship(back_populates="user")
-    chat_sessions: Mapped[list["ChatSession"]] = relationship(back_populates="user")
+    @property
+    def is_pro_active(self) -> bool:
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        return self.is_pro and (not self.pro_expires_at or self.pro_expires_at > now)
+
+    profile: Mapped["UserProfile"] = relationship(back_populates="user", uselist=False, cascade="all, delete-orphan")
+    sessions: Mapped[list["ExamSession"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    transactions: Mapped[list["UserTransaction"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    chat_sessions: Mapped[list["ChatSession"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 class UserProfile(Base):
     __tablename__ = "user_profiles"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), unique=True, index=True)
     full_name: Mapped[str] = mapped_column(String(255))
     phone_number: Mapped[str] = mapped_column(String(20), nullable=True)
     target_instansi: Mapped[str] = mapped_column(String(255), nullable=True)
@@ -84,16 +89,21 @@ class ExamSession(Base):
     __tablename__ = "exam_sessions"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
-    package_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("packages.id"))
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    package_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("packages.id"), index=True)
     start_time: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     end_time: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     total_score: Mapped[int] = mapped_column(Integer, default=0)
     score_twk: Mapped[int] = mapped_column(Integer, default=0)
     score_tiu: Mapped[int] = mapped_column(Integer, default=0)
     score_tkp: Mapped[int] = mapped_column(Integer, default=0)
-    status: Mapped[str] = mapped_column(String(20), default="ongoing")
+    status: Mapped[str] = mapped_column(String(20), default="ongoing", index=True)
     is_passed: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    __table_args__ = (
+        Index("ix_exam_session_user_status", "user_id", "status"),
+        Index("ix_exam_session_user_package", "user_id", "package_id"),
+    )
     
     # AI Analysis Fields
     ai_analysis: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
@@ -107,7 +117,7 @@ class Answer(Base):
     __tablename__ = "answers"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("exam_sessions.id"))
+    session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("exam_sessions.id"), index=True)
     question_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("questions.id"))
     option_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("question_options.id"), nullable=True)
     selected_option: Mapped[str] = mapped_column(String(10))
@@ -120,11 +130,11 @@ class UserTransaction(Base):
     __tablename__ = "user_transactions"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
-    package_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("packages.id"), nullable=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    package_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("packages.id"), nullable=True, index=True)
     transaction_type: Mapped[str] = mapped_column(String(50), default="single_package") # single_package, pro_upgrade
     order_id: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=True)
-    payment_status: Mapped[str] = mapped_column(String(20), default="pending") # pending, success, failed
+    payment_status: Mapped[str] = mapped_column(String(20), default="pending", index=True) # pending, success, failed
     amount: Mapped[int] = mapped_column(Integer)
     snap_token: Mapped[str] = mapped_column(String(255), nullable=True) # For Midtrans
     message: Mapped[str] = mapped_column(Text, nullable=True) # For donation message

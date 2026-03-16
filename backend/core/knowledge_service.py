@@ -7,36 +7,37 @@ logger = logging.getLogger("backend.core.knowledge_service")
 class KnowledgeService:
     def __init__(self, knowledge_dir: str = "backend/knowledge"):
         self.knowledge_dir = knowledge_dir
+        self._cache: dict[str, str] = {}
         self.files = {
             "twk": "twk_materi.md",
             "tiu": "tiu_materi.md",
             "tkp": "tkp_materi.md"
         }
+        self._load_all()
+
+    def _load_all(self):
+        """Loads knowledge base into memory for fast access (O(1))."""
+        for category, filename in self.files.items():
+            path = os.path.join(self.knowledge_dir, filename)
+            if os.path.exists(path):
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        self._cache[category] = f.read()
+                except Exception as e:
+                    logger.error(f"Failed to load KB file {filename}: {e}")
 
     def get_all_context(self) -> str:
-        """
-        Retrieves the entire content of the knowledge base.
-        Suitable for small files where full context is beneficial.
-        """
+        """Retrieves the entire content from memory cache."""
         combined_context = "# KNOWLEDGE BASE CONTEXT\n\n"
-        try:
-            for category, filename in self.files.items():
-                file_path = os.path.join(self.knowledge_dir, filename)
-                if os.path.exists(file_path):
-                    with open(file_path, "r", encoding="utf-8") as f:
-                        combined_context += f"## {category.upper()} MATERIAL\n"
-                        combined_context += f.read() + "\n\n"
-            return combined_context
-        except Exception as e:
-            logger.error(f"Error reading knowledge base: {str(e)}")
-            return ""
+        for category, content in self._cache.items():
+            combined_context += f"## {category.upper()} MATERIAL\n"
+            combined_context += content + "\n\n"
+        return combined_context
 
     def get_relevant_context(self, query: str) -> str:
-        """
-        Simple keyword-based context retrieval (RAG-lite).
-        """
+        """Memory-cached keyword retrieval."""
         query_lower = query.lower()
-        relevant_files = []
+        relevant_categories = []
         
         # Keyword mapping
         keywords = {
@@ -47,22 +48,15 @@ class KnowledgeService:
 
         for category, kws in keywords.items():
             if any(kw in query_lower for kw in kws):
-                relevant_files.append(self.files[category])
+                relevant_categories.append(category)
 
-        if not relevant_files:
-            # If no keyword matches, return a brief summary or wait for AI to decide
+        if not relevant_categories:
             return ""
 
         context = "# RELEVANT KNOWLEDGE CONTEXT\n\n"
-        try:
-            for filename in relevant_files:
-                file_path = os.path.join(self.knowledge_dir, filename)
-                if os.path.exists(file_path):
-                    with open(file_path, "r", encoding="utf-8") as f:
-                        context += f.read() + "\n\n"
-            return context
-        except Exception as e:
-            logger.error(f"Error retrieving relevant context: {str(e)}")
-            return ""
+        for cat in relevant_categories:
+            if cat in self._cache:
+                context += self._cache[cat] + "\n\n"
+        return context
 
 knowledge_service = KnowledgeService()

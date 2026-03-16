@@ -16,19 +16,28 @@ class RedisService:
         return self._redis
 
     async def set_cache(self, key: str, value: Any, expire: int = 3600):
-        def json_serial(obj):
-            if isinstance(obj, (datetime)):
-                return obj.isoformat()
-            if isinstance(obj, uuid.UUID):
-                return str(obj)
-            raise TypeError(f"Type {type(obj)} not serializable")
-            
-        await self.redis.set(key, json.dumps(value, default=json_serial), ex=expire)
+        try:
+            def json_serial(obj):
+                if isinstance(obj, (datetime)):
+                    return obj.isoformat()
+                if isinstance(obj, uuid.UUID):
+                    return str(obj)
+                raise TypeError(f"Type {type(obj)} not serializable")
+                
+            await self.redis.set(key, json.dumps(value, default=json_serial), ex=expire)
+        except Exception as e:
+            # Fallback: log error but don't break the request
+            print(f"REDIS CACHE SET ERROR: {e}")
+            pass
 
     async def get_cache(self, key: str) -> Optional[Any]:
-        data = await self.redis.get(key)
-        if data:
-            return json.loads(data)
+        try:
+            data = await self.redis.get(key)
+            if data:
+                return json.loads(data)
+        except Exception as e:
+            # Fallback: log error and treat as cache miss
+            print(f"REDIS CACHE GET ERROR: {e}")
         return None
 
     async def delete_cache(self, key: str):

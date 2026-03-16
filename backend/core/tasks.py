@@ -10,6 +10,7 @@ from backend.core.celery_app import celery_app
 from backend.models.models import ExamSession, Question, Answer, Package, User
 from backend.core.redis_service import redis_service
 from backend.core.ai_service import ai_service
+from backend.core.constants import PASSING_GRADE
 from backend.config import settings
 
 
@@ -43,93 +44,93 @@ async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: s
             print(f"DEBUG: Fetching answers from Redis")
             cache_key = f"exam_answers:{user_id_str}:{session_id_str}"
 
-            # ✅ FIX REDIS: buat koneksi redis baru juga
+            # ✅ FIX REDIS: Ganti dengan satu koneksi yang dijamin tertutup di finally
             import redis.asyncio as aioredis
             redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+            
             try:
                 redis_answers = await redis_client.hgetall(cache_key)
-            finally:
-                await redis_client.aclose()
+                print(f"DEBUG: Found {len(redis_answers)} answers in Redis")
 
-            print(f"DEBUG: Found {len(redis_answers)} answers in Redis")
-
-            print(f"DEBUG: Fetching questions for package {session.package_id}")
-            result = await db.execute(
-                select(Question)
-                .options(selectinload(Question.options))
-                .where(Question.package_id == session.package_id)
-            )
-            questions = result.scalars().all()
-            print(f"DEBUG: Found {len(questions)} questions in package")
-
-            score_twk = score_tiu = score_tkp = 0
-            db_answers = []
-            sub_cat_stats = {} # {sub_cat: {corect: X, total: Y}}
-
-            for q in questions:
-                q_id_str = str(q.id)
-                selected_option_id_str = redis_answers.get(q_id_str)
-                if not selected_option_id_str:
-                    continue
-                try:
-                    selected_option_id = uuid.UUID(selected_option_id_str)
-                except ValueError:
-                    continue
-
-                selected_option = next(
-                    (opt for opt in q.options if opt.id == selected_option_id), None
+                print(f"DEBUG: Fetching questions for package {session.package_id}")
+                result = await db.execute(
+                    select(Question)
+                    .options(selectinload(Question.options))
+                    .where(Question.package_id == session.package_id)
                 )
-                if not selected_option:
-                    continue
+                questions = result.scalars().all()
+                print(f"DEBUG: Found {len(questions)} questions in package")
 
-                points = selected_option.score
-                if q.segment == "TWK":
-                    score_twk += points
-                elif q.segment == "TIU":
-                    score_tiu += points
-                elif q.segment == "TKP":
-                    score_tkp += points
+                score_twk = score_tiu = score_tkp = 0
+                db_answers = []
+                sub_cat_stats = {} # {sub_cat: {corect: X, total: Y}}
 
-                db_answers.append(Answer(
-                    id=uuid.uuid4(),
-                    session_id=session_id,
-                    question_id=q.id,
-                    option_id=selected_option.id,
-                    selected_option=selected_option.label,
-                    points_earned=points
-                ))
+                for q in questions:
+                    q_id_str = str(q.id)
+                    selected_option_id_str = redis_answers.get(q_id_str)
+                    if not selected_option_id_str:
+                        continue
+                    try:
+                        selected_option_id = uuid.UUID(selected_option_id_str)
+                    except ValueError:
+                        continue
 
-                # Track sub-category stats for AI
-                sub_cat = q.sub_category or "Umum"
-                if sub_cat not in sub_cat_stats:
-                    sub_cat_stats[sub_cat] = {"score": 0, "max_possible": 0}
+                    selected_option = next(
+                        (opt for opt in q.options if opt.id == selected_option_id), None
+                    )
+                    if not selected_option:
+                        continue
+
+                    points = selected_option.score
+                    if q.segment == "TWK":
+                        score_twk += points
+                    elif q.segment == "TIU":
+                        score_tiu += points
+                    elif q.segment == "TKP":
+                        score_tkp += points
+
+                    db_answers.append(Answer(
+                        id=uuid.uuid4(),
+                        session_id=session_id,
+                        question_id=q.id,
+                        option_id=selected_option.id,
+                        selected_option=selected_option.label,
+                        points_earned=points
+                    ))
+
+                    # Track sub-category stats for AI
+                    sub_cat = q.sub_category or "Umum"
+                    if sub_cat not in sub_cat_stats:
+                        sub_cat_stats[sub_cat] = {"score": 0, "max_possible": 0}
+                    
+                    sub_cat_stats[sub_cat]["score"] += points
+                    sub_cat_stats[sub_cat]["max_possible"] += 5
+
+                total_score = score_twk + score_tiu + score_tkp
                 
-                sub_cat_stats[sub_cat]["score"] += points
-                sub_cat_stats[sub_cat]["max_possible"] += 5
+                # Logic Passing Grade BKN (Standardized in constants.py)
+                is_passed = (
+                    score_twk >= PASSING_GRADE["TWK"] and 
+                    score_tiu >= PASSING_GRADE["TIU"] and 
+                    score_tkp >= PASSING_GRADE["TKP"]
+                )
 
-            total_score = score_twk + score_tiu + score_tkp
-            
-            # Logic Passing Grade BKN
-            is_passed = (score_twk >= 65 and score_tiu >= 80 and score_tkp >= 166)
+                session.score_twk = score_twk
+                session.score_tiu = score_tiu
+                session.score_tkp = score_tkp
+                session.total_score = total_score
+                session.is_passed = is_passed
+                session.status = "finished"
+                session.end_time = datetime.now(timezone.utc).replace(tzinfo=None)
 
-            session.score_twk = score_twk
-            session.score_tiu = score_tiu
-            session.score_tkp = score_tkp
-            session.total_score = total_score
-            session.is_passed = is_passed
-            session.status = "finished"
-            session.end_time = datetime.now(timezone.utc).replace(tzinfo=None)
+                db.add_all(db_answers)
+                print(f"DEBUG: Committing to database")
+                await db.commit()
 
-            db.add_all(db_answers)
-            print(f"DEBUG: Committing to database")
-            await db.commit()
+                # Update leaderboard only for Weekly Tryouts
+                result_package = await db.execute(select(Package).where(Package.id == session.package_id))
+                package_obj = result_package.scalar_one_or_none()
 
-            # Update leaderboard only for Weekly Tryouts
-            result_package = await db.execute(select(Package).where(Package.id == session.package_id))
-            package_obj = result_package.scalar_one_or_none()
-
-            redis_lb = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
-            try:
                 if package_obj and package_obj.is_weekly:
                     is_active_to = True
                     now_utc_naive = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -146,11 +147,13 @@ async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: s
                             (score_tiu * 1000) + 
                             score_twk
                         )
-                        await redis_lb.zadd(lb_key, {user_email: tie_breaker_score}, gt=True)
-                    
-                await redis_lb.delete(cache_key)
+                        await redis_client.zadd(lb_key, {user_email: tie_breaker_score}, gt=True)
+                
+                # Hapus cache jawaban
+                await redis_client.delete(cache_key)
+
             finally:
-                await redis_lb.aclose()
+                await redis_client.aclose()
 
             print(f"DEBUG: Scoring completed for session {session_id_str}")
 

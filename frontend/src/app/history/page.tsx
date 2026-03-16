@@ -38,36 +38,40 @@ export default function HistoryPage() {
   const router = useRouter();
   const { resetExam, startExam: _startExam } = useExamStore();
 
+  const fetchHistory = async (isPoll = false) => {
+    if (authLoading) return;
+    if (!user) { router.push('/login'); return; }
+
+    try {
+      const response = await fetch(`${API_URL}/api/v1/exam/sessions/me`, { credentials: 'include' });
+      if (response.ok) {
+        const data = await response.json();
+        setSessions(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch history", error);
+    } finally {
+      if (!isPoll) setLoading(false);
+    }
+  };
+
+  // Effect 1: Initial fetch only
   useEffect(() => {
-    const fetchHistory = async (isPoll = false) => {
-      if (authLoading) return;
-      if (!user) { router.push('/login'); return; }
-
-      try {
-        const response = await fetch(`${API_URL}/api/v1/exam/sessions/me`, { credentials: 'include' });
-        if (response.ok) {
-          const data = await response.json();
-          setSessions(data);
-        }
-      } catch (error) {
-        console.error("Failed to fetch history", error);
-      } finally {
-        if (!isPoll) setLoading(false);
-      }
-    };
-
+    if (authLoading || !user) return;
     fetchHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, authLoading]);
 
-    // Polling logic for "processing" sessions
-    const interval = setInterval(() => {
-      const hasProcessing = sessions.some(s => s.status === 'processing');
-      if (hasProcessing) {
-        fetchHistory(true);
-      }
-    }, 3000);
+  // Effect 2: Independent polling for processing sessions
+  useEffect(() => {
+    const hasProcessing = sessions.some(s => s.status === 'processing');
+    if (!hasProcessing) return;
 
+    const interval = setInterval(() => fetchHistory(true), 3000);
     return () => clearInterval(interval);
-  }, [user, authLoading, router, sessions.some(s => s.status === 'processing')]);
+    // Use stable stringified status array to prevent infinite loop
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessions.length, sessions.map(s => s.status).join(',')]);
 
   if (authLoading || loading) {
     return (
