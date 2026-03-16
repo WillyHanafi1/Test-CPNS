@@ -237,6 +237,17 @@ export default function HistoryPage() {
                                 ))}
                               </div>
                               <div className="flex items-center gap-3">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 text-[10px] font-bold text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 px-3 rounded-full border border-emerald-500/20"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    router.push(`/exam/${session.id}/review`);
+                                  }}
+                                >
+                                  PEMBAHASAN
+                                </Button>
                                 <div className="text-right">
                                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Total</p>
                                   <p className="text-3xl font-black text-white">{session.total_score}</p>

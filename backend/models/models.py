@@ -102,6 +102,7 @@ class Answer(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("exam_sessions.id"))
     question_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("questions.id"))
+    option_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("question_options.id"), nullable=True)
     selected_option: Mapped[str] = mapped_column(String(10))
     points_earned: Mapped[int] = mapped_column(Integer, default=0)
 

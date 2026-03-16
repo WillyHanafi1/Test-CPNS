@@ -52,6 +52,35 @@ class StartExamResponse(BaseModel):
     session_id: uuid.UUID
     package: PackageResponse
     end_time: datetime
+
+class ReviewOptionResponse(BaseModel):
+    id: uuid.UUID
+    label: str
+    content: str
+    image_url: Optional[str] = None
+    score: int
+    model_config = ConfigDict(from_attributes=True)
+
+class ReviewQuestionResponse(BaseModel):
+    id: uuid.UUID
+    content: str
+    image_url: Optional[str] = None
+    discussion: Optional[str] = None
+    segment: str
+    number: int
+    options: List[ReviewOptionResponse]
+    selected_option_id: Optional[uuid.UUID] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class ReviewSessionResponse(BaseModel):
+    session_id: uuid.UUID
+    package_title: str
+    total_score: int
+    score_twk: int
+    score_tiu: int
+    score_tkp: int
+    questions: List[ReviewQuestionResponse]
+    model_config = ConfigDict(from_attributes=True)
 # ==============================================================
 
 @router.post("/start/{package_id}", response_model=StartExamResponse)
@@ -351,6 +380,72 @@ async def get_exam_result(
         "score_tiu": getattr(session, 'score_tiu', 0) or 0,
         "score_tkp": getattr(session, 'score_tkp', 0) or 0
     }
+
+@router.get("/session/{session_id}/review", response_model=ReviewSessionResponse)
+async def get_exam_review(
+    session_id: uuid.UUID,
+    db: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(get_current_user)
+):
+    # 1. Fetch session with package and answers
+    result = await db.execute(
+        select(ExamSession)
+        .options(
+            selectinload(ExamSession.package),
+            selectinload(ExamSession.answers)
+        )
+        .where(
+            ExamSession.id == session_id,
+            ExamSession.user_id == current_user.id
+        )
+    )
+    session = result.scalar_one_or_none()
+    
+    if not session:
+        raise HTTPException(status_code=404, detail="Sesi ujian tidak ditemukan")
+    
+    if session.status != "finished":
+        raise HTTPException(
+            status_code=403, 
+            detail="Pembahasan hanya tersedia setelah ujian selesai"
+        )
+
+    # 2. Fetch all questions for this package with their options
+    q_result = await db.execute(
+        select(Question)
+        .options(selectinload(Question.options))
+        .where(Question.package_id == session.package_id)
+        .order_by(Question.number)
+    )
+    questions = q_result.scalars().all()
+
+    # 3. Create a map of question_id -> selected_option_id
+    user_answers = {str(a.question_id): a.option_id for a in session.answers}
+
+    review_questions = []
+    for q in questions:
+        selected_option_id = user_answers.get(str(q.id))
+        
+        review_questions.append(ReviewQuestionResponse(
+            id=q.id,
+            content=q.content,
+            image_url=q.image_url,
+            discussion=q.discussion,
+            segment=q.segment,
+            number=q.number,
+            options=q.options,
+            selected_option_id=selected_option_id
+        ))
+
+    return ReviewSessionResponse(
+        session_id=session.id,
+        package_title=session.package.title,
+        total_score=session.total_score,
+        score_twk=session.score_twk,
+        score_tiu=session.score_tiu,
+        score_tkp=session.score_tkp,
+        questions=review_questions
+    )
 
 @router.get("/leaderboard/{package_id}")
 async def get_leaderboard(

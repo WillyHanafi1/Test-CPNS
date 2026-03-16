@@ -92,6 +92,7 @@ async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: s
                     id=uuid.uuid4(),
                     session_id=session_id,
                     question_id=q.id,
+                    option_id=selected_option.id,
                     selected_option=selected_option.label,
                     points_earned=points
                 ))

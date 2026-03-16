@@ -4,7 +4,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, CheckCircle, XCircle, Award, BarChart3, Home, ArrowRight } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Award, BarChart3, Home, ArrowRight, BookOpen } from 'lucide-react';
 import { useExamStore } from '@/store/useExamStore';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
@@ -275,6 +275,14 @@ export default function ResultPage() {
 
         {/* Actions */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+          <Button
+            variant="outline"
+            className="w-full sm:w-auto border-slate-800 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 py-7 px-10 rounded-3xl border-2 transition-all group"
+            onClick={() => router.push(`/exam/${id}/review`)}
+          >
+            <BookOpen className="w-5 h-5 mr-3 group-hover:scale-110 transition-transform" />
+            <span className="font-bold">Lihat Pembahasan</span>
+          </Button>
           <Button
             variant="outline"
             className="w-full sm:w-auto border-slate-800 bg-slate-900/50 hover:bg-slate-900 text-slate-300 py-7 px-10 rounded-3xl border-2 transition-all group"
