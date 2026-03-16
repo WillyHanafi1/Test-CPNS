@@ -129,6 +129,23 @@ async def bulk_delete_questions(
     db: AsyncSession = Depends(get_async_session),
     admin: User = Depends(get_current_admin)
 ):
+    # SECURITY: Cek apakah ada sesi ujian aktif yang menggunakan soal-soal ini
+    from backend.models.models import ExamSession
+    active_sessions = await db.scalar(
+        select(func.count(ExamSession.id))
+        .join(Package, ExamSession.package_id == Package.id)
+        .join(Question, Question.package_id == Package.id)
+        .where(
+            Question.id.in_(question_ids),
+            ExamSession.status == "ongoing"
+        )
+    )
+    if active_sessions > 0:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Gagal menghapus. Ada {active_sessions} sesi ujian yang sedang berjalan menggunakan soal ini."
+        )
+
     await db.execute(delete(Question).where(Question.id.in_(question_ids)))
     await db.commit()
     return {"message": f"{len(question_ids)} questions deleted successfully"}

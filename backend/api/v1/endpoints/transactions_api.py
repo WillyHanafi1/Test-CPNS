@@ -346,13 +346,27 @@ async def fulfill_transaction(db: AsyncSession, order_id: str, payment_status: s
     user_result = await db.execute(select(User).where(User.id == transaction.user_id))
     user = user_result.scalar_one_or_none()
     
-    if user and transaction.transaction_type == "pro_upgrade":
-        if payment_status == "success":
+    if user and payment_status == "success":
+        if transaction.transaction_type == "pro_upgrade":
             user.is_pro = True
             now = datetime.now(timezone.utc).replace(tzinfo=None)
             if user.pro_expires_at and user.pro_expires_at > now:
                 user.pro_expires_at = user.pro_expires_at + timedelta(days=365)
             else:
                 user.pro_expires_at = now + timedelta(days=365)
+        elif transaction.transaction_type == "package_purchase":
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            # Default access: 1 year from purchase
+            transaction.access_expires_at = now + timedelta(days=365)
+            
+    # [REVOCATION LOGIC]
+    elif user and payment_status == "failed":
+        if transaction.transaction_type == "pro_upgrade":
+            # Only downgrade if the transaction being moved to failed was the one that made them PRO
+            # Or just set is_pro to False if we don't have complex subscription nesting
+            user.is_pro = False
+            user.pro_expires_at = None
+        elif transaction.transaction_type == "package_purchase":
+            transaction.access_expires_at = None
                 
     await db.commit()

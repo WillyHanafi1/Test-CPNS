@@ -199,6 +199,28 @@ async def check_package_access(
     if not package.is_premium or package.price == 0:
         return {"has_access": True}
 
+    # 5. CEK TRANSAKSI PEMBELIAN PAKET (Individual)
+    # Query transaksi sukses untuk paket ini yang belum expired
+    from sqlalchemy import and_
+    tx_result = await db.execute(
+        select(UserTransaction)
+        .where(
+            and_(
+                UserTransaction.user_id == current_user.id,
+                UserTransaction.package_id == package_id,
+                UserTransaction.payment_status == "success"
+            )
+        )
+        .order_by(UserTransaction.created_at.desc())
+        .limit(1)
+    )
+    transaction = tx_result.scalar_one_or_none()
+    
+    if transaction and (
+        not transaction.access_expires_at or transaction.access_expires_at > now
+    ):
+        return {"has_access": True, "reason": "purchased"}
+
     return {"has_access": False, "reason": "subscription_required"}
 
 

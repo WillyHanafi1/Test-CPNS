@@ -98,6 +98,8 @@ async def start_exam(
     package = result.scalar_one_or_none()
     if not package:
         raise HTTPException(status_code=404, detail="Package not found")
+        
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
 
     # DEFINISIKAN HELPER SEBELUM DIPAKAI
     async def populate_valid_options(sess_id: uuid.UUID):

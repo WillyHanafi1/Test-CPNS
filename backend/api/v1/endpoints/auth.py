@@ -14,6 +14,7 @@ from backend.models.models import User, UserProfile
 from backend.schemas.user import UserCreate, User as UserSchema, UserWithProfile
 from backend.schemas.token import Token
 from sqlalchemy.orm import selectinload
+from backend.core.redis_service import redis_service
 from backend.core.security import (
     verify_password, 
     get_password_hash, 
@@ -54,6 +55,10 @@ async def get_current_user(
     
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # [SECURITY] Check Redis Blocklist
+    if await redis_service.redis.exists(f"blocklist:{token}"):
+        raise HTTPException(status_code=401, detail="Token has been revoked. Please login again.")
 
     # Clean "Bearer " if it came from cookie (unlikely but safe)
     if token.startswith("Bearer "):
@@ -171,7 +176,16 @@ async def login(
     return {"message": "Successfully logged in", "user_id": str(user.id), "email": user.email, "role": user.role}
 
 @router.post("/logout")
-async def logout(response: Response):
+async def logout(request: Request, response: Response):
+    token = request.cookies.get("access_token")
+    if token:
+        # Blocklist token until its original expiry (default 1 week in minutes * 60)
+        # We use a safe margin if exact expiry isn't known
+        await redis_service.redis.setex(
+            f"blocklist:{token}",
+            ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            "1"
+        )
     response.delete_cookie("access_token")
     return {"message": "Successfully logged out"}
 
@@ -278,12 +292,16 @@ async def google_login(
             await db.refresh(user)
         else:
             # 🚨 MITIGASI PRE-HIJACKING
-            # Jika user mendaftar lokal tapi login via Google, pastikan kita mengizinkannya
-            # hanya jika email Google sudah diverifikasi (sudah dicek di atas)
-            # Dan kita bisa update providernya jika diperlukan, atau biarkan tetap 'local'
-            # tapi kita catat bahwa dia trust Google provider sekarang.
+            # Jika user sudah punya akun 'local' (email/password), jangan biarkan Google 
+            # menge-takeover provider tersebut secara otomatis tanpa verifikasi.
             if user.auth_provider == "local":
-                # Opsional: Paksa user link account atau otomatis update ke 'google' jika login sukses
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Email ini sudah terdaftar dengan password. Silakan login menggunakan email dan password."
+                )
+            
+            # Jika user mendaftar via Google, atau ingin update provider (opsional)
+            if user.auth_provider != "google":
                 user.auth_provider = "google"
                 await db.commit()
             
