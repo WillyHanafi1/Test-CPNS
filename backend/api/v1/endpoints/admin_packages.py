@@ -159,7 +159,13 @@ async def delete_package_admin(
     db: AsyncSession = Depends(get_async_session),
     admin: User = Depends(get_current_admin)
 ):
-    # FIX: Cek apakah paket sudah pernah dibeli/ditransaksikan
+    # 1. First, check if package exists
+    result = await db.execute(select(Package).where(Package.id == package_id))
+    package = result.scalar_one_or_none()
+    if not package:
+        raise HTTPException(status_code=404, detail="Package not found")
+
+    # 2. Then, check if package has been purchased
     from backend.models.models import UserTransaction
     trans_count = await db.scalar(
         select(func.count(UserTransaction.id))
@@ -170,11 +176,6 @@ async def delete_package_admin(
             status_code=400, 
             detail="Tidak dapat menghapus paket yang sudah dibeli oleh peserta. Silakan ubah statusnya menjadi tidak aktif atau edit paket ini."
         )
-
-    result = await db.execute(select(Package).where(Package.id == package_id))
-    package = result.scalar_one_or_none()
-    if not package:
-        raise HTTPException(status_code=404, detail="Package not found")
     
     await db.delete(package)
     await db.commit()

@@ -223,9 +223,14 @@ async def forgot_password(
     return {"message": "If your email is registered, you will receive a password reset link."}
 
 @router.post("/reset-password")
-async def reset_password(request: ResetPasswordRequest, db: AsyncSession = Depends(get_async_session)):
+@limiter.limit("3/hour")
+async def reset_password(
+    request: Request, 
+    payload: ResetPasswordRequest = Body(...), 
+    db: AsyncSession = Depends(get_async_session)
+):
     """Reset password using a valid reset token."""
-    email = verify_reset_token(request.token)
+    email = verify_reset_token(payload.token)
     if not email:
         raise HTTPException(status_code=400, detail="Invalid or expired reset token")
 
@@ -235,7 +240,7 @@ async def reset_password(request: ResetPasswordRequest, db: AsyncSession = Depen
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    user.hashed_password = get_password_hash(request.new_password)
+    user.hashed_password = get_password_hash(payload.new_password)
     await db.commit()
     
     return {"message": "Password has been reset successfully."}
@@ -257,9 +262,7 @@ async def google_login(
             app_settings.GOOGLE_CLIENT_ID
         )
         
-        # [TAMBAHAN BEST PRACTICE]
-        if idinfo['aud'] != app_settings.GOOGLE_CLIENT_ID:
-            raise ValueError("Could not verify audience.")
+        # [CLEANUP] Redundant audience check removed as it's already verified in verify_oauth2_token above.
 
         # ✅ WAJIB: Pastikan email benar-benar milik user
         if not idinfo.get('email_verified'):

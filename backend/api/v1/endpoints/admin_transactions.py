@@ -124,12 +124,17 @@ async def update_transaction_status_admin(
     db: AsyncSession = Depends(get_async_session),
     admin: User = Depends(get_current_admin)
 ):
+    import logging
+    logger = logging.getLogger("admin.audit")
+    
     from backend.api.v1.endpoints.transactions_api import fulfill_transaction
     
     result = await db.execute(select(UserTransaction).where(UserTransaction.id == transaction_id))
     transaction = result.scalar_one_or_none()
     if not transaction:
         raise HTTPException(status_code=404, detail="Transaction not found")
+    
+    old_status = transaction.payment_status
     
     # Use the shared fulfillment logic
     if transaction.order_id:
@@ -142,5 +147,9 @@ async def update_transaction_status_admin(
             from datetime import timedelta, timezone
             transaction.access_expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=365)
         await db.commit()
+    
+    logger.info(
+        f"ADMIN_ACTION: Transaction {transaction_id} status changed from {old_status} to {new_status} by Admin {admin.email} (ID: {admin.id})"
+    )
     
     return {"message": "Transaction status updated", "new_status": new_status}

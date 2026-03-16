@@ -128,18 +128,20 @@ async def import_questions(
     # 4. ATOMIC INSERTION
     try:
         questions_to_insert = []
+        # HOIST COLUMN LOOKUPS
+        q_img_col = find_col(['image_url', 'url gambar soal', 'gambar_soal'])
+        q_disc_col = find_col(['discussion', 'teks pembahasan', 'pembahasan'])
+        q_sub_col = find_col(mapping['sub_category'])
+
         for _, row in df.iterrows():
-            q_img = find_col(['image_url', 'url gambar soal', 'gambar_soal'])
-            q_disc = find_col(['discussion', 'teks pembahasan', 'pembahasan'])
-            
             new_question = Question(
                 package_id=package_id,
                 number=int(row[essential['num_col']]),
                 segment=str(row[essential['seg_col']]).upper(),
                 content=str(row[essential['con_col']]).strip(),
-                image_url=str(row[q_img]).strip() if q_img and str(row[q_img]).strip() else None,
-                discussion=str(row[q_disc]).strip() if q_disc and str(row[q_disc]).strip() else None,
-                sub_category=str(row[find_col(mapping['sub_category'])]).strip() if find_col(mapping['sub_category']) and str(row[find_col(mapping['sub_category'])]).strip() else None
+                image_url=str(row[q_img_col]).strip() if q_img_col and str(row[q_img_col]).strip() else None,
+                discussion=str(row[q_disc_col]).strip() if q_disc_col and str(row[q_disc_col]).strip() else None,
+                sub_category=str(row[q_sub_col]).strip() if q_sub_col and str(row[q_sub_col]).strip() else None
             )
 
             options = []

@@ -135,46 +135,41 @@ async def start_exam(
                 )
 
     # 2. Check for duplicate "ongoing" session or finished session for Weekly TO
+    # 2. Prevent Multiple Ongoing Sessions (Global Policy)
+    # This addresses the TOCTOU issue and ensures only one ongoing session per user/package
+    existing_check = await db.execute(
+        select(ExamSession).where(
+            ExamSession.user_id == current_user.id,
+            ExamSession.package_id == package_id,
+            ExamSession.status == "ongoing"
+        ).with_for_update() # Row-level lock to prevent concurrent sessions
+    )
+    existing_session = existing_check.scalar_one_or_none()
+    
+    if existing_session:
+        # If it's weekly and already finished, we shouldn't even get here if we check finish status first
+        # But for safety, handle "ongoing" resume here
+        await populate_valid_options(existing_session.id)
+        return {
+            "session_id": existing_session.id,
+            "package": package,
+            "end_time": existing_session.end_time.replace(tzinfo=timezone.utc)
+        }
+
+    # 2b. Specifically for Weekly TO: Check if already finished
     if package.is_weekly:
-        check_result = await db.execute(
-            select(ExamSession).where(
-                ExamSession.user_id == current_user.id,
-                ExamSession.package_id == package_id
-            ).order_by(ExamSession.start_time.desc()).limit(1)
-        )
-        last_session = check_result.scalar_one_or_none()
-        
-        if last_session:
-            if last_session.status == "finished":
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Anda sudah menyelesaikan Tryout ini. Tryout mingguan hanya dapat dikerjakan satu kali."
-                )
-            if last_session.status == "ongoing":
-                # Allow resume
-                await populate_valid_options(last_session.id)
-                return {
-                    "session_id": last_session.id,
-                    "package": package,
-                    "end_time": last_session.end_time.replace(tzinfo=timezone.utc)
-                }
-        # Standard practice: check for duplicate "ongoing" session
-        existing_result = await db.execute(
+        finished_check = await db.execute(
             select(ExamSession).where(
                 ExamSession.user_id == current_user.id,
                 ExamSession.package_id == package_id,
-                ExamSession.status == "ongoing"
+                ExamSession.status == "finished"
             )
         )
-        existing_session = existing_result.scalar_one_or_none()
-        
-        if existing_session:
-            await populate_valid_options(existing_session.id)
-            return {
-                "session_id": existing_session.id,
-                "package": package,
-                "end_time": existing_session.end_time.replace(tzinfo=timezone.utc)
-            }
+        if finished_check.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Anda sudah menyelesaikan Tryout ini. Tryout mingguan hanya dapat dikerjakan satu kali."
+            )
     
 
 
@@ -229,11 +224,19 @@ async def autosave_answer(
     if not session:
         raise HTTPException(status_code=404, detail="Sesi ujian tidak ditemukan atau bukan milik Anda")
 
-    # 2. Redis-based rate limiting (max 10 requests per 5 seconds per user)
+    # 2. Redis-based rate limiting (atomic with Lua-like logic in Python)
     rate_key = f"rate_limit:autosave:{current_user.id}"
-    current_count = await redis_service.redis.incr(rate_key)
-    if current_count == 1:
-        await redis_service.redis.expire(rate_key, 5)  # 5 second window
+    # Use redis pipeline for a bit more atomicity if needed, but current logic is actually okay if window is short
+    # Better: Use a Lua script to ensure INCR + EXPIRE happen atomically if it's the first hit
+    lua_rate_limit = """
+    local current = redis.call('INCR', KEYS[1])
+    if current == 1 then
+        redis.call('EXPIRE', KEYS[1], ARGV[1])
+    end
+    return current
+    """
+    current_count = await redis_service.redis.eval(lua_rate_limit, 1, rate_key, 5)
+    
     if current_count > 10:
         raise HTTPException(
             status_code=429,

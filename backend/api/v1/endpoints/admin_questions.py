@@ -16,6 +16,7 @@ router = APIRouter(prefix="/admin/questions", tags=["admin-questions"])
 class OptionCreate(BaseModel):
     label: str
     content: str
+    image_url: Optional[str] = None
     score: int
 
 class QuestionCreate(BaseModel):

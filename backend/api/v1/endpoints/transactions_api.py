@@ -32,14 +32,27 @@ async def create_pro_upgrade_transaction(
     Create a transaction for upgrading to a PRO account.
     Returns the Midtrans snap_token.
     """
-    PRO_PRICE = 50000 
     order_id = f"PRO-{current_user.id.hex[:8]}-{uuid.uuid4().hex[:6]}"
     
+    # Prevention of pending transaction spam
+    existing_pending = await db.scalar(
+        select(func.count(UserTransaction.id)).where(
+            UserTransaction.user_id == current_user.id,
+            UserTransaction.payment_status == "pending",
+            UserTransaction.transaction_type == "pro_upgrade"
+        )
+    )
+    if existing_pending > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Sudah ada transaksi pending untuk upgrade PRO. Silakan selesaikan atau batalkan transaksi sebelumnya."
+        )
+
     new_transaction = UserTransaction(
         user_id=current_user.id,
         transaction_type="pro_upgrade",
         order_id=order_id,
-        amount=PRO_PRICE,
+        amount=settings.PRO_PRICE,
         payment_status="pending",
     )
     db.add(new_transaction)
@@ -359,13 +372,28 @@ async def fulfill_transaction(db: AsyncSession, order_id: str, payment_status: s
             # Default access: 1 year from purchase
             transaction.access_expires_at = now + timedelta(days=365)
             
-    # [REVOCATION LOGIC]
+    # [REVOCATION LOGIC FIX]
     elif user and payment_status == "failed":
         if transaction.transaction_type == "pro_upgrade":
-            # Only downgrade if the transaction being moved to failed was the one that made them PRO
-            # Or just set is_pro to False if we don't have complex subscription nesting
-            user.is_pro = False
-            user.pro_expires_at = None
+            # BUG FIX: Before revoking, check if there's ANOTHER successful pro_upgrade 
+            # currently active. Don't punish the user for a single failed renewal attempt.
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            other_active = await db.scalar(
+                select(func.count(UserTransaction.id)).where(
+                    UserTransaction.user_id == user.id,
+                    UserTransaction.transaction_type == "pro_upgrade",
+                    UserTransaction.payment_status == "success",
+                    UserTransaction.access_expires_at > now,
+                    UserTransaction.id != transaction.id
+                )
+            )
+            
+            if not other_active or other_active == 0:
+                user.is_pro = False
+                user.pro_expires_at = None
+                logger.info(f"User {user.email} PRO status revoked due to failed transaction.")
+            else:
+                logger.info(f"User {user.email} still has valid PRO access from another transaction. Revocation skipped.")
         elif transaction.transaction_type == "package_purchase":
             transaction.access_expires_at = None
                 
