@@ -213,6 +213,28 @@ export default function ResultPage() {
     result.score_tkp >= PASSING_GRADES.TKP
   );
 
+  const handleGenerateAI = async () => {
+    if (!id || result?.ai_status === 'processing') return;
+    
+    try {
+      const res = await fetch(`${API_URL}/api/v1/exam/${id}/ai-generate`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+      
+      if (res.ok) {
+        // Optimistically update status to trigger polling if not already started
+        setResult((prev: any) => ({ ...prev, ai_status: 'processing' }));
+        // The existing useEffect will pick up the 'processing' status and continue polling
+      } else {
+        const errorData = await res.json();
+        alert(errorData.detail || "Gagal memulai analisis AI");
+      }
+    } catch (err) {
+      alert("Terjadi kesalahan koneksi");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-white p-4 md:p-8 animate-in fade-in duration-700">
       <div className="max-w-4xl mx-auto space-y-8">
@@ -267,6 +289,7 @@ export default function ResultPage() {
           status={result.ai_status} 
           data={result.ai_analysis} 
           isPro={user?.is_pro || false} 
+          onGenerate={handleGenerateAI}
         />
 
         {/* Categories Breakdown */}

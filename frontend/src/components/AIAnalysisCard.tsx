@@ -15,12 +15,14 @@ interface AIAnalysisCardProps {
     status: string; // none, processing, completed, failed
     data?: AIAnalysis | null;
     isPro: boolean;
+    onGenerate: () => void;
 }
 
-export default function AIAnalysisCard({ status, data, isPro }: AIAnalysisCardProps) {
+export default function AIAnalysisCard({ status, data, isPro, onGenerate }: AIAnalysisCardProps) {
     const router = useRouter();
 
     if (!isPro) {
+        // ... (existing !isPro code)
         return (
             <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-slate-900/50 p-8 backdrop-blur-xl">
                 <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-blue-500/20 blur-3xl"></div>
@@ -45,6 +47,33 @@ export default function AIAnalysisCard({ status, data, isPro }: AIAnalysisCardPr
                     
                     <p className="mt-4 text-xs text-slate-500">Mulai dari Rp 49.000 / paket</p>
                 </div>
+            </div>
+        );
+    }
+
+    if (status === 'none' || (!data && status !== 'processing' && status !== 'failed')) {
+        return (
+            <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-slate-900/50 p-8 backdrop-blur-xl">
+                 <div className="absolute -left-8 -top-8 h-32 w-32 rounded-full bg-purple-500/10 blur-3xl"></div>
+                 
+                 <div className="relative z-10 flex flex-col items-center text-center">
+                    <div className="mb-6 rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
+                        <Brain className="h-8 w-8 text-blue-400" />
+                    </div>
+                    
+                    <h3 className="mb-2 text-2xl font-bold text-white">Siap Untuk Diulas AI?</h3>
+                    <p className="mb-6 max-w-md text-slate-400">
+                        Tutor AI kami akan membedah jawaban Anda dan memberikan strategi belajar yang dipersonalisasi.
+                    </p>
+                    
+                    <button 
+                        onClick={onGenerate}
+                        className="flex items-center gap-2 rounded-xl bg-white px-8 py-3 font-bold text-slate-900 transition-all hover:scale-105 hover:bg-blue-50"
+                    >
+                        <Sparkles className="h-5 w-5 text-blue-600" />
+                        ✨ Generate Analisis AI
+                    </button>
+                 </div>
             </div>
         );
     }

@@ -154,24 +154,14 @@ async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: s
 
             print(f"DEBUG: Scoring completed for session {session_id_str}")
 
-            # 🤖 AI ANALYSIS TRIGGER
-            result_user = await db.execute(select(User).where(User.id == session.user_id))
-            user_obj = result_user.scalar_one_or_none()
-            
-            if user_obj and user_obj.is_pro:
-                print(f"DEBUG: Triggering AI Analysis for PRO user {user_email}")
-                session.ai_status = "processing"
-                await db.commit()
-                
-                ai_stats = {
-                    "score_twk": score_twk,
-                    "score_tiu": score_tiu,
-                    "score_tkp": score_tkp,
-                    "is_passed": is_passed,
-                    "sub_categories": sub_cat_stats
-                }
-                
-                generate_ai_analysis_task.delay(session_id_str, ai_stats)
+            # 🤖 AI ANALYSIS TRIGGER (REMOVED - Now triggered manually by user)
+            # if user_obj and user_obj.is_pro:
+            #     print(f"DEBUG: Triggering AI Analysis for PRO user {user_email}")
+            #     session.ai_status = "processing"
+            #     await db.commit()
+            #     ...
+            #     generate_ai_analysis_task.delay(session_id_str, ai_stats)
+
 
             return {"session_id": session_id_str, "total_score": total_score, "status": "success"}
 

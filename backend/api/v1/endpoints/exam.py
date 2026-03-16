@@ -598,3 +598,74 @@ async def get_my_sessions(
         ))
     
     return sessions
+@router.post("/{session_id}/ai-generate")
+async def generate_manual_ai(
+    session_id: uuid.UUID,
+    db: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Manually trigger AI analysis for a finished session.
+    Only for PRO users.
+    """
+    # 1. Validation: PRO User
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    is_pro = current_user.is_pro and (not current_user.pro_expires_at or current_user.pro_expires_at > now)
+    if not is_pro:
+        raise HTTPException(status_code=403, detail="Hanya pengguna PRO yang dapat menggunakan fitur Analisis AI.")
+
+    # 2. Validation: Sesi milik user dan sudah selesai
+    result = await db.execute(
+        select(ExamSession).where(ExamSession.id == session_id, ExamSession.user_id == current_user.id)
+    )
+    session = result.scalar_one_or_none()
+    if not session:
+        raise HTTPException(status_code=404, detail="Sesi ujian tidak ditemukan.")
+    
+    if session.status != "finished":
+        raise HTTPException(status_code=400, detail="Sesi ujian belum selesai. Selesaikan ujian terlebih dahulu.")
+
+    # 3. Validation: Status AI (jangan generate ulang jika sudah/sedang berproses)
+    if session.ai_status == "processing":
+        return {"status": "processing", "message": "Analisis AI sedang diproses."}
+    if session.ai_status == "completed":
+        return {"status": "completed", "message": "Analisis AI sudah tersedia."}
+
+    # 4. Prepare data for AI
+    # We need to gather scoring stats (it's already in DB session object)
+    # But we might need sub-category stats which requires answers analysis
+    # Let's reuse the logic from tasks.py but in a simplified way or just fetch the final results
+    
+    # Calculate sub-category stats if not already cached (Simplified for now: we'll re-calculate or fetch)
+    from backend.models.models import Answer
+    ans_result = await db.execute(
+        select(Answer, Question.sub_category)
+        .join(Question, Answer.question_id == Question.id)
+        .where(Answer.session_id == session_id)
+    )
+    answers_data = ans_result.all()
+    
+    sub_cat_stats = {}
+    for ans, sub_cat in answers_data:
+        cat = sub_cat or "Umum"
+        if cat not in sub_cat_stats:
+            sub_cat_stats[cat] = {"score": 0, "max_possible": 0}
+        sub_cat_stats[cat]["score"] += ans.points_earned
+        sub_cat_stats[cat]["max_possible"] += 5
+
+    ai_stats = {
+        "score_twk": session.score_twk,
+        "score_tiu": session.score_tiu,
+        "score_tkp": session.score_tkp,
+        "is_passed": session.is_passed,
+        "sub_categories": sub_cat_stats
+    }
+
+    # 5. Trigger task
+    session.ai_status = "processing"
+    await db.commit()
+    
+    from backend.core.tasks import generate_ai_analysis_task
+    generate_ai_analysis_task.delay(str(session_id), ai_stats)
+
+    return {"status": "processing", "message": "Permintaan Analisis AI telah dikirim."}
