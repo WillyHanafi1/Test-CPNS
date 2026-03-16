@@ -290,13 +290,46 @@ def auto_finish_expired_sessions():
 # AI Analysis Task
 # ====================================================================
 
-async def async_generate_ai_analysis(session_id_str: str, stats: dict):
+async def async_generate_ai_analysis(session_id_str: str, stats: dict, history: list = None):
     print(f"DEBUG: Starting AI Analysis generation for session {session_id_str}")
     engine = create_async_engine(settings.DATABASE_URL, echo=False, poolclass=NullPool)
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    
     try:
         session_id = uuid.UUID(session_id_str)
-        analysis_result = await ai_service.generate_analysis(stats)
+        
+        # Fetch history if not provided (AI Memory)
+        past_history = history
+        if past_history is None:
+            async with session_factory() as db:
+                # Get current session to find user_id
+                result = await db.execute(select(ExamSession).where(ExamSession.id == session_id))
+                current_session = result.scalar_one_or_none()
+                
+                if current_session:
+                    history_result = await db.execute(
+                        select(ExamSession)
+                        .where(
+                            ExamSession.user_id == current_session.user_id,
+                            ExamSession.status == "finished",
+                            ExamSession.id != session_id
+                        )
+                        .order_by(ExamSession.start_time.desc())
+                        .limit(3)
+                    )
+                    past_sessions = history_result.scalars().all()
+                    past_history = []
+                    for ps in past_sessions:
+                        past_history.append({
+                            "date": ps.start_time.strftime("%d %b %Y") if ps.start_time else "N/A",
+                            "total_score": ps.total_score,
+                            "score_twk": ps.score_twk,
+                            "score_tiu": ps.score_tiu,
+                            "score_tkp": ps.score_tkp
+                        })
+
+        analysis_result = await ai_service.generate_analysis(stats, past_history)
+        
         async with session_factory() as db:
             result = await db.execute(select(ExamSession).where(ExamSession.id == session_id))
             session = result.scalar_one_or_none()
@@ -306,7 +339,9 @@ async def async_generate_ai_analysis(session_id_str: str, stats: dict):
                 await db.commit()
                 print(f"DEBUG: AI Analysis saved for session {session_id_str}")
     except Exception as e:
+        import traceback
         print(f"ERROR: AI Analysis generation failed: {str(e)}")
+        print(traceback.format_exc())
         async with session_factory() as db:
             result = await db.execute(select(ExamSession).where(ExamSession.id == session_id))
             session = result.scalar_one_or_none()
@@ -322,10 +357,10 @@ async def async_generate_ai_analysis(session_id_str: str, stats: dict):
     max_retries=3,
     default_retry_delay=10
 )
-def generate_ai_analysis_task(session_id: str, stats: dict):
+def generate_ai_analysis_task(session_id: str, stats: dict, history: list = None):
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
-        return loop.run_until_complete(async_generate_ai_analysis(session_id, stats))
+        return loop.run_until_complete(async_generate_ai_analysis(session_id, stats, history))
     finally:
         loop.close()

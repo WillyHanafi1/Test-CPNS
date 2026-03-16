@@ -632,12 +632,7 @@ async def generate_manual_ai(
         return {"status": "completed", "message": "Analisis AI sudah tersedia."}
 
     # 4. Prepare data for AI
-    # We need to gather scoring stats (it's already in DB session object)
-    # But we might need sub-category stats which requires answers analysis
-    # Let's reuse the logic from tasks.py but in a simplified way or just fetch the final results
-    
-    # Calculate sub-category stats if not already cached (Simplified for now: we'll re-calculate or fetch)
-    from backend.models.models import Answer
+    from backend.models.models import Answer, Question
     ans_result = await db.execute(
         select(Answer, Question.sub_category)
         .join(Question, Answer.question_id == Question.id)
@@ -653,19 +648,45 @@ async def generate_manual_ai(
         sub_cat_stats[cat]["score"] += ans.points_earned
         sub_cat_stats[cat]["max_possible"] += 5
 
-    ai_stats = {
+    current_stats = {
         "score_twk": session.score_twk,
         "score_tiu": session.score_tiu,
         "score_tkp": session.score_tkp,
+        "total_score": session.total_score,
         "is_passed": session.is_passed,
         "sub_categories": sub_cat_stats
     }
 
-    # 5. Trigger task
+    # 5. Fetch User History (last 5 sessions)
+    history_result = await db.execute(
+        select(ExamSession)
+        .where(
+            ExamSession.user_id == current_user.id,
+            ExamSession.id != session_id,
+            ExamSession.status == "finished"
+        )
+        .order_by(ExamSession.start_time.desc())
+        .limit(5)
+    )
+    past_sessions = history_result.scalars().all()
+    
+    history_data = []
+    for s in past_sessions:
+        history_data.append({
+            "date": s.start_time.strftime("%Y-%m-%d") if s.start_time else "Unknown",
+            "total_score": s.total_score,
+            "score_twk": s.score_twk,
+            "score_tiu": s.score_tiu,
+            "score_tkp": s.score_tkp,
+            "is_passed": s.is_passed,
+            "ai_analysis": s.ai_analysis # Provide past analysis for consistency
+        })
+
+    # 6. Trigger task
     session.ai_status = "processing"
     await db.commit()
     
     from backend.core.tasks import generate_ai_analysis_task
-    generate_ai_analysis_task.delay(str(session_id), ai_stats)
+    generate_ai_analysis_task.delay(str(session_id), current_stats, history_data)
 
-    return {"status": "processing", "message": "Permintaan Analisis AI telah dikirim."}
+    return {"status": "processing", "message": "Permintaan Analisis AI telah dikirim dengan data riwayat."}

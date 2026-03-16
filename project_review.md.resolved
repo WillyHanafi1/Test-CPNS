@@ -1,0 +1,36 @@
+# Strategic Review & Next Steps: AI Mentor & RAG
+
+Berdasarkan analisis infrastruktur (Docker, CI/CD) dan fitur AI yang telah kita bangun, berikut adalah panduan strategis untuk langkah selanjutnya.
+
+## 1. RAG vs Database Discussion
+**Pertanyaan:** *Apakah perlu memasukkan seluruh soal ke database untuk RAG?*
+
+**Rekomendasi:** **Hybrid Approach (RAG-Lite + SQL)**
+- **Untuk Phase 1 (Explain My Mistake):** **TIDAK PERLU RAG.** Context (soal + pembahasan) sudah kita ambil langsung via SQL dan disuapkan ke prompt. Ini paling akurat dan efisien.
+- **Untuk Phase 2 (Global Mentor):** **PERLU RAG.** Jika user bertanya "Tolong berikan materi TWK tentang Integritas" atau "Bagaimana trik cepat TIU Silogisme?", AI butuh akses ke materi eksternal.
+- **Cara Implementasi RAG:** 
+  - Jangan pakai Vector DB eksternal dulu (Pinecone/Chroma) agar infra tetap hemat.
+  - Gunakan **Markdown-based Knowledge Base.** Buat satu folder `backend/knowledge/` berisi file [.md](file:///d:/Project/Test-CPNS/AGENT.md) materi CPNS.
+  - Cari file yang relevan berbasis Keyword/Intent, lalu masukkan isinya ke Context Gemini.
+
+## 2. Human Touch (Hal-hal yang butuh sentuhan manual)
+AI hanyalah "mesin". Untuk membuatnya terasa premium, kita butuh:
+
+| Area | Langkah Kerja |
+| :--- | :--- |
+| **Kualitas Data** | Cek tabel [questions](file:///d:/Project/Test-CPNS/backend/api/v1/endpoints/admin_questions.py#85-125). AI kita sangat tergantung pada kolom `discussion`. Jika pembahasannya buruk, penjelasan AI akan "halusinasi". Pastikan file CSV/Excel import memiliki pembahasan yang berkualitas. |
+| **Prompt Tuning** | Sesuaikan "Personality" Tutor AI. Apakah ingin yang tegas (Gaya Militer), atau yang suportif (Layanan Publik)? Ini bisa disetel di [ai_service.py](file:///d:/Project/Test-CPNS/backend/core/ai_service.py). |
+| **Cost Management** | Pantau penggunaan token Gemini. Tambahkan logic `rate_limit` per user (misal: maks 15 chat/hari) agar budget Rp 50.000 user tetap profit. |
+| **Analytics Dash** | Buat tab "Top Asked Questions" di Admin. Lihat soal mana yang paling sering ditanyakan ke AI. Ini bisa jadi data berharga untuk buat materi Tryout Akbar. |
+
+## 3. Infrastructure & CI/CD Audit
+- **Deployment:** Deployment scriptmu ([deploy.yml](file:///d:/Project/Test-CPNS/.github/workflows/deploy.yml)) sudah bagus karena otomatis menjalankan `alembic upgrade head`. 
+- **Security:** Pastikan `GOOGLE_API_KEY` di server DigitalOcean TIDAK bocor ke frontend. Saat ini sudah aman karena chat melalui proxy backend.
+- **Optimization:** Image backend bisa di-optimize di Dockerfile (Multi-stage build) jika build time mulai lambat.
+
+## 4. Immediate Next Action (Phase 2 MVP)
+1. **Create `backend/knowledge/`**: Masukkan poin-poin penting materi CPNS ke sana.
+2. **Knowledge Service**: Buat helper function di Python untuk membaca file tersebut berdasarkan topik yang ditanyakan user.
+3. **Frontend Dashboard Chat**: Tambahkan floating bubble di dashboard sebagai entry point Global Mentor.
+
+**Saran saya:** Sebelum masuk ke RAG yang kompleks, fokuslah mematangkan **Quality of Data** pada soal-soal premium Anda. AI yang pintar dengan soal yang salah/pembahasan kosong akan merusak kepercayaan user.

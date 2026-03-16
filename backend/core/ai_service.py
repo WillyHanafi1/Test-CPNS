@@ -15,9 +15,9 @@ class AIService:
         genai.configure(api_key=settings.GOOGLE_API_KEY)
         self.model = genai.GenerativeModel('gemini-1.5-flash')
 
-    async def generate_analysis(self, stats: dict) -> dict:
+    async def generate_analysis(self, stats: dict, history: list = None) -> dict:
         """
-        Generate AI analysis for an exam session based on summarized stats.
+        Generate AI analysis for an exam session based on summarized stats and past history.
         """
         if not self.model:
             return {
@@ -27,22 +27,30 @@ class AIService:
                 "motivation": "Tetap semangat!"
             }
 
+        history_context = ""
+        if history:
+            history_str = "\n".join([
+                f"- Tanggal: {h['date']}, Skor: {h['total_score']} (TWK:{h['score_twk']}, TIU:{h['score_tiu']}, TKP:{h['score_tkp']})"
+                for h in history
+            ])
+            history_context = f"\nRIWAYAT UJIAN SEBELUMNYA:\n{history_str}\n"
+
         prompt = f"""
         Kamu adalah Tutor CPNS Profesional yang ahli dalam membantu peserta lulus SKD.
-        Analisis hasil tryout berikut untuk memberikan insight mendalam bagi peserta:
-
-        HASIL SKOR:
+        Analisis hasil tryout berikut untuk memberikan insight mendalam bagi peserta.
+        {history_context}
+        HASIL SKOR SEKARANG:
         - TWK (Tes Wawasan Kebangsaan): {stats['score_twk']}/150 (Ambang Batas: 65)
         - TIU (Tes Intelegensia Umum): {stats['score_tiu']}/175 (Ambang Batas: 80)
         - TKP (Tes Karakteristik Pribadi): {stats['score_tkp']}/225 (Ambang Batas: 166)
         - Status Kelulusan: {"LULUS AMBANG BATAS" if stats['is_passed'] else "BELUM LULUS AMBANG BATAS"}
 
-        DETAIL PER SUB-KATEGORI (Jika ada):
+        DETAIL PER SUB-KATEGORI SEKARANG:
         {json.dumps(stats.get('sub_categories', {}), indent=2)}
 
         Tugasmu:
-        1. Berikan ringkasan objektif mengenai performa user (1-2 kalimat).
-        2. Identifikasi 2-3 area kelemahan spesifik berdasarkan skor atau sub-kategori.
+        1. Berikan ringkasan objektif mengenai performa user (1-2 kalimat). Jika ada data RIWAYAT SEBELUMNYA, bandingkan secara spesifik (misal: "Score TIU kamu meningkat 15 poin dari ujian terakhir").
+        2. Identifikasi 2-3 area kelemahan spesifik berdasarkan skor atau sub-kategori. Perhatikan jika ada pola kelemahan yang berulang dari riwayat sebelumnya.
         3. Berikan 'Action Plan' (rencana tindakan) konkret yang harus dilakukan user dalam 7 hari ke depan.
         4. Berikan pesan motivasi singkat yang profesional namun menginspirasi.
 
@@ -72,5 +80,53 @@ class AIService:
                 "action_plan": ["Silakan coba lagi beberapa saat lagi"],
                 "motivation": "Jangan menyerah karena kendala teknis!"
             }
+
+    async def get_chat_response(self, messages: list, context_data: dict = None) -> str:
+        """
+        Generate a conversational AI response for the Mentor Chatbot.
+        'messages' is a list of dicts with 'role' (user/assistant) and 'content'.
+        'context_data' can contain question content, segment, user's choice, and discussion.
+        """
+        if not self.model:
+            return "Maaf, Tutor AI saat ini sedang tidak tersedia."
+
+        system_instruction = """
+        Kamu adalah 'Tutor AI', mentor ahli seleksi CPNS yang sabar, cerdas, dan suportif.
+        Tugasmu adalah membantu user memahami materi SKD (TWK, TIU, TKP) dan memberikan strategi pengerjaan soal sesuai standar BKN.
+        
+        ETIKA & GAYA BAHASA:
+        1. Gunakan bahasa Indonesia yang santun namun tetap akrab dan memotivasi.
+        2. Berikan penjelasan yang terstruktur, gunakan poin-poin jika perlu agar mudah dibaca.
+        3. Jika user bertanya tentang soal spesifik, jelaskan langkah logikanya, bukan hanya jawabannya.
+        4. Jangan memberikan jawaban untuk hal-hal di luar konteks persiapan CPNS.
+        5. Selalu jujur jika kamu tidak tahu, tapi usahakan memberikan arahan materi yang perlu dipelajari.
+        """
+
+        context_str = ""
+        if context_data:
+            context_str = f"""
+            KONTEKS SOAL YANG SEDANG DIBAHAS:
+            - Soal: {context_data.get('question_content', '')}
+            - Segmen: {context_data.get('segment', '')}
+            - Jawaban User: {context_data.get('user_answer', 'Tidak dijawab')}
+            - Pembahasan/Kunci: {context_data.get('discussion', '')}
+            """
+
+        # Simple prompt-based conversation tracking
+        chat_history = ""
+        for msg in messages[:-1]:
+            role_label = "User" if msg['role'] == 'user' else "Tutor AI"
+            chat_history += f"{role_label}: {msg['content']}\n"
+        
+        current_query = messages[-1]['content']
+        
+        full_final_prompt = f"{system_instruction}\n\n{context_str}\n\nRIWAYAT CHAT:\n{chat_history}\n\nUser: {current_query}\nTutor AI:"
+
+        try:
+            response = self.model.generate_content(full_final_prompt)
+            return response.text.strip()
+        except Exception as e:
+            logger.error(f"Failed to get AI chat response: {str(e)}")
+            return "Maaf, terjadi gangguan koneksi saat Tutor AI mencoba membalas. Silakan coba lagi."
 
 ai_service = AIService()

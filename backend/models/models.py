@@ -21,6 +21,7 @@ class User(Base):
     profile: Mapped["UserProfile"] = relationship(back_populates="user", uselist=False)
     sessions: Mapped[list["ExamSession"]] = relationship(back_populates="user")
     transactions: Mapped[list["UserTransaction"]] = relationship(back_populates="user")
+    chat_sessions: Mapped[list["ChatSession"]] = relationship(back_populates="user")
 
 class UserProfile(Base):
     __tablename__ = "user_profiles"
@@ -133,3 +134,26 @@ class UserTransaction(Base):
 
     user: Mapped["User"] = relationship(back_populates="transactions")
     package: Mapped["Package"] = relationship(back_populates="transactions")
+
+class ChatSession(Base):
+    __tablename__ = "chat_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
+    exam_session_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("exam_sessions.id"), nullable=True)
+    title: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+
+    user: Mapped["User"] = relationship(back_populates="chat_sessions")
+    messages: Mapped[list["ChatMessage"]] = relationship(back_populates="session", cascade="all, delete-orphan")
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("chat_sessions.id"))
+    role: Mapped[str] = mapped_column(String(20)) # user, assistant
+    content: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+
+    session: Mapped["ChatSession"] = relationship(back_populates="messages")

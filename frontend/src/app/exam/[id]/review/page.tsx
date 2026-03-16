@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
+import ReviewChatPanel from '@/components/ReviewChatPanel';
+import { Sparkles } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
@@ -51,6 +53,7 @@ export default function ReviewPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const scrollToTop = () => {
@@ -280,9 +283,18 @@ export default function ReviewPage() {
 
               {/* Discussion Section */}
               <div className="mt-12 space-y-4 pt-8 border-t border-slate-900 animate-in fade-in slide-in-from-top-4 duration-700 delay-300">
-                <div className="flex items-center space-x-2 text-indigo-400">
-                  <BookOpen className="w-5 h-5" />
-                  <h3 className="font-bold text-lg">Pembahasan Jawaban</h3>
+                <div className="flex items-center justify-between text-indigo-400">
+                  <div className="flex items-center space-x-2">
+                    <BookOpen className="w-5 h-5" />
+                    <h3 className="font-bold text-lg">Pembahasan Jawaban</h3>
+                  </div>
+                  <Button 
+                    onClick={() => setChatOpen(true)}
+                    className="bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white border-0 shadow-lg shadow-indigo-600/20 rounded-xl h-9 px-4 animate-pulse-subtle"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 mr-2 fill-white" />
+                    Tanya Tutor AI
+                  </Button>
                 </div>
                 <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-6 md:p-8 space-y-4">
                   {currentQuestion.discussion ? (
@@ -372,6 +384,16 @@ export default function ReviewPage() {
           </div>
         )}
       </main>
+
+      {/* AI Mentor Chat Panel */}
+      <ReviewChatPanel 
+        isOpen={chatOpen}
+        onClose={() => setChatOpen(false)}
+        examSessionId={data.session_id}
+        questionId={currentQuestion.id}
+        questionNumber={currentQuestion.number}
+        packageTitle={data.package_title}
+      />
     </div>
   );
 }
