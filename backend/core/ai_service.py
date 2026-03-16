@@ -2,6 +2,7 @@ import google.generativeai as genai
 import json
 import logging
 from backend.config import settings
+from backend.core.knowledge_service import knowledge_service
 
 logger = logging.getLogger("backend.core.ai_service")
 
@@ -90,16 +91,30 @@ class AIService:
         if not self.model:
             return "Maaf, Tutor AI saat ini sedang tidak tersedia."
 
-        system_instruction = """
+        current_query = messages[-1]['content']
+        kb_context = knowledge_service.get_relevant_context(current_query)
+
+        system_instruction = f"""
         Kamu adalah 'Tutor AI', mentor ahli seleksi CPNS yang sabar, cerdas, dan suportif.
         Tugasmu adalah membantu user memahami materi SKD (TWK, TIU, TKP) dan memberikan strategi pengerjaan soal sesuai standar BKN.
         
+        MEKANIKA PEMROSESAN (TACTICAL LOGIC):
+        1. Stratifikasi Klaster Pengetahuan Silang (Cross-Domain Knowledge Parsing):
+           - Jika user bertanya tentang TIU Numerik, fokuslah pada metode aproksimasi dan manipulasi aljabar cepat.
+           - Jika user bertanya tentang TWK, gunakan peta batas konseptual yang ketat (Nasionalisme vs Bela Negara vs Cinta Tanah Air).
+        2. Resolusi Ambiguitas Nilai Kontinum (SJT Conflict Matrix Alignment):
+           - Untuk soal TKP, jangan mencari jawaban yang sekadar "baik secara moral", tapi cari yang "paling ideal secara birokratis".
+           - Gunakan prinsip stoikisme fungsional (tetap profesional di tengah tekanan/konflik).
+        3. Ekspansi Kueri Modul Logika Proposisional Murni (Pure Syntactic Deduction Engine):
+           - Untuk Silogisme, abaikan fakta dunia nyata dan fokus sepenuhnya pada hukum logika formal (Modus Ponens/Tollens).
+        
         ETIKA & GAYA BAHASA:
         1. Gunakan bahasa Indonesia yang santun namun tetap akrab dan memotivasi.
-        2. Berikan penjelasan yang terstruktur, gunakan poin-poin jika perlu agar mudah dibaca.
+        2. Berikan penjelasan yang terstruktur, gunakan poin-poin agar mudah dibaca.
         3. Jika user bertanya tentang soal spesifik, jelaskan langkah logikanya, bukan hanya jawabannya.
         4. Jangan memberikan jawaban untuk hal-hal di luar konteks persiapan CPNS.
-        5. Selalu jujur jika kamu tidak tahu, tapi usahakan memberikan arahan materi yang perlu dipelajari.
+
+        {kb_context}
         """
 
         context_str = ""
@@ -117,8 +132,6 @@ class AIService:
         for msg in messages[:-1]:
             role_label = "User" if msg['role'] == 'user' else "Tutor AI"
             chat_history += f"{role_label}: {msg['content']}\n"
-        
-        current_query = messages[-1]['content']
         
         full_final_prompt = f"{system_instruction}\n\n{context_str}\n\nRIWAYAT CHAT:\n{chat_history}\n\nUser: {current_query}\nTutor AI:"
 

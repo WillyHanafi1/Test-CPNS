@@ -6,6 +6,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { Toaster } from "react-hot-toast";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import Script from "next/script";
+import GlobalChatBubble from "@/components/GlobalChatBubble";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,6 +38,7 @@ export default function RootLayout({
         <GoogleOAuthProvider clientId={googleClientId}>
           <AuthProvider>
             {children}
+            <GlobalChatBubble />
             <Toaster />
             <Script 
               src={process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === 'true' 

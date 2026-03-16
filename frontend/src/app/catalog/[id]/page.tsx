@@ -213,60 +213,67 @@ export default function PackageDetailPage() {
                   ))}
                 </div>
 
-                {/* Price + CTA */}
-                <div className="pt-4 border-t border-slate-800 space-y-4">
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-slate-400 text-sm">Harga</span>
-                    <span className="text-3xl font-bold text-white">
-                      {pkg.price === 0 ? 'GRATIS' : `Rp ${pkg.price.toLocaleString('id-ID')}`}
-                    </span>
+                  {/* Access Status + CTA */}
+                  <div className="pt-4 border-t border-slate-800 space-y-4">
+                    <div className="flex items-baseline justify-between">
+                      <span className="text-slate-400 text-sm">Status Akses</span>
+                      <span className="text-xl font-bold text-white">
+                        {pkg.price === 0 ? (
+                          <span className="text-emerald-400">GRATIS</span>
+                        ) : (
+                          <div className="flex flex-col items-end">
+                            <Badge className="bg-amber-500 text-slate-950 border-0 mb-1">PREMIUM</Badge>
+                            <span className="text-[10px] text-slate-500 font-normal">Termasuk Paket PRO</span>
+                          </div>
+                        )}
+                      </span>
+                    </div>
+
+                    {!user ? (
+                      // Not logged in
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-amber-400 text-sm bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
+                          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                          <span>Login untuk mengakses paket ini.</span>
+                        </div>
+                        <Button onClick={() => router.push('/login')} className="w-full bg-indigo-600 hover:bg-indigo-500 h-12 font-bold rounded-xl">
+                          Login Sekarang
+                        </Button>
+                      </div>
+                    ) : accessState === 'idle' || accessState === 'loading' ? (
+                      // Checking access
+                      <Button disabled className="w-full h-12 rounded-xl">
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Memeriksa akses...
+                      </Button>
+                    ) : accessState === 'granted' ? (
+                      // HAS ACCESS — show start button
+                      <Link href={`/exam/${pkg.id}`} className="block">
+                        <Button className="w-full bg-indigo-600 hover:bg-indigo-500 text-white h-12 text-base font-bold rounded-xl shadow-lg shadow-indigo-600/20 group">
+                          <Zap className="w-5 h-5 mr-2 group-hover:scale-125 transition-transform" />
+                          Mulai Ujian Sekarang
+                        </Button>
+                      </Link>
+                    ) : (
+                      // NO ACCESS — show upgrade button
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-indigo-400 text-sm bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-3">
+                          <Lock className="w-4 h-4 flex-shrink-0" />
+                          <span>Akses eksklusif untuk Member PRO.</span>
+                        </div>
+                        <Button
+                          onClick={handleUpgradePro}
+                          className="w-full bg-indigo-600 hover:bg-indigo-500 text-white h-12 text-base font-bold rounded-xl shadow-lg shadow-indigo-600/20 group"
+                        >
+                          <Zap className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
+                          Upgrade PRO (Buka Semua)
+                        </Button>
+                      </div>
+                    )}
+
+                    <p className="text-center text-[10px] text-slate-600 italic leading-relaxed">
+                      {pkg.price === 0 ? 'Tersedia untuk semua pengguna' : 'Aktifkan PRO untuk akses tak terbatas seluruh paket soal'}
+                    </p>
                   </div>
-
-                  {!user ? (
-                    // Not logged in
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-amber-400 text-sm bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
-                        <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                        <span>Login terlebih dahulu untuk memulai ujian.</span>
-                      </div>
-                      <Button onClick={() => router.push('/login')} className="w-full bg-indigo-600 hover:bg-indigo-500 h-12 font-bold rounded-xl">
-                        Login untuk Mulai
-                      </Button>
-                    </div>
-                  ) : accessState === 'idle' || accessState === 'loading' ? (
-                    // Checking access
-                    <Button disabled className="w-full h-12 rounded-xl">
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Memeriksa akses...
-                    </Button>
-                  ) : accessState === 'granted' ? (
-                    // HAS ACCESS — show start button
-                    <Link href={`/exam/${pkg.id}`} className="block">
-                      <Button className="w-full bg-indigo-600 hover:bg-indigo-500 text-white h-12 text-base font-bold rounded-xl shadow-lg shadow-indigo-600/20 group">
-                        <Zap className="w-5 h-5 mr-2 group-hover:scale-125 transition-transform" />
-                        Mulai Ujian Sekarang
-                      </Button>
-                    </Link>
-                  ) : (
-                    // NO ACCESS — show buy button
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-indigo-400 text-sm bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-3">
-                        <Lock className="w-4 h-4 flex-shrink-0" />
-                        <span>Akses terbatas untuk PRO Member.</span>
-                      </div>
-                      <Button
-                        onClick={handleUpgradePro}
-                        className="w-full bg-indigo-600 hover:bg-indigo-500 text-white h-12 text-base font-bold rounded-xl shadow-lg shadow-indigo-600/20 group"
-                      >
-                        <Zap className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
-                        Upgrade PRO (Buka Semua)
-                      </Button>
-                    </div>
-                  )}
-
-                  <p className="text-center text-xs text-slate-600">
-                    {pkg.price === 0 ? 'Akses gratis selamanya' : 'Dapatkan akses ke SEMUA paket dengan upgrade PRO'}
-                  </p>
-                </div>
               </CardContent>
             </Card>
           </div>
