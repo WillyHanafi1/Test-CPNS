@@ -154,6 +154,19 @@ class MockRedisService:
         s = self._store.get(name, set())
         return isinstance(s, set) and value in s
 
+    # --- Lua Scripts ---
+    async def eval(self, script: str, numkeys: int, *keys_and_args):
+        # A basic mock for the specific rate limit script used in autosave
+        # script: local current = redis.call('INCR', KEYS[1]) ...
+        if "INCR" in script and "EXPIRE" in script:
+            key = keys_and_args[0]
+            current = await self.incr(key)
+            if current == 1:
+                # Mock setting expire
+                pass
+            return current
+        return None
+
     # --- Misc ---
     async def expire(self, name: str, time: int):
         pass  # no-op in tests
