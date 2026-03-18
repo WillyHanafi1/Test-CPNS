@@ -15,6 +15,7 @@ from backend.api.v1.endpoints.admin_transactions import router as admin_transact
 from backend.api.v1.endpoints.admin_analytics import router as admin_analytics_router
 from backend.api.v1.endpoints.transactions_api import router as transactions_router
 from backend.api.v1.endpoints.chat import router as chat_router
+from backend.api.v1.endpoints.user_api import router as user_router
 from backend.config import settings
 from backend.core.rate_limiter import limiter, rate_limit_exceeded_handler
 
@@ -63,6 +64,7 @@ app.include_router(admin_transactions_router, prefix="/api/v1")
 app.include_router(admin_analytics_router, prefix="/api/v1")
 app.include_router(transactions_router, prefix="/api/v1")
 app.include_router(chat_router, prefix="/api/v1")
+app.include_router(user_router, prefix="/api/v1")
 
 @app.get("/")
 async def root():

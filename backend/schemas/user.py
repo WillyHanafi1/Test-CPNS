@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, model_validator
 from typing import Optional
 import uuid
 from datetime import datetime
@@ -19,7 +19,21 @@ class User(UserBase):
     id: uuid.UUID
     role: str
     is_active: bool
+    is_pro: bool = False
+    pro_expires_at: Optional[datetime] = None
     created_at: datetime
+
+    @model_validator(mode='before')
+    @classmethod
+    def map_pro_status(cls, data):
+        if hasattr(data, 'is_pro_active'):
+            data_dict = {
+                k: v for k, v in data.__dict__.items()
+                if not k.startswith('_')
+            } if hasattr(data, '__dict__') else dict(data)
+            data_dict['is_pro'] = data.is_pro_active
+            return data_dict
+        return data
 
     class Config:
         from_attributes = True

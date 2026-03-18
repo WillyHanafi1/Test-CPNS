@@ -61,3 +61,40 @@ Rancangan tabel utama (*Entity Relationship*):
 
 *Catatan: File gambar (figural) harus disimpan di Cloud Storage (S3/GCS), database hanya menyimpan URL string.*
 
+## 5. Lesson Learned & Best Practices (AI Assistants)
+Sebagai panduan untuk tugas pengembangan di masa mendatang, berikut adalah standar operasional (SOP) proyek yang wajib dipatuhi:
+
+### A. Penanganan Rendering Matematika (Latex)
+- Frontend menggunakan `react-latex-next` dengan konfigurasi KaTeX.
+- Server wajib mengirim data matematika menggunakan sintaks **inline math `$...$`** atau **block math `$$...$$`**. Hindari penggunaan notasi matematika mentah (seperti x^2 atau akar(x)) di dalam CSV maupun PostgreSQL.
+
+### B. Pembuatan & Imputasi Soal Figural (End-to-End)
+Jika Anda (Asisten AI) diminta untuk memproduksi atau melengkapi soal tipe Figural (Kemampuan Spasial/Matriks):
+1. **Gunakan RAVEN-10000 Dataset:** Gunakan kumpulan matriks biner (`.npz`) dari sumber *dataset* RAVEN, yang pola logikanya (Analogi/Serial) sangat cocok dengan regulasi Kepmenpan RB.
+2. **Generasi & Pengacakan (Pillow/Numpy):** Ekstrak/gabungkan array gambar menjadi grid masalah 3x3 dan 5 opsi jawaban (1 target benar, 4 salah). Pastikan posisi kunci jawaban selalu diacak dengan distribusi yang merata antar soal.
+3. **Stateless CDN via Supabase:** 
+   - **JANGAN** pernah memasukkan file gambar fisik base64 ke dalam sistem utama.
+   - Gunakan `SUPABASE_SERVICE_ROLE_KEY` dari `.env` untuk melakukan *push upload* gambar secara rekursif (.png) ke *bucket* `exam-assets`.
+4. **Markdown Embedding (CSV/DB):**
+   - Meskipun sistem database (PostgreSQL) memiliki kolom `image_url` terpisah di tabel `questions`, namun untuk kolom yang fleksibel seperti `content` atau opsi jawaban di tabel `question_options`, gunakan **Sintaks Markdown**: `![Alt Text](URL_Public_Supabase)`. 
+   - UI Frontend (*Next.js/ReactMarkdown*) dari struktur sistem ini secara otomatis diarahkan untuk me-*render* url markdown.
+5. **Kepatuhan Kepmenpan-RB**: Pastikan distribusi soal figural terbagi rata ke 3 kategori utama: **Analogi Gambar** (perbandingan pola), **Ketidaksamaan Gambar** (mencari yang berbeda), dan **Serial Gambar** (melanjutkan urutan).
+6. **Pembahasan Detail (XML Logic)**: Gunakan metadata `.xml` yang tersedia untuk mengekstrak logika ground-truth. Petakan aturan teknis (misal: `Constant`, `Progression`, `Arithmetic`) ke bahasa Indonesia yang mudah dipahami (*Tetap*, *Perkembangan*, *Aritmatika*) untuk menghasilkan kolom `discussion` yang berkualitas tinggi dan edukatif bagi pengguna.
+
+### C. Backend Architecture & High Availability
+Berdasarkan analisis mendalam pada core backend:
+1. **Redis Optimization**: Gunakan `RedisService` dengan *connection pooling* untuk menangani ribuan koneksi simultan. Pastikan `json_serial` mendukung format `datetime` dan `UUID`.
+2. **Security & Auth**:
+    - Simpan JWT di **HttpOnly Cookie** untuk mencegah XSS.
+    - Implementasikan **Token Blocklist** di Redis untuk fitur *Logout* dan pembatalan sesi yang aman.
+    - Gunakan fitur `is_pro_active` pada model `User` untuk memvalidasi akses fitur premium secara *real-time*.
+3. **AI Integration (Gemini)**:
+    - Gunakan `generate_content_async` untuk menghindari *blocking* pada event loop FastAPI.
+    - Selalu sertakan konteks (*question content*, *user answer*, *discussion*) dalam prompt AI Chat Mentor untuk memberikan jawaban yang akurat secara kontekstual.
+    - Batasi penggunaan fitur AI (Chat & Mastery Digest) hanya untuk pengguna dengan status `is_pro_active`.
+4. **Topic Mastery Analytics**:
+    - Agregasikan data jawaban berdasarkan `sub_category` untuk memantau perkembangan belajar pengguna.
+    - Identifikasi "Weak Points" secara berkala (misal: sub-kategori dengan skor < 40% setelah 5x pengerjaan).
+5. **Rate Limiting**:
+    - Implementasikan `slowapi` dengan backend Redis.
+    - Gunakan `X-Forwarded-For` untuk mendeteksi IP asli pengguna di balik *reverse proxy* (Nginx/Docker).

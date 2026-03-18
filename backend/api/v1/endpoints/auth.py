@@ -8,11 +8,11 @@ import uuid
 from pydantic import BaseModel, EmailStr
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
+import hashlib
 
 from backend.db.session import get_async_session
 from backend.models.models import User, UserProfile
 from backend.schemas.user import UserCreate, User as UserSchema, UserWithProfile
-from backend.schemas.token import Token
 from sqlalchemy.orm import selectinload
 from backend.core.redis_service import redis_service
 from backend.core.security import (
@@ -57,7 +57,8 @@ async def get_current_user(
         raise HTTPException(status_code=401, detail="Not authenticated")
 
     # [SECURITY] Check Redis Blocklist
-    if await redis_service.redis.exists(f"blocklist:{token}"):
+    hashed_token = hashlib.sha256(token.encode()).hexdigest()
+    if await redis_service.redis.exists(f"blocklist:{hashed_token}"):
         raise HTTPException(status_code=401, detail="Token has been revoked. Please login again.")
 
     # Clean "Bearer " if it came from cookie (unlikely but safe)
@@ -173,16 +174,31 @@ async def login(
         secure=app_settings.COOKIE_SECURE,
     )
     
-    return {"message": "Successfully logged in", "user_id": str(user.id), "email": user.email, "role": user.role}
+    return {
+        "message": "Successfully logged in", 
+        "user_id": str(user.id), 
+        "email": user.email, 
+        "role": user.role,
+        "is_pro": user.is_pro_active,
+        "pro_expires_at": user.pro_expires_at
+    }
 
 @router.post("/logout")
 async def logout(request: Request, response: Response):
-    token = request.cookies.get("access_token")
+    token = request.cookies.get("access_token") 
+    if not token:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
+            
     if token:
+        if token.startswith("Bearer "):
+            token = token.replace("Bearer ", "")
+        hashed_token = hashlib.sha256(token.encode()).hexdigest()
         # Blocklist token until its original expiry (default 1 week in minutes * 60)
         # We use a safe margin if exact expiry isn't known
         await redis_service.redis.setex(
-            f"blocklist:{token}",
+            f"blocklist:{hashed_token}",
             ACCESS_TOKEN_EXPIRE_MINUTES * 60,
             "1"
         )
@@ -200,6 +216,7 @@ async def get_me(current_user: User = Depends(get_current_user)):
 async def forgot_password(
     request: Request,
     response: Response,
+    background_tasks: BackgroundTasks,
     payload: ForgotPasswordRequest = Body(...),
     db: AsyncSession = Depends(get_async_session)
 ):
@@ -212,12 +229,8 @@ async def forgot_password(
         frontend_url = app_settings.cors_origins_list[0]
         reset_link = f"{frontend_url}/reset-password?token={reset_token}"
         
-        # MOCK EMAIL SENDING
-        print(f"DEBUG: Password reset link for {user.email}: {reset_link}")
-
-        # Fire-and-forget email sending (avoids BackgroundTasks/slowapi conflict)
-        import asyncio
-        asyncio.create_task(send_reset_password_email(user.email, reset_link))
+        # Fire-and-forget email sending
+        background_tasks.add_task(send_reset_password_email, user.email, reset_link)
         
     # Always return success to prevent email enumeration
     return {"message": "If your email is registered, you will receive a password reset link."}
@@ -249,8 +262,8 @@ async def reset_password(
 @limiter.limit("10/minute")
 async def google_login(
     request: Request,
+    response: Response,
     payload: GoogleLoginRequest = Body(...),
-    response: Response = None,
     db: AsyncSession = Depends(get_async_session)
 ):
     """Authenticate with Google ID Token."""
@@ -328,7 +341,9 @@ async def google_login(
             "message": "Successfully logged in via Google", 
             "user_id": str(user.id), 
             "email": user.email, 
-            "role": user.role
+            "role": user.role,
+            "is_pro": user.is_pro_active,
+            "pro_expires_at": user.pro_expires_at
         }
 
     except ValueError as ve:

@@ -5,7 +5,7 @@ from backend.config import settings
 from backend.core.knowledge_service import knowledge_service
 
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 
 logger = logging.getLogger("backend.core.ai_service")
 
@@ -75,9 +75,11 @@ class AIService:
 
         try:
             # Using generation_config for JSON mode (response_mime_type)
-            response = self.model.generate_content(
+            response = await self.model.generate_content_async(
                 prompt,
-                generation_config={"response_mime_type": "application/json"}
+                generation_config=genai.types.GenerationConfig(
+                    response_mime_type="application/json"
+                )
             )
             
             raw_data = json.loads(response.text)
@@ -159,10 +161,54 @@ RIWAYAT CHAT:
 Tutor AI:"""
 
         try:
-            response = self.model.generate_content(full_final_prompt)
+            response = await self.model.generate_content_async(full_final_prompt)
             return response.text.strip()
         except Exception as e:
             logger.error(f"Failed to get AI chat response: {str(e)}")
             return "Maaf, terjadi gangguan koneksi saat Tutor AI mencoba membalas."
+
+
+    async def generate_mastery_digest(self, mastery_data: List[Dict[str, Any]], weak_points: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Generate a personalized AI digest based on topic mastery and weak points.
+        """
+        if not self.model:
+            return {"error": "AI Service is disabled"}
+
+        prompt = f"""
+        Kamu adalah Mentor Ahli CPNS. Berdasarkan data penguasaan materi (Topic Mastery) berikut, berikan analisis singkat dan rencana aksi.
+
+        DATA PENGUASAAN:
+        {json.dumps(mastery_data[:10], indent=2)}
+
+        TITIK KELEMAHAN:
+        {json.dumps(weak_points, indent=2)}
+
+        Tugas:
+        1. Berikan ringkasan performa keseluruhan dalam 2 kalimat.
+        2. Identifikasi 3 sub-materi yang paling kritis untuk segera dipelajari.
+        3. Berikan 3 tips taktis khusus untuk memperbaiki kelemahan tersebut.
+        4. Berikan pesan motivasi singkat.
+
+        Respon harus dalam format JSON:
+        {{
+            "summary": "...",
+            "critical_topics": ["...", "...", "..."],
+            "tactical_tips": ["...", "...", "..."],
+            "motivation": "..."
+        }}
+        """
+
+        try:
+            response = await self.model.generate_content_async(
+                prompt,
+                generation_config=genai.types.GenerationConfig(
+                    response_mime_type="application/json"
+                )
+            )
+            return json.loads(response.text)
+        except Exception as e:
+            logger.error(f"Error generating mastery digest: {str(e)}")
+            return {"error": "Gagal menghasilkan analisis AI"}
 
 ai_service = AIService()

@@ -12,17 +12,24 @@ class RedisService:
     @property
     def redis(self):
         if self._redis is None:
-            self._redis = redis.from_url(settings.REDIS_URL, decode_responses=True)
+            self._redis = redis.from_url(
+                settings.REDIS_URL, 
+                decode_responses=True,
+                max_connections=20,
+                socket_timeout=5,
+                retry_on_timeout=True,
+                health_check_interval=30
+            )
         return self._redis
 
     async def set_cache(self, key: str, value: Any, expire: int = 3600):
         try:
             def json_serial(obj):
-                if isinstance(obj, (datetime)):
+                if isinstance(obj, datetime):
                     return obj.isoformat()
                 if isinstance(obj, uuid.UUID):
                     return str(obj)
-                raise TypeError(f"Type {type(obj)} not serializable")
+                return str(obj) # Fallback for other non-serializable types
                 
             await self.redis.set(key, json.dumps(value, default=json_serial), ex=expire)
         except Exception as e:
