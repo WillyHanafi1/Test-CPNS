@@ -153,51 +153,66 @@ export default function LandingPage() {
 
       {/* Pricing / PRO Section */}
       <section id="price" className="py-32 relative">
-         <div className="max-w-7xl mx-auto px-4">
-           <div className="text-center mb-20 space-y-4">
-             <h2 className="text-4xl md:text-5xl font-black tracking-tight">Investasi Untuk <span className="text-indigo-500">Masa Depan Anda.</span></h2>
-             <p className="text-slate-400 text-lg">Pilih jalur yang paling sesuai dengan ambisi Anda.</p>
-           </div>
-           
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-             {/* Free Tier */}
-             <div className="p-10 rounded-[2.5rem] bg-slate-950 border border-slate-900 flex flex-col space-y-8 hover:border-slate-800 transition-all">
-                <div className="space-y-2">
-                  <h3 className="text-2xl font-bold">Standard</h3>
-                  <p className="text-slate-500 text-sm">Untuk mencoba platform kami.</p>
-                </div>
-                <div className="text-4xl font-black">Rp 0<span className="text-sm font-medium text-slate-500 underline decoration-indigo-500/30">/selamanya</span></div>
-                <ul className="space-y-4 flex-grow">
-                  <PriceItem text="Akses Tryout Mingguan Gratis" />
-                  <PriceItem text="Ranking Nasional Terbatas" />
-                  <PriceItem text="Analitik Dasar" />
-                </ul>
-                <Link href="/register">
-                  <Button variant="outline" className="w-full h-12 rounded-xl border-slate-800">Daftar Gratis</Button>
-                </Link>
-             </div>
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="text-center mb-20 space-y-4">
+            <h2 className="text-4xl md:text-5xl font-black tracking-tight">
+              Investasi Untuk <span className="text-indigo-500">Masa Depan Anda.</span>
+            </h2>
+            <p className="text-slate-400 text-lg">Pilih jalur yang paling sesuai dengan ambisi Anda.</p>
+          </div>
 
-             {/* PRO Tier */}
-             <div className="p-10 rounded-[2.5rem] bg-gradient-to-br from-indigo-600 to-purple-600 flex flex-col space-y-8 relative overflow-hidden shadow-2xl shadow-indigo-500/20 group">
-                <div className="absolute -top-4 -right-4 bg-white/20 px-8 py-2 rotate-12 text-[10px] font-black uppercase tracking-widest backdrop-blur-md">Paling Laris</div>
-                <div className="space-y-2">
-                  <h3 className="text-2xl font-bold text-white">PRO Lifecycle</h3>
-                  <p className="text-white/70 text-sm">Full access untuk persiapan intensif.</p>
-                </div>
-                <div className="text-4xl font-black text-white">Rp 50.000<span className="text-sm font-medium text-white/50">/tahun</span></div>
-                <ul className="space-y-4 flex-grow text-white/90">
-                  <PriceItem text="Akses Seluruh 1.000+ Paket Soal" white />
-                  <PriceItem text="Ranking Nasional Real-time" white />
-                  <PriceItem text="Pembahasan Soal Eksklusif" white />
-                  <PriceItem text="Prioritas Support 24/7" white />
-                  <PriceItem text="Update Soal Terbaru Otomatis" white />
-                </ul>
-                <Link href="/register">
-                  <Button className="w-full h-12 rounded-xl bg-white text-indigo-600 hover:bg-slate-100 font-bold">Aktivasi PRO Sekarang</Button>
-                </Link>
-             </div>
-           </div>
-         </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+            {/* Free Tier */}
+            <div className="p-10 rounded-[2.5rem] bg-slate-950 border border-slate-900 flex flex-col space-y-8 hover:border-slate-800 transition-all shadow-2xl">
+              <div className="space-y-2">
+                <h3 className="text-2xl font-bold">Standard</h3>
+                <p className="text-slate-500 text-sm">Untuk mencoba platform kami.</p>
+              </div>
+              <div className="text-4xl font-black italic">
+                Rp 0<span className="text-sm font-medium text-slate-500 underline decoration-indigo-500/30 ml-2">/selamanya</span>
+              </div>
+              <ul className="space-y-5 flex-grow">
+                <PriceItem text="Akses Tryout Mingguan Gratis" />
+                <PriceItem text="Ranking Nasional Terbatas" />
+                <PriceItem text="Analitik Dasar" />
+              </ul>
+              <Link href="/register">
+                <Button variant="outline" className="w-full h-14 rounded-2xl border-slate-800 bg-black hover:bg-slate-900 font-bold transition-all shadow-lg">
+                  Daftar Gratis
+                </Button>
+              </Link>
+            </div>
+
+            {/* PRO Tier */}
+            <div className="p-10 rounded-[2.5rem] bg-gradient-to-br from-indigo-600 via-indigo-600 to-purple-600 flex flex-col space-y-8 relative overflow-hidden shadow-2xl shadow-indigo-500/20 group">
+              {/* Badge Paling Laris */}
+              <div className="absolute top-8 -right-12 bg-white/20 px-12 py-1.5 rotate-45 text-[10px] font-black uppercase tracking-widest backdrop-blur-md border-y border-white/10 shadow-sm">
+                Paling Laris
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-2xl font-bold text-white">PRO Lifecycle</h3>
+                <p className="text-white/70 text-sm font-medium">Full access untuk persiapan intensif.</p>
+              </div>
+              <div className="text-4xl font-black text-white italic">
+                Rp 50.000<span className="text-sm font-medium text-white/50 ml-2">/tahun</span>
+              </div>
+              <ul className="space-y-5 flex-grow text-white/90">
+                <PriceItem text="Akses Seluruh 1.000+ Paket Soal" white />
+                <PriceItem text="Ranking Nasional Real-time" white />
+                <PriceItem text="Pembahasan Soal + AI Chat Mentor" white />
+                <PriceItem text="AI Mastery Digest (Analisis Kelemahan)" white />
+                <PriceItem text="Prioritas Support 24/7" white />
+                <PriceItem text="Update Soal Terbaru Otomatis" white />
+              </ul>
+              <Link href="/register">
+                <Button className="w-full h-14 rounded-2xl bg-white text-indigo-600 hover:bg-slate-100 font-black text-lg transition-all shadow-xl shadow-black/10">
+                  Aktivasi PRO Sekarang
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* FAQ Section */}
