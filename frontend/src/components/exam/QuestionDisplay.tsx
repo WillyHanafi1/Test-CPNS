@@ -4,6 +4,8 @@ import React from 'react';
 import { useExamStore } from '@/store/useExamStore';
 import { Button } from '@/components/ui/button';
 import { Check, Info, Flag } from 'lucide-react';
+import Latex from 'react-latex-next';
+import 'katex/dist/katex.min.css';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
@@ -71,9 +73,9 @@ export default function QuestionDisplay() {
 
       {/* Question Content */}
       <div className="space-y-4">
-        <p className="text-lg md:text-xl font-medium leading-relaxed text-slate-200">
-          {question.content}
-        </p>
+        <div className="text-lg md:text-xl font-medium leading-relaxed text-slate-200 overflow-x-auto">
+          <Latex strict={false}>{question.content}</Latex>
+        </div>
 
         {question.image_url && (
           <div className="rounded-xl overflow-hidden border border-slate-800 max-w-sm shadow-xl bg-slate-900/40">
@@ -105,9 +107,9 @@ export default function QuestionDisplay() {
               </div>
               
               {!option.image_url && option.content && (
-                <span className={`text-base flex-1 ${selectedOptionId === option.id ? 'text-white' : 'text-slate-300'}`}>
-                  {option.content}
-                </span>
+                <div className={`text-base flex-1 overflow-x-auto ${selectedOptionId === option.id ? 'text-white' : 'text-slate-300'}`}>
+                  <Latex strict={false}>{option.content}</Latex>
+                </div>
               )}
 
               {selectedOptionId === option.id && (
