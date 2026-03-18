@@ -196,7 +196,8 @@ async def start_exam(
     session_meta_key = f"session_meta:{session.id}"
     # FIX: end_time is naive UTC. We MUST attach timezone before calling timestamp()
     # Otherwise Python assumes local timezone and gives the wrong epoch.
-    await redis_service.redis.setex(session_meta_key, 10800, str(end_time.replace(tzinfo=timezone.utc).timestamp()))
+    end_time_ts_str = str(end_time.replace(tzinfo=timezone.utc).timestamp())
+    await redis_service.redis.setex(session_meta_key, 10800, end_time_ts_str)
 
     return {
         "session_id": session.id,
