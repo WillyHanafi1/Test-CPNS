@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useExamStore } from '@/store/useExamStore';
 
 interface ExamSidebarProps {
@@ -16,6 +16,18 @@ export default function ExamSidebar({ onClose }: ExamSidebarProps) {
     doubtStatus,
   } = useExamStore();
 
+  const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  // Auto-scroll logic: ensures the current question button is visible in the sidebar
+  useEffect(() => {
+    if (buttonRefs.current[currentIndex]) {
+      buttonRefs.current[currentIndex]?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    }
+  }, [currentIndex]);
+
   /**
    * Priority order for status colors:
    * 1. Current → indigo (even if answered/doubt)
@@ -29,7 +41,9 @@ export default function ExamSidebar({ onClose }: ExamSidebarProps) {
     const isAnswered = !!answers[questionId];
     const isDoubt = !!doubtStatus[questionId];
 
-    if (isCurrent) return 'ring-2 ring-indigo-500 ring-offset-2 ring-offset-slate-900 bg-indigo-600 text-white shadow-[0_0_15px_rgba(79,70,229,0.4)]';
+    if (isCurrent) {
+      return 'ring-4 ring-indigo-500/50 ring-offset-2 ring-offset-slate-900 bg-indigo-600 text-white shadow-[0_0_20px_rgba(79,70,229,0.6)] animate-pulse-subtle';
+    }
     if (isDoubt) return 'bg-amber-500 text-white'; // amber takes priority over answered-green for doubt
     if (isAnswered) return 'bg-emerald-600 text-white';
     return 'bg-slate-800 text-slate-400 hover:bg-slate-700';
@@ -81,6 +95,7 @@ export default function ExamSidebar({ onClose }: ExamSidebarProps) {
           {questions.map((q, idx) => (
             <button
               key={q.id}
+              ref={el => { buttonRefs.current[idx] = el; }}
               onClick={() => handleNavigate(idx)}
               className={`w-10 h-10 rounded-lg flex items-center justify-center text-xs font-bold transition-all duration-200 ${getStatusColor(q.id, idx)}`}
               title={`Soal ${q.number}: ${doubtStatus[q.id] ? 'Ragu-ragu' : answers[q.id] ? 'Dijawab' : 'Belum dijawab'}`}
