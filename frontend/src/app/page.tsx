@@ -57,7 +57,7 @@ export default function LandingPage() {
                 <h2 className="text-4xl font-black italic tracking-tighter">Cara Kerja <span className="text-indigo-500">Platform Pro.</span></h2>
                 <p className="text-slate-400 leading-relaxed text-lg">Hanya dalam 3 langkah mudah, Anda siap menaklukkan seleksi CPNS dengan materi yang paling relevan.</p>
               </div>
-              
+
               <div className="space-y-8">
                 <StepItem number="01" title="Daftar Akun Gratis" description="Gunakan email atau Google Login untuk akses instan ke dasbor pejuang." />
                 <StepItem number="02" title="Pilih Paket Simulasi" description="Tersedia 1.000+ bank soal terbaru SKD (TWK, TIU, TKP) & SKB Instansi." />
@@ -73,7 +73,7 @@ export default function LandingPage() {
                     <StatBox count="50rb+" label="Pejuang Aktif" />
                     <StatBox count="98%" label="Sistem Uptime" />
                   </div>
-                  
+
                   <div className="space-y-6">
                     <div className="p-6 rounded-3xl bg-slate-800/40 border border-slate-700/50 flex items-center justify-between group hover:border-indigo-500/40 transition-all">
                       <div className="flex items-center gap-4">
@@ -102,19 +102,19 @@ export default function LandingPage() {
 
                     {/* Mini Ranking List */}
                     <div className="pt-4 border-t border-slate-900 flex items-center justify-between">
-                       <div className="flex -space-x-3">
-                         {[1,2,3,4].map(i => (
-                           <div key={i} className="w-8 h-8 rounded-full bg-slate-800 border-2 border-slate-950 flex items-center justify-center overflow-hidden">
-                             <User className="w-4 h-4 text-slate-600" />
-                           </div>
-                         ))}
-                         <div className="w-8 h-8 rounded-full bg-indigo-600 border-2 border-slate-950 flex items-center justify-center">
-                           <span className="text-[10px] font-bold">+12</span>
-                         </div>
-                       </div>
-                       <div className="text-[10px] font-bold text-indigo-400 bg-indigo-500/10 px-3 py-1.5 rounded-full border border-indigo-500/20">
-                         LIVE RANKING
-                       </div>
+                      <div className="flex -space-x-3">
+                        {[1, 2, 3, 4].map(i => (
+                          <div key={i} className="w-8 h-8 rounded-full bg-slate-800 border-2 border-slate-950 flex items-center justify-center overflow-hidden">
+                            <User className="w-4 h-4 text-slate-600" />
+                          </div>
+                        ))}
+                        <div className="w-8 h-8 rounded-full bg-indigo-600 border-2 border-slate-950 flex items-center justify-center">
+                          <span className="text-[10px] font-bold">+12</span>
+                        </div>
+                      </div>
+                      <div className="text-[10px] font-bold text-indigo-400 bg-indigo-500/10 px-3 py-1.5 rounded-full border border-indigo-500/20">
+                        LIVE RANKING
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -132,17 +132,17 @@ export default function LandingPage() {
             <p className="text-slate-400 text-lg max-w-2xl mx-auto">Dirancang untuk keandalan tinggi dan akurasi materi maksimal.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <FeatureCard 
+            <FeatureCard
               icon={<Zap className="w-6 h-6 text-amber-400" />}
               title="Real-time Performance"
               description="Sistem anti-lag dengan autosave berbasis Redis. Jawaban tersimpan detik itu juga meski koneksi putus."
             />
-            <FeatureCard 
+            <FeatureCard
               icon={<Shield className="w-6 h-6 text-emerald-400" />}
               title="Validasi Server-side"
               description="Timer aman di sisi server. Tidak ada kecurangan waktu, hasil simulasi Anda benar-benar valid."
             />
-            <FeatureCard 
+            <FeatureCard
               icon={<Target className="w-6 h-6 text-indigo-400" />}
               title="Analitik Mendalam"
               description="Laporan skor instan per kategori (TWK, TIU, TKP) lengkap dengan statistik kelulusan passing grade."
@@ -172,7 +172,7 @@ export default function LandingPage() {
                 Rp 0<span className="text-sm font-medium text-slate-500 underline decoration-indigo-500/30 ml-2">/selamanya</span>
               </div>
               <ul className="space-y-5 flex-grow">
-                <PriceItem text="Akses 95% Soal" />
+                <PriceItem text="Akses 95% Paket Soal" />
                 <PriceItem text="Akses Tryout Mingguan Gratis" />
                 <PriceItem text="Ranking Nasional Terbatas" />
                 <PriceItem text="Analitik Dasar" />
