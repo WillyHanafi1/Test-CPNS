@@ -14,9 +14,7 @@ from backend.core.constants import PASSING_GRADE
 from backend.config import settings
 
 
-async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: str):
-    print(f"DEBUG: Starting scoring for session {session_id_str}")
-
+def get_task_db():
     # ✅ KUNCI FIX: buat engine BARU setiap task, bukan pakai engine global
     engine = create_async_engine(
         settings.DATABASE_URL,
@@ -24,6 +22,13 @@ async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: s
         poolclass=NullPool
     )
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    return engine, session_factory
+
+
+async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: str):
+    print(f"DEBUG: Starting scoring for session {session_id_str}")
+
+    engine, session_factory = get_task_db()
 
     try:
         session_id = uuid.UUID(session_id_str)
@@ -199,12 +204,7 @@ async def async_auto_finish_expired():
 
     logger = logging.getLogger("celery.beat.auto_finish")
 
-    engine = create_async_engine(
-        settings.DATABASE_URL,
-        echo=False,
-        poolclass=NullPool
-    )
-    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    engine, session_factory = get_task_db()
 
     grace_period = timedelta(minutes=5)
     cutoff_time = datetime.now(timezone.utc).replace(tzinfo=None) - grace_period
@@ -295,8 +295,7 @@ def auto_finish_expired_sessions():
 
 async def async_generate_ai_analysis(session_id_str: str, stats: dict, history: list = None):
     print(f"DEBUG: Starting AI Analysis generation for session {session_id_str}")
-    engine = create_async_engine(settings.DATABASE_URL, echo=False, poolclass=NullPool)
-    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    engine, session_factory = get_task_db()
     
     try:
         session_id = uuid.UUID(session_id_str)
