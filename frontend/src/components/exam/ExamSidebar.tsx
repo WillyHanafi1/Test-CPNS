@@ -108,7 +108,7 @@ export default function ExamSidebar({ onClose }: ExamSidebarProps) {
         {/* Scrollable grid container — auto-scroll targets this ref */}
         <div
           ref={gridContainerRef}
-          className="grid grid-cols-5 gap-2 max-h-[320px] overflow-y-auto pr-1 scroll-smooth"
+          className="grid grid-cols-5 gap-2 max-h-[320px] overflow-y-auto pr-1 scroll-smooth relative"
           style={{ scrollbarWidth: 'thin', scrollbarColor: '#334155 transparent' }}
         >
           {questions.map((q, idx) => (
