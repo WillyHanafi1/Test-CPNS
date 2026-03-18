@@ -86,7 +86,8 @@ Berdasarkan analisis mendalam pada core backend:
 1. **Redis Optimization**: Gunakan `RedisService` dengan *connection pooling* untuk menangani ribuan koneksi simultan. Pastikan `json_serial` mendukung format `datetime` dan `UUID`.
 2. **Security & Auth**:
     - Simpan JWT di **HttpOnly Cookie** untuk mencegah XSS.
-    - Implementasikan **Token Blocklist** di Redis untuk fitur *Logout* dan pembatalan sesi yang aman.
+    - Implementasikan **Token Blocklist** di Redis untuk fitur *Logout*. Gunakan **SHA256 Hashing** sebelum menyimpan token ke Redis untuk mencegah kebocoran *plaintext token*.
+    - Mitigasi *Pre-hijacking* pada SSO (Google Login): Wajib cek `email_verified` dan larang *takeover* akun lokal secara otomatis jika sudah ada *password*.
     - Gunakan fitur `is_pro_active` pada model `User` untuk memvalidasi akses fitur premium secara *real-time*.
 3. **AI Integration (Gemini)**:
     - Gunakan `generate_content_async` untuk menghindari *blocking* pada event loop FastAPI.
@@ -94,7 +95,12 @@ Berdasarkan analisis mendalam pada core backend:
     - Batasi penggunaan fitur AI (Chat & Mastery Digest) hanya untuk pengguna dengan status `is_pro_active`.
 4. **Topic Mastery Analytics**:
     - Agregasikan data jawaban berdasarkan `sub_category` untuk memantau perkembangan belajar pengguna.
+    - Gunakan **SQLAlchemy 2.0 Syntax**: Selalu gunakan tuple dalam `case()` (misal: `case((cond, val), else_=...)`) daripada list untuk performa dan tipe yang lebih baik.
+    - Implementasikan **Caching (Redis)**: Gunakan `get_cache()`/`set_cache()` untuk data analytics berat (seperti `/me/mastery`) dengan TTL yang sesuai (misal: 5 menit).
     - Identifikasi "Weak Points" secara berkala (misal: sub-kategori dengan skor < 40% setelah 5x pengerjaan).
 5. **Rate Limiting**:
     - Implementasikan `slowapi` dengan backend Redis.
     - Gunakan `X-Forwarded-For` untuk mendeteksi IP asli pengguna di balik *reverse proxy* (Nginx/Docker).
+6. **Data Validation (Pydantic & SQLAlchemy)**:
+    - Saat melakukan *mapping* model SQLAlchemy ke Pydantic, filter atribut internal (seperti `_sa_instance_state`) secara manual dalam `model_validator` untuk mencegah *AttributeError*.
+    - Tangani nilai `None` pada fungsi agregasi SQL (seperti `func.sum()`) menggunakan *fallback logic* di level Python atau `COALESCE` di SQL.
