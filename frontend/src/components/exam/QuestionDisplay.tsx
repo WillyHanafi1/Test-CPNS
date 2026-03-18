@@ -61,9 +61,10 @@ export default function QuestionDisplay() {
         <Button
           variant="outline"
           onClick={() => toggleDoubt(question.id)}
+          aria-pressed={isDoubt}
           className={`border-slate-800 ${isDoubt ? 'bg-amber-500/20 border-amber-500 text-amber-500 hover:bg-amber-500/30' : 'hover:bg-slate-900 text-slate-400'}`}
         >
-          <Flag className={`w-4 h-4 mr-2 ${isDoubt ? 'fill-current' : ''}`} />
+          <Flag aria-hidden="true" className={`w-4 h-4 mr-2 ${isDoubt ? 'fill-current' : ''}`} />
           Ragu-ragu
         </Button>
       </div>
@@ -91,7 +92,8 @@ export default function QuestionDisplay() {
           <button
             key={option.id}
             onClick={() => handleSelectOption(option.id)}
-            className={`flex flex-col p-3 rounded-xl border transition-all duration-200 text-left group relative ${selectedOptionId === option.id
+            aria-pressed={selectedOptionId === option.id}
+            className={`flex flex-col p-3 rounded-xl border transition-all duration-200 text-left group relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${selectedOptionId === option.id
                 ? 'bg-indigo-600/20 border-indigo-500 ring-1 ring-indigo-500'
                 : 'bg-slate-900/50 border-slate-800 hover:border-slate-700 hover:bg-slate-900'
               }`}
