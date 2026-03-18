@@ -172,6 +172,7 @@ export default function LandingPage() {
                 Rp 0<span className="text-sm font-medium text-slate-500 underline decoration-indigo-500/30 ml-2">/selamanya</span>
               </div>
               <ul className="space-y-5 flex-grow">
+                <PriceItem text="Akses 95% Soal" />
                 <PriceItem text="Akses Tryout Mingguan Gratis" />
                 <PriceItem text="Ranking Nasional Terbatas" />
                 <PriceItem text="Analitik Dasar" />
