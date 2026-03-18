@@ -60,7 +60,7 @@ async def create_pro_upgrade_transaction(
     
     item_details = [{
         "id": "PRO_ACCOUNT",
-        "price": PRO_PRICE,
+        "price": settings.PRO_PRICE,
         "quantity": 1,
         "name": "Upgrade PRO - Akses Semua Paket Soal"
     }]
@@ -73,7 +73,7 @@ async def create_pro_upgrade_transaction(
     try:
         snap_response = midtrans_service.create_transaction(
             order_id=order_id,
-            amount=PRO_PRICE,
+            amount=settings.PRO_PRICE,
             item_details=item_details,
             customer_details=customer_details
         )
