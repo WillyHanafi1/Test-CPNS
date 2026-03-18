@@ -86,6 +86,14 @@ class MockRedisService:
         self._store[key] = str(val)
         return val
 
+    async def eval(self, script, numkeys, *keys_and_args):
+        # Mock Lua script evaluation for rate limiting
+        key = keys_and_args[0]
+        val = int(self._store.get(key, 0))
+        val += 1
+        self._store[key] = str(val)
+        return val
+
     async def delete(self, *keys: str):
         for key in keys:
             self._store.pop(key, None)
