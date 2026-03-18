@@ -17,15 +17,29 @@ export default function ExamSidebar({ onClose }: ExamSidebarProps) {
   } = useExamStore();
 
   const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  // Ref on the grid's scroll container so we can precisely control scrollTop
+  const gridContainerRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll logic: ensures the current question button is visible in the sidebar
+  /**
+   * Auto-scroll best practice:
+   * Instead of relying on scrollIntoView (which can be confused by nested
+   * overflow containers), we manually calculate the offset of the active
+   * button relative to the grid container and use scrollTo() to center it.
+   */
   useEffect(() => {
-    if (buttonRefs.current[currentIndex]) {
-      buttonRefs.current[currentIndex]?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest',
-      });
-    }
+    const container = gridContainerRef.current;
+    const activeBtn = buttonRefs.current[currentIndex];
+    if (!container || !activeBtn) return;
+
+    const containerHeight = container.clientHeight;
+    // offsetTop relative to the grid container
+    const btnTop = activeBtn.offsetTop;
+    const btnHeight = activeBtn.offsetHeight;
+
+    // Desired scrollTop: center the active button in the container
+    const targetScroll = btnTop - containerHeight / 2 + btnHeight / 2;
+
+    container.scrollTo({ top: targetScroll, behavior: 'smooth' });
   }, [currentIndex]);
 
   /**
@@ -91,7 +105,12 @@ export default function ExamSidebar({ onClose }: ExamSidebarProps) {
       {/* Question Grid */}
       <div>
         <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">Navigasi Soal</h3>
-        <div className="grid grid-cols-5 gap-2">
+        {/* Scrollable grid container — auto-scroll targets this ref */}
+        <div
+          ref={gridContainerRef}
+          className="grid grid-cols-5 gap-2 max-h-[320px] overflow-y-auto pr-1 scroll-smooth"
+          style={{ scrollbarWidth: 'thin', scrollbarColor: '#334155 transparent' }}
+        >
           {questions.map((q, idx) => (
             <button
               key={q.id}
