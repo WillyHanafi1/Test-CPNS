@@ -181,7 +181,7 @@ async def check_package_access(
         raise HTTPException(status_code=404, detail="Package not found")
 
     # Fix: use timezone-aware datetime
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = datetime.now(timezone.utc)
 
     # 1. MENGUNCI SEMUA ORANG (Termasuk PRO) JIKA TRYOUT BELUM DIMULAI
     if package.start_at and package.start_at > now:
