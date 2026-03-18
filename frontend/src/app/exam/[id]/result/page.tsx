@@ -48,6 +48,7 @@ export default function ResultPage() {
         const getRes = await fetch(`${API_URL}/api/v1/exam/result/${id}`, {
           method: 'GET',
           credentials: 'include',
+          cache: 'no-store',
           signal: controller.signal
         });
 
@@ -119,6 +120,7 @@ export default function ResultPage() {
           const pollRes = await fetch(`${API_URL}/api/v1/exam/result/${id}`, {
             method: 'GET',
             credentials: 'include',
+            cache: 'no-store',
             signal: controller.signal
           });
           if (!pollRes.ok) throw new Error("Gagal mengambil hasil");
