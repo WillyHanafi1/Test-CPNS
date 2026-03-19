@@ -121,7 +121,7 @@ async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: s
                 session.total_score = total_score
                 session.is_passed = is_passed
                 session.status = "finished"
-                session.end_time = datetime.now(timezone.utc).replace(tzinfo=None)
+                session.end_time = datetime.now(timezone.utc)
 
                 db.add_all(db_answers)
                 print(f"DEBUG: Committing to database")
@@ -133,9 +133,9 @@ async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: s
 
                 if package_obj and package_obj.is_weekly:
                     is_active_to = True
-                    now_utc_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+                    now_utc = datetime.now(timezone.utc)
                     
-                    if package_obj.end_at and now_utc_naive > package_obj.end_at:
+                    if package_obj.end_at and now_utc > package_obj.end_at:
                         is_active_to = False
                         print(f"DEBUG: Tryout expired ({package_obj.end_at}), skipping leaderboard update.")
 
@@ -207,7 +207,7 @@ async def async_auto_finish_expired():
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
     grace_period = timedelta(minutes=5)
-    cutoff_time = datetime.now(timezone.utc).replace(tzinfo=None) - grace_period
+    cutoff_time = datetime.now(timezone.utc) - grace_period
 
     finished_count = 0
     error_count = 0
@@ -276,7 +276,7 @@ async def _mark_session_expired(session_factory, session_id: uuid.UUID):
         session = result.scalar_one_or_none()
         if session and session.status in ("ongoing", "processing"):
             session.status = "expired"
-            session.end_time = datetime.now(timezone.utc).replace(tzinfo=None)
+            session.end_time = datetime.now(timezone.utc)
             await db.commit()
 
 

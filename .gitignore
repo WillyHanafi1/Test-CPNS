@@ -30,7 +30,22 @@ dev.bat
 
 # Large datasets & Assets
 RAVEN-10000/
-Latihan*.csv
+*.csv
 *.pdf
 tmp/
 frontend/public/images/figural/
+
+# Internal / Agent files
+.Jules/
+AGENT.md
+GEMINI.md
+LESSON_LEARNED.md
+
+# Utility Scripts
+audit_tiu_consistency.py
+finalize_csv_format.py
+fix_tiu_scores.py
+reconstruct_tiu.py
+reformat_viracun.py
+verify_auth.py
+backend/test_*.py

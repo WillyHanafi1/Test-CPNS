@@ -266,7 +266,7 @@ async def get_donation_stats(
     """
     Get monthly donation statistics and progress towards goal.
     """
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = datetime.now(timezone.utc)
     first_day_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     
     # Target goal from settings
@@ -362,13 +362,13 @@ async def fulfill_transaction(db: AsyncSession, order_id: str, payment_status: s
     if user and payment_status == "success":
         if transaction.transaction_type == "pro_upgrade":
             user.is_pro = True
-            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            now = datetime.now(timezone.utc)
             if user.pro_expires_at and user.pro_expires_at > now:
                 user.pro_expires_at = user.pro_expires_at + timedelta(days=365)
             else:
                 user.pro_expires_at = now + timedelta(days=365)
         elif transaction.transaction_type == "package_purchase":
-            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            now = datetime.now(timezone.utc)
             # Default access: 1 year from purchase
             transaction.access_expires_at = now + timedelta(days=365)
             
@@ -377,7 +377,7 @@ async def fulfill_transaction(db: AsyncSession, order_id: str, payment_status: s
         if transaction.transaction_type == "pro_upgrade":
             # BUG FIX: Before revoking, check if there's ANOTHER successful pro_upgrade 
             # currently active. Don't punish the user for a single failed renewal attempt.
-            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            now = datetime.now(timezone.utc)
             other_active = await db.scalar(
                 select(func.count(UserTransaction.id)).where(
                     UserTransaction.user_id == user.id,

@@ -1,3 +1,0 @@
-## 2024-05-19 - Missing ARIA States on Interactive Custom Elements
-**Learning:** Custom interactive elements like the option buttons and the "Ragu-ragu" toggle button in `QuestionDisplay.tsx` were missing ARIA states (`aria-pressed`) to indicate their active state to screen readers, and decorative icons were not hidden (`aria-hidden`). Furthermore, focus indicators were not explicitly defined, making keyboard navigation difficult.
-**Action:** When auditing custom interactive components, always check for missing ARIA attributes (like `aria-pressed`, `aria-expanded`, `aria-hidden` on decorative elements) and ensure clear `focus-visible` styles are present for keyboard accessibility.

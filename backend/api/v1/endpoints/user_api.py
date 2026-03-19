@@ -6,10 +6,11 @@ from backend.core.rate_limiter import limiter
 from backend.core.redis_service import redis_service
 
 from backend.db.session import get_async_session
-from backend.models.models import User
+from backend.models.models import User, Feedback
 from backend.api.v1.endpoints.auth import get_current_user
 from backend.core.analytics_service import analytics_service
 from backend.core.ai_service import ai_service
+from backend.schemas.feedback import FeedbackCreate
 
 router = APIRouter(prefix="/user", tags=["user"])
 
@@ -66,3 +67,21 @@ async def get_my_mastery_digest(
         return {"message": "Belum ada data ujian yang cukup untuk dianalisis."}
         
     return await ai_service.generate_mastery_digest(mastery_data, weak_points)
+
+@router.post("/feedback")
+async def submit_feedback(
+    feedback_in: FeedbackCreate,
+    db: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Submit user feedback or suggestions.
+    """
+    feedback = Feedback(
+        user_id=current_user.id,
+        category=feedback_in.category,
+        content=feedback_in.content
+    )
+    db.add(feedback)
+    await db.commit()
+    return {"message": "Terima kasih! Saran Anda telah kami terima."}

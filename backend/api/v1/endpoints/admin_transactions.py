@@ -3,13 +3,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 from sqlalchemy.orm import selectinload
 import uuid
-from typing import List, Optional
+from typing import List, Optional, Literal
 from pydantic import BaseModel, ConfigDict
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+import logging
 
 from backend.db.session import get_async_session
 from backend.models.models import UserTransaction, User, Package
 from backend.api.v1.endpoints.auth import get_current_admin
+from backend.api.v1.endpoints.transactions_api import fulfill_transaction
 
 router = APIRouter(prefix="/admin/transactions", tags=["admin-transactions"])
 
@@ -32,6 +34,7 @@ class TransactionResponse(BaseModel):
     snap_token: Optional[str] = None
     access_expires_at: Optional[datetime] = None
     created_at: datetime
+    message: Optional[str] = None
     user: TransactionUser
     package: Optional[TransactionPackage] = None
     
@@ -115,7 +118,7 @@ async def get_transaction_summary_admin(
         "failed_count": counts.get("failed", 0)
     }
 
-from typing import List, Optional, Literal
+logger = logging.getLogger("admin.audit")
 
 @router.put("/{transaction_id}/status")
 async def update_transaction_status_admin(
@@ -124,11 +127,6 @@ async def update_transaction_status_admin(
     db: AsyncSession = Depends(get_async_session),
     admin: User = Depends(get_current_admin)
 ):
-    import logging
-    logger = logging.getLogger("admin.audit")
-    
-    from backend.api.v1.endpoints.transactions_api import fulfill_transaction
-    
     result = await db.execute(select(UserTransaction).where(UserTransaction.id == transaction_id))
     transaction = result.scalar_one_or_none()
     if not transaction:
@@ -144,8 +142,7 @@ async def update_transaction_status_admin(
         transaction.payment_status = new_status
         # If success, set access_expires_at (example: 1 year from now)
         if new_status == "success" and not transaction.access_expires_at:
-            from datetime import timedelta, timezone
-            transaction.access_expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=365)
+            transaction.access_expires_at = datetime.now(timezone.utc) + timedelta(days=365)
         await db.commit()
     
     logger.info(

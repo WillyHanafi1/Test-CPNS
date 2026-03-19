@@ -8,10 +8,11 @@ import {
   LogOut, User, BookOpen, History, Trophy,
   ChevronRight, TrendingUp, Target, Zap, Clock,
   CheckCircle2, XCircle, AlertCircle, Heart,
-  ShieldCheck, Quote
+  ShieldCheck, Quote, MessageSquare
 } from 'lucide-react';
 import Link from 'next/link';
 import DonationModal from '@/components/DonationModal';
+import FeedbackModal from '@/components/FeedbackModal';
 import WallOfFame from '@/components/WallOfFame';
 import NationalRankingTable from '@/components/NationalRankingTable';
 import MagicBento from '@/components/MagicBento';
@@ -44,6 +45,7 @@ export default function DashboardPage() {
   const [statsLoading, setStatsLoading] = useState(true);
   const [leaderboardLoading, setLeaderboardLoading] = useState(true);
   const [isDonationOpen, setIsDonationOpen] = useState(false);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {

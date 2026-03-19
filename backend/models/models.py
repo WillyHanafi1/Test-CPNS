@@ -15,18 +15,19 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(20), default="participant") # admin, participant
     auth_provider: Mapped[str] = mapped_column(String(20), default="local") # local, google
     is_pro: Mapped[bool] = mapped_column(Boolean, default=False)
-    pro_expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    pro_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     @property
     def is_pro_active(self) -> bool:
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = datetime.now(timezone.utc)
         return self.is_pro and (not self.pro_expires_at or self.pro_expires_at > now)
 
     profile: Mapped["UserProfile"] = relationship(back_populates="user", uselist=False, cascade="all, delete-orphan")
     sessions: Mapped[list["ExamSession"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     transactions: Mapped[list["UserTransaction"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     chat_sessions: Mapped[list["ChatSession"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    feedbacks: Mapped[list["Feedback"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 class UserProfile(Base):
     __tablename__ = "user_profiles"
@@ -50,8 +51,8 @@ class Package(Base):
     category: Mapped[str] = mapped_column(String(50)) # TWK, TIU, TKP, Mix
     is_published: Mapped[bool] = mapped_column(Boolean, default=False)
     is_weekly: Mapped[bool] = mapped_column(Boolean, default=False)
-    start_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
-    end_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    start_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    end_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
 
     questions: Mapped[list["Question"]] = relationship(back_populates="package", cascade="all, delete-orphan")
     transactions: Mapped[list["UserTransaction"]] = relationship(back_populates="package")
@@ -91,8 +92,8 @@ class ExamSession(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
     package_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("packages.id"), index=True)
-    start_time: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
-    end_time: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    end_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     total_score: Mapped[int] = mapped_column(Integer, default=0)
     score_twk: Mapped[int] = mapped_column(Integer, default=0)
     score_tiu: Mapped[int] = mapped_column(Integer, default=0)
@@ -139,8 +140,8 @@ class UserTransaction(Base):
     snap_token: Mapped[str] = mapped_column(String(255), nullable=True) # For Midtrans
     message: Mapped[str] = mapped_column(Text, nullable=True) # For donation message
     is_anonymous: Mapped[bool] = mapped_column(Boolean, default=False)
-    access_expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    access_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     user: Mapped["User"] = relationship(back_populates="transactions")
     package: Mapped["Package"] = relationship(back_populates="transactions")
@@ -152,7 +153,7 @@ class ChatSession(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
     exam_session_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("exam_sessions.id"), nullable=True)
     title: Mapped[str] = mapped_column(String(255))
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     user: Mapped["User"] = relationship(back_populates="chat_sessions")
     messages: Mapped[list["ChatMessage"]] = relationship(back_populates="session", cascade="all, delete-orphan")
@@ -164,6 +165,17 @@ class ChatMessage(Base):
     session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("chat_sessions.id"))
     role: Mapped[str] = mapped_column(String(20)) # user, assistant
     content: Mapped[str] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     session: Mapped["ChatSession"] = relationship(back_populates="messages")
+
+class Feedback(Base):
+    __tablename__ = "feedbacks"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    category: Mapped[str] = mapped_column(String(50), default="suggestion") # suggestion, bug, other
+    content: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    user: Mapped["User"] = relationship(back_populates="feedbacks")

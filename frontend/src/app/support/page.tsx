@@ -7,6 +7,7 @@ import { Zap, Heart, Trophy, MessageSquare, ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
 import WallOfFame from '@/components/WallOfFame';
 import DonationModal from '@/components/DonationModal';
+import FeedbackModal from '@/components/FeedbackModal';
 import Navbar from '@/components/Navbar';
 
 interface TopSupporter {
@@ -16,6 +17,7 @@ interface TopSupporter {
 
 export default function SupportHubPage() {
   const [isDonationOpen, setIsDonationOpen] = useState(false);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [topSupporters, setTopSupporters] = useState<TopSupporter[]>([]);
   const [topLoading, setTopLoading] = useState(true);
 
@@ -59,6 +61,14 @@ export default function SupportHubPage() {
               <Heart className="w-6 h-6 mr-3 group-hover:scale-125 transition-transform fill-white" />
               Kirim Dukungan Sekarang
             </Button>
+            <div className="mt-4">
+              <button 
+                onClick={() => setIsFeedbackOpen(true)}
+                className="text-sm text-slate-500 hover:text-indigo-400 font-medium transition-colors"
+              >
+                Atau kirim kritik & saran tanpa donasi →
+              </button>
+            </div>
           </div>
         </div>
 
@@ -78,6 +88,7 @@ export default function SupportHubPage() {
       </main>
 
       <DonationModal isOpen={isDonationOpen} onClose={() => setIsDonationOpen(false)} />
+      <FeedbackModal isOpen={isFeedbackOpen} onClose={() => setIsFeedbackOpen(false)} />
     </div>
   );
 }
