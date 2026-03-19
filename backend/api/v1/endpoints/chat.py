@@ -5,6 +5,9 @@ from sqlalchemy.orm import selectinload
 import uuid
 from typing import List, Optional
 from datetime import datetime, timezone
+import logging
+
+logger = logging.getLogger("backend.api.v1.endpoints.chat")
 
 from backend.db.session import get_async_session
 from backend.models.models import User, ChatSession, ChatMessage, ExamSession, Question, Answer

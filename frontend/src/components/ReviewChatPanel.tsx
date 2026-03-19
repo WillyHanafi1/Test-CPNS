@@ -49,16 +49,21 @@ export default function ReviewChatPanel({
     scrollToBottom();
   }, [messages, loading]);
 
+  // 1. Handle buka/tutup panel
   useEffect(() => {
-    if (isOpen) {
-      // If we already have a session, we might want to keep it or start fresh.
-      // For Phase 1 "Explain My Mistake", it's better to start a session scoped to the question.
-      startNewChat();
-    } else {
-      // Reset when closed to avoid stale data
+    if (!isOpen) {
       setSessionId(null);
       setMessages([]);
       setError(null);
+    }
+  }, [isOpen]);
+
+  // 2. Mulai sesi baru HANYA saat panel pertama kali terbuka atau soal berganti
+  const prevQuestionIdRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (isOpen && questionId !== prevQuestionIdRef.current) {
+      prevQuestionIdRef.current = questionId;
+      startNewChat();
     }
   }, [isOpen, questionId]);
 
@@ -99,12 +104,18 @@ export default function ReviewChatPanel({
     }
   };
 
-  const handleSendMessage = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!input.trim() || !sessionId || loading) return;
+  const quickPrompts = [
+    "Jelaskan mengapa jawaban saya salah",
+    "Apa cara paling cepat mengerjakan soal ini?",
+    "Berikan contoh soal serupa",
+  ];
 
-    const userMessage = input.trim();
-    setInput('');
+  const handleSendMessage = async (e?: React.FormEvent, overrideMessage?: string) => {
+    e?.preventDefault();
+    const userMessage = overrideMessage || input.trim();
+    if (!userMessage || !sessionId || loading) return;
+
+    if (!overrideMessage) setInput('');
     setMessages(prev => [...prev, {
       role: 'user',
       content: userMessage,
@@ -251,6 +262,22 @@ export default function ReviewChatPanel({
                         </div>
                     </div>
                  </div>
+              </div>
+            )}
+            {messages.length === 1 && !loading && (
+              <div className="space-y-2 mt-2">
+                <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest px-1">
+                  Mulai dengan:
+                </p>
+                {quickPrompts.map((prompt) => (
+                  <button
+                    key={prompt}
+                    onClick={() => handleSendMessage(undefined, prompt)}
+                    className="w-full text-left text-xs text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 rounded-xl px-3 py-2.5 transition-all animate-in fade-in slide-in-from-bottom-2"
+                  >
+                    {prompt}
+                  </button>
+                ))}
               </div>
             )}
             <div ref={messagesEndRef} />
