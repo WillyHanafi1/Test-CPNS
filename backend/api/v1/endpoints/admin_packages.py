@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 
 from backend.db.session import get_async_session
-from backend.models.models import Package, Question, User, QuestionOption
+from backend.models.models import Package, Question, User, QuestionOption, ExamSession
 from backend.api.v1.endpoints.auth import get_current_admin
 from backend.core.redis_service import redis_service
 
@@ -175,6 +175,17 @@ async def delete_package_admin(
         raise HTTPException(
             status_code=400, 
             detail="Tidak dapat menghapus paket yang sudah dibeli oleh peserta. Silakan ubah statusnya menjadi tidak aktif atau edit paket ini."
+        )
+    
+    # 3. Finally, check if package has any exam history (sessions)
+    session_count = await db.scalar(
+        select(func.count(ExamSession.id))
+        .where(ExamSession.package_id == package_id)
+    )
+    if session_count and session_count > 0:
+        raise HTTPException(
+            status_code=400, 
+            detail="Tidak dapat menghapus paket yang sudah memiliki riwayat pengerjaan (Exam Session). Silakan ubah statusnya menjadi tidak aktif."
         )
     
     await db.delete(package)

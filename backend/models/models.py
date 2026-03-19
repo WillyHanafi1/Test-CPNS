@@ -61,7 +61,7 @@ class Package(Base):
 
     questions: Mapped[list["Question"]] = relationship(back_populates="package", cascade="all, delete-orphan")
     transactions: Mapped[list["UserTransaction"]] = relationship(back_populates="package")
-    sessions: Mapped[list["ExamSession"]] = relationship(back_populates="package")
+    sessions: Mapped[list["ExamSession"]] = relationship(back_populates="package", cascade="all, delete-orphan")
 
 class Question(Base):
     __tablename__ = "questions"
