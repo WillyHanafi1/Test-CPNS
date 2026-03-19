@@ -192,7 +192,7 @@ export default function DashboardPage() {
                       <div className="flex flex-col">
                         <span className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Batas Waktu</span>
                         <span className="text-sm font-black text-amber-200">
-                          {new Date(weeklyPackage.end_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                          {new Date(weeklyPackage.end_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' })}
                         </span>
                       </div>
                     </div>

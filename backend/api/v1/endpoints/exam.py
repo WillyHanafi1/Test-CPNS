@@ -99,7 +99,7 @@ async def start_exam(
     if not package:
         raise HTTPException(status_code=404, detail="Package not found")
         
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = datetime.now(timezone.utc)
 
     # DEFINISIKAN HELPER SEBELUM DIPAKAI
     async def populate_valid_options(sess_id: uuid.UUID):
@@ -175,7 +175,7 @@ async def start_exam(
 
     # 3. Create session in DB
     # Standard SKD time is 100 minutes
-    start_time = datetime.now(timezone.utc).replace(tzinfo=None)  # naive UTC
+    start_time = datetime.now(timezone.utc)
     end_time = start_time + timedelta(minutes=100)
     
     session = ExamSession(
@@ -316,7 +316,7 @@ async def finish_exam(
     # SECURITY: Server-side time enforcement.
     # Even if the client still has time remaining, we honor the server's end_time.
     # This prevents client-side clock manipulation.
-    now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+    now_utc = datetime.now(timezone.utc)
     if session.end_time and now_utc > session.end_time:
         # Time already expired — force-close regardless of client state
         logger.info(f"Session {session_id} force-closed due to server-side time expiry")

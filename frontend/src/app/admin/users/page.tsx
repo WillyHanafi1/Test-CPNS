@@ -256,7 +256,7 @@ export default function UsersAdmin() {
       header: 'Registered', 
       render: (u) => (
         <span className="text-xs font-medium text-slate-400">
-          {new Date(u.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+          {new Date(u.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Jakarta' })}
         </span>
       )
     },

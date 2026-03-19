@@ -167,8 +167,8 @@ export default function HistoryPage() {
             {sessions.map((session) => {
               const isFinished = session.status === 'finished';
               const isPass = isFinished && checkPass(session);
-              const date = new Date(session.start_time).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-              const time = new Date(session.start_time).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+              const date = new Date(session.start_time).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' });
+              const time = new Date(session.start_time).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' });
 
               return (
                 <Card

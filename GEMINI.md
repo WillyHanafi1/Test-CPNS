@@ -89,23 +89,28 @@ Berdasarkan analisis mendalam pada core backend:
     - Simpan JWT di **HttpOnly Cookie** untuk mencegah XSS.
     - Implementasikan **Token Blocklist** di Redis untuk fitur *Logout*. Gunakan **SHA256 Hashing** sebelum menyimpan token ke Redis untuk mencegah kebocoran *plaintext token*.
     - Mitigasi *Pre-hijacking* pada SSO (Google Login): Wajib cek `email_verified` dan larang *takeover* akun lokal secara otomatis jika sudah ada *password*.
-    - Gunakan fitur `is_pro_active` pada model `User` untuk memvalidasi akses fitur premium secara *real-time*.
+    - Gunakan fitur `is_pro_active` pada model `User` to validate access fitur premium secara *real-time*.
 3. **AI Integration (Gemini)**:
-    - Selalu sertakan konteks (*question content*, *user answer*, *discussion*) menggunakan **Sintaks XML `<context_soal>`** dalam prompt AI Chat Mentor untuk memberikan jawaban yang akurat secara kontekstual. Ini terbukti signifikan meningkatkan fokus model pada data rill dibandingkan instruksi teks biasa.
-    - Model yang diverifikasi aktif dan didukung untuk environment ini adalah `gemini-3-flash-preview` (hindari penggunaan `gemini-1.5-flash` jika tidak tersedia di ListModels).
-    - Batasi penggunaan fitur AI (Chat & Mastery Digest) hanya untuk pengguna dengan status `is_pro_active`.
+    - Selalu sertakan konteks (*question content*, *user answer*, *discussion*) menggunakan **Sintaks XML `<context_soal>`** dalam prompt AI Chat Mentor for giving accurate contextual answers.
+    - Model yang diverifikasi aktif dan didukung untuk environment ini adalah `gemini-3-flash-preview`.
+    - Batasi penggunaan fitur AI hanya untuk pengguna dengan status `is_pro_active`.
 4. **Topic Mastery Analytics**:
-    - Agregasikan data jawaban berdasarkan `sub_category` untuk memantau perkembangan belajar pengguna.
-    - Gunakan **SQLAlchemy 2.0 Syntax**: Selalu gunakan tuple dalam `case()` (misal: `case((cond, val), else_=...)`) daripada list untuk performa dan tipe yang lebih baik.
-    - Implementasikan **Caching (Redis)**: Gunakan `get_cache()`/`set_cache()` untuk data analytics berat (seperti `/me/mastery`) dengan TTL yang sesuai (misal: 5 menit).
-    - Identifikasi "Weak Points" secara berkala (misal: sub-kategori dengan skor < 40% setelah 5x pengerjaan).
+    - Agregasikan data jawaban berdasarkan `sub_category`.
+    - Gunakan **SQLAlchemy 2.0 Syntax**: Selalu gunakan tuple dalam `case()`.
+    - Implementasikan **Caching (Redis)**: Gunakan `get_cache()`/`set_cache()` for heavy analytics data with appropriate TTL (e.g., 5 mins).
 5. **Rate Limiting**:
     - Implementasikan `slowapi` dengan backend Redis.
-    - Gunakan `X-Forwarded-For` untuk mendeteksi IP asli pengguna di balik *reverse proxy* (Nginx/Docker).
+    - Gunakan `X-Forwarded-For` untuk mendeteksi IP asli pengguna.
 6. **Data Validation (Pydantic & SQLAlchemy)**:
-    - Saat melakukan *mapping* model SQLAlchemy ke Pydantic, filter atribut internal (seperti `_sa_instance_state`) secara manual dalam `model_validator` untuk mencegah *AttributeError*.
-    - Tangani nilai `None` pada fungsi agregasi SQL (seperti `func.sum()`) menggunakan *fallback logic* di level Python atau `COALESCE` di SQL.
+    - Filter atribut internal (seperti `_sa_instance_state`) secara manual dalam `model_validator` to prevent `AttributeError`.
+    - Tangani nilai `None` pada fungsi agregasi SQL menggunakan fallback logic in Python or `COALESCE` in SQL.
 7. **Dynamic Landing Page Statistics**:
     - Gunakan endpoint publik (tanpa auth) untuk `users_count` dan `questions_count`.
-    - **Wajib menggunakan Caching (Redis)** dengan TTL minimal 1 jam. Dilarang melakukan `count(*)` langsung ke PostgreSQL pada setiap kunjungan landing page untuk menjaga performa *High Availability*.
-    - Gunakan "Marketing Offset" jika diperlukan untuk social proof awal, namun tetap berbasis pada data rill database.
+    - **Wajib menggunakan Caching (Redis)** dengan TTL minimal 1 jam.
+    - Gunakan "Marketing Offset" jika diperlukan untuk social proof awal.
+
+### D. Timezone & Datetime Consistency (Standard Operating Procedure)
+Berdasarkan perbaikan sistem pada Maret 2026:
+1. **Frontend Timezone**: Selalu gunakan `timeZone: 'Asia/Jakarta'` pada fungsi `toLocaleDateString` dan `toLocaleTimeString`. Hal ini krusial karena target pengguna berada di Indonesia (WIB) sehingga tampilan waktu harus konsisten tanpa bergantung pada setting timezone di perangkat lokal pengguna.
+2. **Backend Datetime**: Gunakan selalu **Offset-Aware UTC Datetime** (`datetime.now(timezone.utc)`) untuk semua logika perbandingan waktu di server (misal: pengecekan sisa waktu ujian). Hindari penggunaan `.replace(tzinfo=None)` yang dapat menyebabkan error `TypeError` saat dibandingkan dengan data aware dari PostgreSQL (`DateTime(timezone=True)`).
+3. **CSV Data Extraction**: Saat memproses data soal dari pihak ketiga (format Markdown), gunakan script otomasi untuk mengekstrak URL gambar dari sintaks `![alt](url)` ke kolom `image_url` yang terdedikasi di database. Ini memastikan rendering yang lebih bersih dan performa query yang lebih baik dibandingkan menyimpan markdown mentah.

@@ -143,7 +143,7 @@ export default function TransactionsAdmin() {
         <div>
           <p className="text-[10px] font-black text-indigo-400 uppercase tracking-tighter">ORDER: {t.order_id || t.id.substring(0, 8)}</p>
           <p className="text-xs font-bold text-slate-300">
-            {new Date(t.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+            {new Date(t.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })}
           </p>
         </div>
       )

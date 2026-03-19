@@ -171,7 +171,7 @@ export default function FeedbackAdmin() {
             <div className="overflow-hidden">
               <p className="text-sm font-bold text-slate-200 truncate">{f.user?.email || 'Unknown'}</p>
               <p className="text-[10px] text-slate-500 font-medium">
-                {new Date(f.created_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                {new Date(f.created_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })}
               </p>
             </div>
           </div>
