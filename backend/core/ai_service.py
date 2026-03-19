@@ -148,19 +148,19 @@ class AIService:
             chat_history += f"{role_label}: {msg['content']}\n"
         
         # Defense against Prompt Injection with XML tags
-        # Construct the final prompt with clear XML tagging for the model
-        full_final_prompt = f"""{system_instruction}
+        # Construct the final prompt with context at the TOP
+        full_final_prompt = f"""{context_str if context_str else ''}
 
-{context_str}
+{system_instruction}
 
 <chat_history>
 {chat_history}
 </chat_history>
 
 URGENT INSTRUCTION: 
-Lihat bagian <context_soal> di atas (jika ada). 
-Jika user bertanya tentang soal tersebut, gunakan data soal, jawaban, dan pembahasan yang tersedia untuk memberikan jawaban yang akurat. 
-Jangan pernah mengatakan bahwa kamu tidak memiliki soalnya jika data tersebut ada di <context_soal>.
+Di atas ada bagian <context_soal> (jika data tersedia). 
+Wajib gunakan data tersebut untuk menjawab pertanyaan user. 
+Jangan katakan "saya tidak memiliki soalnya" jika data tersedia di atas.
 
 <user_query>
 {current_query}

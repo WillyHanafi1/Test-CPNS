@@ -108,12 +108,15 @@ async def send_message(
                 user_answer = ans.selected_option
 
         if question:
+            logger.info(f"DEBUG: Found question {question_id} for context. Content: {question.content[:50]}...")
             context_data = {
                 "question_content": question.content,
                 "segment": question.segment,
                 "user_answer": user_answer,
                 "discussion": question.discussion
             }
+        else:
+            logger.warning(f"DEBUG: Question ID {question_id} passed but NOT FOUND in database.")
 
     # 4. Get AI Response
     # Fetch recent history (max 10 messages)
