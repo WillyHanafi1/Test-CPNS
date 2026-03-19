@@ -23,7 +23,7 @@ class AIService:
             return
         
         genai.configure(api_key=settings.GOOGLE_API_KEY)
-        self.model = genai.GenerativeModel('gemini-1.5-flash')
+        self.model = genai.GenerativeModel('gemini-3-flash-preview')
 
     async def generate_analysis(self, stats: dict, history: list = None) -> dict:
         """
