@@ -5,6 +5,7 @@ import {
   X, Send, Loader2, Bot, User, MessageSquare, 
   Sparkles, RefreshCcw, AlertCircle
 } from 'lucide-react';
+import Latex from 'react-latex-next';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 
@@ -221,30 +222,34 @@ export default function ReviewChatPanel({
                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border border-slate-700 mt-1 shadow-sm ${msg.role === 'user' ? 'bg-slate-800' : 'bg-indigo-600'}`}>
                       {msg.role === 'user' ? <User className="w-4 h-4 text-slate-400" /> : <Bot className="w-4 h-4 text-white" />}
                    </div>
-                   <div className={`p-3.5 rounded-2xl text-[13px] leading-relaxed shadow-sm ${
-                     msg.role === 'user' 
-                       ? 'bg-indigo-600 text-white rounded-tr-none' 
-                       : 'bg-slate-800/80 text-slate-200 border border-slate-700/50 rounded-tl-none whitespace-pre-line'
-                   }`}>
-                     {msg.role === 'assistant' ? (
-                       msg.content.split('\n').map((line, i) => {
-                         // Simple markdown formatting for bold and bullets
-                         let formatted = line;
-                         // Bold: **text**
-                         formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-                         
-                         if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
-                           return <div key={i} className="flex gap-2 mb-1">
-                             <span className="text-indigo-400">•</span>
-                             <span dangerouslySetInnerHTML={{ __html: formatted.replace(/^[-*]\s/, '') }} />
-                           </div>;
-                         }
-                         return <div key={i} className="mb-1" dangerouslySetInnerHTML={{ __html: formatted }} />;
-                       })
-                     ) : (
-                       msg.content
-                     )}
-                   </div>
+                    <div className={`p-3.5 rounded-2xl text-[13px] leading-relaxed shadow-sm ${
+                      msg.role === 'user' 
+                        ? 'bg-indigo-600 text-white rounded-tr-none' 
+                        : 'bg-slate-800/80 text-slate-200 border border-slate-700/50 rounded-tl-none'
+                    }`}>
+                      {msg.role === 'assistant' ? (
+                        <div className="whitespace-pre-line">
+                           {msg.content.split('\n').map((line, i) => {
+                             let content = line;
+                             const isBullet = line.trim().startsWith('- ') || line.trim().startsWith('* ');
+                             if (isBullet) {
+                                content = line.trim().replace(/^[-*]\s/, '');
+                             }
+
+                             return (
+                               <div key={i} className={`mb-1 ${isBullet ? 'flex gap-2' : ''}`}>
+                                 {isBullet && <span className="text-indigo-400 shrink-0">•</span>}
+                                 <span>
+                                    <Latex>{content}</Latex>
+                                 </span>
+                               </div>
+                             );
+                           })}
+                        </div>
+                      ) : (
+                        msg.content
+                      )}
+                    </div>
                 </div>
               </div>
             ))}
