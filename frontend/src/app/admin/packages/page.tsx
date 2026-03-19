@@ -52,8 +52,23 @@ export default function PackagesAdmin() {
     category: 'Mix',
     is_premium: false,
     is_published: false,
-    is_active: true
+    is_active: true,
+    is_weekly: false,
+    start_at: '',
+    end_at: ''
   });
+
+  // Helper to format Date for datetime-local input (YYYY-MM-DDThh:mm)
+  const formatForInput = (dateStr: string | null) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+    
+    // Adjust to local time offset for input
+    const tzOffset = d.getTimezoneOffset() * 60000;
+    const localISOTime = new Date(d.getTime() - tzOffset).toISOString().slice(0, 16);
+    return localISOTime;
+  };
 
   useEffect(() => {
     fetchPackages();
@@ -102,7 +117,10 @@ export default function PackagesAdmin() {
       category: 'Mix',
       is_premium: false,
       is_published: false,
-      is_active: true
+      is_active: true,
+      is_weekly: false,
+      start_at: '',
+      end_at: ''
     });
     setIsFormModalOpen(true);
   };
@@ -116,7 +134,10 @@ export default function PackagesAdmin() {
       category: pkg.category,
       is_premium: pkg.is_premium,
       is_published: pkg.is_published,
-      is_active: pkg.is_active
+      is_active: pkg.is_active,
+      is_weekly: pkg.is_weekly || false,
+      start_at: formatForInput(pkg.start_at),
+      end_at: formatForInput(pkg.end_at)
     });
     setIsFormModalOpen(true);
   };
@@ -144,16 +165,24 @@ export default function PackagesAdmin() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormLoading(true);
+    
+    const isEdit = !!selectedPackage;
+    const url = isEdit 
+      ? `${API_URL}/api/v1/admin/packages/${selectedPackage.id}`
+      : `${API_URL}/api/v1/admin/packages`;
+    
+    // Process payload for Weekly Tryout dates
+    const payload = {
+      ...formData,
+      start_at: formData.is_weekly && formData.start_at ? new Date(formData.start_at).toISOString() : null,
+      end_at: formData.is_weekly && formData.end_at ? new Date(formData.end_at).toISOString() : null,
+    };
+    
     try {
-      const isEdit = !!selectedPackage;
-      const url = isEdit 
-        ? `${API_URL}/api/v1/admin/packages/${selectedPackage.id}`
-        : `${API_URL}/api/v1/admin/packages`;
-      
       const response = await fetch(url, {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
         credentials: 'include'
       });
 
@@ -166,6 +195,7 @@ export default function PackagesAdmin() {
         toast.error(data.detail || 'Terjadi kesalahan');
       }
     } catch (error) {
+      console.error("Submit error:", error);
       toast.error('Gagal menghubungi server');
     } finally {
       setFormLoading(false);
@@ -461,6 +491,41 @@ export default function PackagesAdmin() {
                           </div>
                        </div>
                     </div>
+
+                    <div className="flex items-center justify-between p-4 bg-slate-950/50 rounded-2xl border border-slate-800">
+                       <div>
+                          <p className="text-sm font-bold text-slate-200">Tryout Mingguan</p>
+                          <p className="text-[10px] text-slate-500">Jadwalkan sebagai Tryout Live Mingguan</p>
+                       </div>
+                       <div className="relative inline-flex items-center cursor-pointer" onClick={() => setFormData({...formData, is_weekly: !formData.is_weekly})}>
+                          <div className={`w-12 h-6 rounded-full transition-colors ${formData.is_weekly ? 'bg-amber-600' : 'bg-slate-800'}`}>
+                             <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${formData.is_weekly ? 'translate-x-6' : ''}`} />
+                          </div>
+                       </div>
+                    </div>
+
+                    {formData.is_weekly && (
+                      <div className="grid grid-cols-2 gap-4 animate-in slide-in-from-top-2 duration-300">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Waktu Mulai</label>
+                          <Input 
+                            type="datetime-local"
+                            className="bg-slate-950 border-slate-800 rounded-2xl p-6 font-bold text-xs"
+                            value={formData.start_at}
+                            onChange={e => setFormData({...formData, start_at: e.target.value})}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Waktu Berakhir</label>
+                          <Input 
+                            type="datetime-local"
+                            className="bg-slate-950 border-slate-800 rounded-2xl p-6 font-bold text-xs"
+                            value={formData.end_at}
+                            onChange={e => setFormData({...formData, end_at: e.target.value})}
+                          />
+                        </div>
+                      </div>
+                    )}
 
                     <div className="flex items-center justify-between p-4 bg-slate-950/50 rounded-2xl border border-slate-800">
                        <div>
