@@ -12,6 +12,7 @@ Sistem ini mengadopsi tumpukan teknologi modern dengan pemisahan tugas yang keta
 - **Backend (API & Logic):** Python (FastAPI) dengan *Asynchronous processing*.
 - **ORM:** SQLAlchemy (untuk keamanan dari *SQL Injection* & efisiensi *query*).
 - **Primary Database:** PostgreSQL (sebagai *Source of Truth*).
+- **Database Migrations:** Alembic (Wajib digunakan untuk setiap perubahan skema. Hindari pengeditan SQL manual langsung di Supabase Dashboard untuk mencegah *Schema Drift*).
 - **In-Memory Store & Cache:** Redis (untuk *Autosave* jawaban & Leaderboard ZSET).
 - **Message Broker & Background Tasks:** Celery + RabbitMQ / Redis (untuk antrean kalkulasi nilai).
 - **Infrastruktur:** Docker (Containerization) di atas VPS (Virtual Private Server).

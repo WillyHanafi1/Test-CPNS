@@ -50,19 +50,20 @@ export default function ReviewChatPanel({
     scrollToBottom();
   }, [messages, loading]);
 
-  // 1. Handle buka/tutup panel
+  // 1. Handle buka/tutup panel (Hanya reset error, jangan reset messages/session)
   useEffect(() => {
     if (!isOpen) {
-      setSessionId(null);
-      setMessages([]);
       setError(null);
     }
   }, [isOpen]);
 
-  // 2. Mulai sesi baru HANYA saat panel pertama kali terbuka atau soal berganti
   const prevQuestionIdRef = useRef<string | undefined>(undefined);
+  // 2. Mulai sesi baru HANYA saat panel pertama kali terbuka atau soal berganti
   useEffect(() => {
-    if (isOpen && questionId !== prevQuestionIdRef.current) {
+    if (!isOpen) return;
+    
+    // Inisialisasi jika soal berganti atau belum ada sessionId
+    if (questionId !== prevQuestionIdRef.current || !sessionId) {
       prevQuestionIdRef.current = questionId;
       startNewChat();
     }
@@ -90,14 +91,24 @@ export default function ReviewChatPanel({
       const data = await res.json();
       setSessionId(data.id);
       
-      const topic = questionNumber ? `Soal #${questionNumber}` : 'ujian ini';
-      setMessages([
-        {
-          role: 'assistant',
-          content: `Halo! Saya Tutor AI. Bagaimana saya bisa membantu kamu memahami pola pengerjaan ${topic} ini?`,
-          created_at: new Date().toISOString()
-        }
-      ]);
+      // Jika ada history dari server, gunakan itu
+      if (data.messages && data.messages.length > 0) {
+        setMessages(data.messages);
+      } else {
+        // Jika sesi baru, berikan sapaan awal
+        // Ambil nomor soal dari title yang sudah disimpan server, bukan dari prop
+        const topic = data.title.startsWith("Diskusi Soal #") 
+          ? data.title.replace("Diskusi", "").trim() 
+          : 'materi ini';
+          
+        setMessages([
+          {
+            role: 'assistant',
+            content: `Halo! Saya Tutor AI. Bagaimana saya bisa membantu kamu memahami pola pengerjaan ${topic}?`,
+            created_at: new Date().toISOString()
+          }
+        ]);
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {

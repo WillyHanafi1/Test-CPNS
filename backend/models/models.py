@@ -167,11 +167,17 @@ class ChatSession(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
     exam_session_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("exam_sessions.id"), nullable=True)
+    question_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("questions.id"), nullable=True)
     title: Mapped[str] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     user: Mapped["User"] = relationship(back_populates="chat_sessions")
     messages: Mapped[list["ChatMessage"]] = relationship(back_populates="session", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        Index("ix_chat_session_user_question", "user_id", "question_id"),
+        Index("ix_chat_session_user_exam", "user_id", "exam_session_id"),
+    )
 
 class ChatMessage(Base):
     __tablename__ = "chat_messages"

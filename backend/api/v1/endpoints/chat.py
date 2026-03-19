@@ -32,7 +32,7 @@ class ChatSessionSchema(BaseModel):
 class ChatSessionDetailSchema(ChatSessionSchema):
     messages: List[ChatMessageSchema]
 
-@router.post("/start", response_model=ChatSessionSchema)
+@router.post("/start", response_model=ChatSessionDetailSchema)
 async def start_chat(
     exam_session_id: Optional[uuid.UUID] = Body(None),
     question_id: Optional[uuid.UUID] = Body(None),
@@ -43,6 +43,26 @@ async def start_chat(
     if not current_user.is_pro_active:
         raise HTTPException(status_code=403, detail="Hanya pengguna PRO yang dapat menggunakan fitur Chat Mentor AI.")
 
+    # 1. Check for existing session (Resume Logic)
+    stmt = select(ChatSession).options(selectinload(ChatSession.messages)).where(ChatSession.user_id == current_user.id)
+    
+    if question_id:
+        stmt = stmt.where(ChatSession.question_id == question_id)
+        if exam_session_id:
+            stmt = stmt.where(ChatSession.exam_session_id == exam_session_id)
+    else:
+        # Global chat (no question, no exam)
+        stmt = stmt.where(ChatSession.question_id == None, ChatSession.exam_session_id == None)
+        
+    result = await db.execute(stmt.order_by(ChatSession.created_at.desc()))
+    existing_session = result.scalars().first()
+    
+    if existing_session:
+        # Sort messages
+        existing_session.messages.sort(key=lambda x: x.created_at)
+        return existing_session
+
+    # 2. If no existing session, create new one
     title = "Konsultasi Materi CPNS"
     if question_id:
         q_result = await db.execute(select(Question).where(Question.id == question_id))
@@ -53,11 +73,18 @@ async def start_chat(
     session = ChatSession(
         user_id=current_user.id,
         exam_session_id=exam_session_id,
+        question_id=question_id,
         title=title
     )
     db.add(session)
     await db.commit()
     await db.refresh(session)
+    
+    # Refresh to load empty messages list
+    stmt = select(ChatSession).options(selectinload(ChatSession.messages)).where(ChatSession.id == session.id)
+    result = await db.execute(stmt)
+    session = result.scalar_one()
+    
     return session
 
 @router.post("/{session_id}/message")
