@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Optional
+from typing import Optional, List
 import uuid
 from datetime import datetime
 
@@ -30,3 +30,10 @@ class FeedbackResponse(FeedbackBase):
     user: Optional[FeedbackUser] = None
     
     model_config = ConfigDict(from_attributes=True)
+
+class FeedbackListResponse(BaseModel):
+    items: List[FeedbackResponse]
+    total: int
+    page: int
+    size: int
+
