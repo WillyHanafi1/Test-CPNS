@@ -114,3 +114,11 @@ Berdasarkan perbaikan sistem pada Maret 2026:
 1. **Frontend Timezone**: Selalu gunakan `timeZone: 'Asia/Jakarta'` pada fungsi `toLocaleDateString` dan `toLocaleTimeString`. Hal ini krusial karena target pengguna berada di Indonesia (WIB) sehingga tampilan waktu harus konsisten tanpa bergantung pada setting timezone di perangkat lokal pengguna.
 2. **Backend Datetime**: Gunakan selalu **Offset-Aware UTC Datetime** (`datetime.now(timezone.utc)`) untuk semua logika perbandingan waktu di server (misal: pengecekan sisa waktu ujian). Hindari penggunaan `.replace(tzinfo=None)` yang dapat menyebabkan error `TypeError` saat dibandingkan dengan data aware dari PostgreSQL (`DateTime(timezone=True)`).
 3. **CSV Data Extraction**: Saat memproses data soal dari pihak ketiga (format Markdown), gunakan script otomasi untuk mengekstrak URL gambar dari sintaks `![alt](url)` ke kolom `image_url` yang terdedikasi di database. Ini memastikan rendering yang lebih bersih dan performa query yang lebih baik dibandingkan menyimpan markdown mentah.
+
+### E. Project Structure & Clean Architecture (Standard Operating Procedure)
+Berdasarkan optimalisasi struktur proyek pada Maret 2026:
+1. **Root Directory Hygiene**: Root folder wajib dijaga kebersihannya. Hanya file konfigurasi utama (`.env`, `docker-compose.yml`, `GEMINI.md`) dan `README.md` yang diperbolehkan berada di root.
+2. **Data Assets (`/data`)**: Semua file data mentah seperti CSV, EXCEL, dan PDF wajib disimpan di folder `data/` (misal: `data/csv/`, `data/pdf/`). Jangan meletakkan file data di folder backend maupun root.
+3. **Utility Scripts (`/scripts`)**: Semua script Python pembantu (seperti script untuk audit, fix scoring, atau migrasi data satu kali jalankan) wajib diletakkan di folder `scripts/`.
+4. **Backend Tests**: Pastikan semua file pengetesan (`test_*.py`) berada di dalam folder `backend/tests/` untuk menjaga kerapihan modul API.
+5. **Documentation**: Dokumentasi pendukung (seperti `kepmenpan_rb_321_2024.md`) sebaiknya diletakkan di root jika bersifat krusial (seperti `GEMINI.md`) atau di folder `docs/` jika bersifat referensi teknis mendalam.
