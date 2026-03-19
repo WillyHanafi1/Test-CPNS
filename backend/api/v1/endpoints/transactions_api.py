@@ -8,7 +8,7 @@ from typing import List, Optional, Dict
 from datetime import datetime, timedelta, timezone
 
 from backend.db.session import get_async_session
-from backend.models.models import User, UserTransaction, Package
+from backend.models.models import User, UserTransaction, Package, UserProfile
 from backend.api.v1.endpoints.auth import get_current_user
 from backend.core.midtrans import midtrans_service
 from backend.config import settings
@@ -206,7 +206,6 @@ async def get_top_supporters(
     Get top supporters. Known users are grouped/summed, 
     while anonymous donations are listed individually as 'Orang Baik'.
     """
-    from backend.models.models import UserProfile
     
     # 1. Get summed amounts for known users (is_anonymous=False)
     known_users_query = await db.execute(
@@ -340,7 +339,8 @@ async def midtrans_webhook(
         return {"status": "ok"}
         
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Webhook error: {str(e)}")
+        logger.error(f"Webhook processing error for order {order_id}: {str(e)}", exc_info=True)
+        return {"status": "error", "message": "Internal processing error"}
 
 async def fulfill_transaction(db: AsyncSession, order_id: str, payment_status: str):
     result = await db.execute(
@@ -351,7 +351,7 @@ async def fulfill_transaction(db: AsyncSession, order_id: str, payment_status: s
     if not transaction:
         return
         
-    if transaction.payment_status == "success" and payment_status == "success":
+    if transaction.payment_status in ("success", "failed"):
         return
         
     transaction.payment_status = payment_status
