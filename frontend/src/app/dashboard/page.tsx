@@ -113,6 +113,14 @@ export default function DashboardPage() {
               </div>
               <span className="text-sm font-medium text-slate-300">{user.email}</span>
             </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setIsFeedbackOpen(true)} 
+              className="text-slate-400 hover:text-indigo-400 hover:bg-slate-800"
+            >
+              <MessageSquare className="h-4 w-4 mr-1.5" /> Saran
+            </Button>
             <Button variant="ghost" size="sm" onClick={logout} className="text-slate-400 hover:text-white hover:bg-slate-800">
               <LogOut className="h-4 w-4 mr-1.5" /> Logout
             </Button>
@@ -375,6 +383,14 @@ export default function DashboardPage() {
                 Kirim Dukungan
                 <Heart className="w-3.5 h-3.5 ml-2 group-hover:scale-125 transition-transform fill-white" />
               </Button>
+              <div className="mt-4 text-center">
+                 <button 
+                  onClick={() => setIsFeedbackOpen(true)}
+                  className="text-[10px] text-slate-500 hover:text-indigo-400 font-bold uppercase tracking-widest transition-colors cursor-pointer"
+                >
+                  Kirim Kritik & Saran →
+                </button>
+              </div>
             </div>
 
             {/* Quick Nav Cards */}
@@ -434,6 +450,10 @@ export default function DashboardPage() {
       <DonationModal
         isOpen={isDonationOpen}
         onClose={() => setIsDonationOpen(false)}
+      />
+      <FeedbackModal
+        isOpen={isFeedbackOpen}
+        onClose={() => setIsFeedbackOpen(false)}
       />
     </div>
   );
