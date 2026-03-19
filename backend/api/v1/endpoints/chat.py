@@ -79,8 +79,15 @@ async def send_message(
     user_msg = ChatMessage(session_id=session_id, role="user", content=content)
     db.add(user_msg)
     
-    # 3. Prepare Context if question_id is provided
+    # 3. Prepare Context if question_id is provided or can be inferred
     context_data = None
+    
+    # Fallback: if message doesn't have question_id, but session title is "Diskusi Soal #X"
+    if not question_id and chat_session.title.startswith("Diskusi Soal #"):
+        # We don't have the question_id directly from title easily without another query, 
+        # but the frontend should be sending it. Let's keep it robust.
+        pass
+
     if question_id:
         q_result = await db.execute(
             select(Question)

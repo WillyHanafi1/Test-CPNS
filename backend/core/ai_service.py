@@ -23,7 +23,7 @@ class AIService:
             return
         
         genai.configure(api_key=settings.GOOGLE_API_KEY)
-        self.model = genai.GenerativeModel('gemini-3-flash-preview')
+        self.model = genai.GenerativeModel('gemini-1.5-flash')
 
     async def generate_analysis(self, stats: dict, history: list = None) -> dict:
         """
@@ -133,11 +133,12 @@ class AIService:
         context_str = ""
         if context_data:
             context_str = f"""
-            KONTEKS SOAL YANG SEDANG DIBAHAS:
-            - Soal: {context_data.get('question_content', '')}
-            - Segmen: {context_data.get('segment', '')}
-            - Jawaban User: {context_data.get('user_answer', 'Tidak dijawab')}
-            - Pembahasan/Kunci: {context_data.get('discussion', '')}
+<context_soal>
+- Soal: {context_data.get('question_content', '')}
+- Segmen: {context_data.get('segment', '')}
+- Jawaban User: {context_data.get('user_answer', 'Tidak dijawab')}
+- Pembahasan/Kunci: {context_data.get('discussion', '')}
+</context_soal>
             """
 
         # Simple prompt-based conversation tracking
@@ -147,16 +148,23 @@ class AIService:
             chat_history += f"{role_label}: {msg['content']}\n"
         
         # Defense against Prompt Injection with XML tags
+        # Construct the final prompt with clear XML tagging for the model
         full_final_prompt = f"""{system_instruction}
 
 {context_str}
 
-RIWAYAT CHAT:
+<chat_history>
 {chat_history}
+</chat_history>
 
-<user_message>
+URGENT INSTRUCTION: 
+Lihat bagian <context_soal> di atas (jika ada). 
+Jika user bertanya tentang soal tersebut, gunakan data soal, jawaban, dan pembahasan yang tersedia untuk memberikan jawaban yang akurat. 
+Jangan pernah mengatakan bahwa kamu tidak memiliki soalnya jika data tersebut ada di <context_soal>.
+
+<user_query>
 {current_query}
-</user_message>
+</user_query>
 
 Tutor AI:"""
 
