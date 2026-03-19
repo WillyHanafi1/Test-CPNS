@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { toast } from 'react-hot-toast';
 import { 
   Plus, 
   Upload, 
@@ -44,8 +45,6 @@ export default function QuestionsAdmin() {
     setSearch,
     selectedPackage,
     setSelectedPackage,
-    message,
-    setMessage,
     selectedIds,
     setSelectedIds,
     fetchQuestions,
@@ -158,29 +157,24 @@ export default function QuestionsAdmin() {
         throw new Error(err.detail || 'Gagal menyimpan soal');
       }
 
-      setMessage({ type: 'success', text: `Soal berhasil ${isNew ? 'ditambah' : 'diupdate'}` });
+      toast.success(`Soal berhasil ${isNew ? 'ditambah' : 'diupdate'}`);
       setIsDrawerOpen(false);
       fetchQuestions();
     } catch (error: any) {
-      setMessage({ type: 'error', text: error.message });
+      toast.error(error.message);
     } finally {
       setFormLoading(false);
     }
   };
 
-  // --- SEGMENT AWARE SCORING ---
   const handleScoreChange = (index: number, value: number) => {
-    const updatedOptions = [...currentQuestion.options];
-    
-    if (currentQuestion.segment === 'TKP') {
-      // TKP: All options can have scores 1-5
-      updatedOptions[index].score = value;
-    } else {
-      // TWK/TIU: Only one correct answer (score 5), others are 0
-      updatedOptions.forEach((opt, i) => {
-        opt.score = i === index ? 5 : 0;
-      });
-    }
+    const updatedOptions = currentQuestion.options.map((opt: any, i: number) => {
+      if (currentQuestion.segment === 'TKP') {
+        return i === index ? { ...opt, score: value } : opt;
+      } else {
+        return { ...opt, score: i === index ? 5 : 0 };
+      }
+    });
     
     setCurrentQuestion({ ...currentQuestion, options: updatedOptions });
   };
@@ -203,7 +197,7 @@ export default function QuestionsAdmin() {
       
       const data = await response.json();
       if (response.ok) {
-        setMessage({ type: 'success', text: data.message });
+        toast.success(data.message);
         setIsImportModalOpen(false);
         setImportFile(null);
         fetchQuestions();
@@ -211,13 +205,13 @@ export default function QuestionsAdmin() {
         // Handle detailed errors from backend refactor
         if (data.detail && typeof data.detail === 'object' && data.detail.errors) {
           setImportErrors(data.detail.errors);
-          setMessage({ type: 'error', text: data.detail.message || 'Validasi file gagal' });
+          toast.error(data.detail.message || 'Validasi file gagal');
         } else {
-          setMessage({ type: 'error', text: data.detail || 'Import gagal' });
+          toast.error(data.detail || 'Import gagal');
         }
       }
     } catch (error) {
-      setMessage({ type: 'error', text: 'Terjadi kesalahan sistem' });
+      toast.error('Terjadi kesalahan sistem');
     } finally {
       setImportLoading(false);
     }
@@ -342,15 +336,6 @@ export default function QuestionsAdmin() {
         }
       />
 
-      {message && (
-        <div className={`p-4 rounded-2xl flex items-center space-x-3 animate-in slide-in-from-top-4 duration-500 ${
-          message.type === 'success' ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400' : 'bg-rose-500/10 border border-rose-500/30 text-rose-400'
-        }`}>
-          {message.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
-          <p className="font-bold text-sm tracking-tight">{message.text}</p>
-          <button onClick={() => setMessage(null)} className="ml-auto opacity-50 hover:opacity-100"><X className="w-4 h-4" /></button>
-        </div>
-      )}
 
       {/* Filters & Search */}
       <Card className="bg-slate-900/40 border-slate-800/60 rounded-[2rem] overflow-hidden">

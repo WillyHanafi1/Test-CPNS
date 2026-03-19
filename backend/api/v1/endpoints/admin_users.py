@@ -10,6 +10,9 @@ from datetime import datetime
 from backend.db.session import get_async_session
 from backend.models.models import User, UserProfile, ExamSession, UserTransaction
 from backend.api.v1.endpoints.auth import get_current_admin
+import logging
+
+logger = logging.getLogger("admin.audit")
 
 router = APIRouter(prefix="/admin/users", tags=["admin-users"])
 
@@ -83,8 +86,22 @@ async def list_users_admin(
     if is_active is not None:
         stmt = stmt.where(User.is_active == is_active)
 
-    # Total count calculation
-    count_stmt = select(func.count()).select_from(stmt.subquery())
+    # Total count calculation - OPTIMIZED (No subquery, no selectinload)
+    count_stmt = select(func.count(User.id))
+    
+    if search:
+        # Re-apply JOIN for search
+        count_stmt = count_stmt.join(User.profile)
+        count_stmt = count_stmt.where(or_(
+            User.email.ilike(f"%{search}%"),
+            UserProfile.full_name.ilike(f"%{search}%")
+        ))
+    
+    if role:
+        count_stmt = count_stmt.where(User.role == role)
+    if is_active is not None:
+        count_stmt = count_stmt.where(User.is_active == is_active)
+
     total_result = await db.execute(count_stmt)
     total = total_result.scalar() or 0
 
@@ -160,6 +177,10 @@ async def update_user_admin(
     await db.commit()
     await db.refresh(user)
     
+    logger.info(
+        f"ADMIN_ACTION: User {user_id} updated. Fields: {list(update_data.keys())} by Admin {admin.email} (ID: {admin.id})"
+    )
+    
     # Reload profile and stats for response
     return await get_user_detail_admin(user_id, db, admin)
 
@@ -180,4 +201,9 @@ async def delete_user_admin(
     
     await db.delete(user)
     await db.commit()
+    
+    logger.info(
+        f"ADMIN_ACTION: User {user_id} (Email: {user.email}) DELETED by Admin {admin.email} (ID: {admin.id})"
+    )
+    
     return {"message": "User deleted successfully"}

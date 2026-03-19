@@ -1,6 +1,5 @@
-"use client";
-
 import React, { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import { 
   Plus, 
   Search, 
@@ -45,7 +44,6 @@ export default function UsersAdmin() {
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [actionLoading, setActionLoading] = useState(false);
-  const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -79,7 +77,7 @@ export default function UsersAdmin() {
       setTotal(data.total);
     } catch (error) {
       console.error("Fetch users error:", error);
-      setMessage({ type: 'error', text: 'Gagal mengambil data pengguna' });
+      toast.error('Gagal mengambil data pengguna');
     } finally {
       setLoading(true); // Small hack to re-trigger pulse
       setTimeout(() => setLoading(false), 100);
@@ -97,16 +95,13 @@ export default function UsersAdmin() {
       });
 
       if (response.ok) {
-        setMessage({ 
-          type: 'success', 
-          text: `User ${!user.is_active ? 'diaktifkan' : 'dinonaktifkan'}` 
-        });
+        toast.success(`User ${!user.is_active ? 'diaktifkan' : 'dinonaktifkan'}`);
         fetchUsers();
       } else {
-        setMessage({ type: 'error', text: 'Gagal mengubah status user' });
+        toast.error('Gagal mengubah status user');
       }
     } catch (error) {
-      setMessage({ type: 'error', text: 'Terjadi kesalahan sistem' });
+      toast.error('Terjadi kesalahan sistem');
     } finally {
       setActionLoading(false);
     }
@@ -124,14 +119,14 @@ export default function UsersAdmin() {
       });
 
       if (response.ok) {
-        setMessage({ type: 'success', text: 'Role user berhasil diupdate' });
+        toast.success('Role user berhasil diupdate');
         setIsRoleModalOpen(false);
         fetchUsers();
       } else {
-        setMessage({ type: 'error', text: 'Gagal update role' });
+        toast.error('Gagal update role');
       }
     } catch (error) {
-      setMessage({ type: 'error', text: 'Terjadi kesalahan sistem' });
+      toast.error('Terjadi kesalahan sistem');
     } finally {
       setActionLoading(false);
     }
@@ -147,15 +142,15 @@ export default function UsersAdmin() {
       });
 
       if (response.ok) {
-        setMessage({ type: 'success', text: 'User berhasil dihapus' });
+        toast.success("User berhasil dihapus");
         setIsDeleteModalOpen(false);
         fetchUsers();
       } else {
         const data = await response.json();
-        setMessage({ type: 'error', text: data.detail || 'Gagal menghapus user' });
+        toast.error(data.detail || 'Gagal menghapus user');
       }
     } catch (error) {
-      setMessage({ type: 'error', text: 'Terjadi kesalahan sistem' });
+      toast.error('Terjadi kesalahan sistem');
     } finally {
       setActionLoading(false);
     }
@@ -282,15 +277,6 @@ export default function UsersAdmin() {
         subtitle={`Daftar ${total} Pengguna Terdaftar`}
       />
 
-      {message && (
-        <div className={`p-4 rounded-2xl flex items-center space-x-3 animate-in slide-in-from-top-4 duration-500 ${
-          message.type === 'success' ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400' : 'bg-rose-500/10 border border-rose-500/30 text-rose-400'
-        }`}>
-          {message.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
-          <p className="font-bold text-sm tracking-tight">{message.text}</p>
-          <button onClick={() => setMessage(null)} className="ml-auto opacity-50 hover:opacity-100"><X className="w-4 h-4" /></button>
-        </div>
-      )}
 
       {/* Filters & Search */}
       <Card className="bg-slate-900/40 border-slate-800/60 rounded-[2rem] overflow-hidden">
@@ -317,7 +303,7 @@ export default function UsersAdmin() {
                     }}
                   >
                     <option value="">Semua Role</option>
-                    <option value="user">Participant</option>
+                    <option value="participant">Participant</option>
                     <option value="admin">Admin</option>
                   </select>
                </div>

@@ -44,20 +44,28 @@ async def get_overview_stats(
     db: AsyncSession = Depends(get_async_session),
     admin: User = Depends(get_current_admin)
 ):
-    # Counts
-    user_count = await db.scalar(select(func.count(User.id)))
-    pkg_count = await db.scalar(select(func.count(Package.id)))
-    q_count = await db.scalar(select(func.count(Question.id)))
+    cache_key = "admin:analytics:overview"
+    cached = await redis_service.get_cache(cache_key)
+    if cached:
+        return cached
+
+    # Parallelize counts for better performance
+    import asyncio
+    
+    # Define tasks
+    t_users = db.scalar(select(func.count(User.id)))
+    t_pkgs = db.scalar(select(func.count(Package.id)))
+    t_qs = db.scalar(select(func.count(Question.id)))
     
     # Revenue (success transactions)
     rev_stmt = select(func.sum(UserTransaction.amount)).where(UserTransaction.payment_status == "success")
-    revenue = await db.scalar(rev_stmt) or 0
+    t_rev = db.scalar(rev_stmt)
     
-    trans_count = await db.scalar(select(func.count(UserTransaction.id)).where(UserTransaction.payment_status == "success"))
+    t_trans = db.scalar(select(func.count(UserTransaction.id)).where(UserTransaction.payment_status == "success"))
     
     # Active exams (started in last 2 hours AND still ongoing)
     two_hours_ago = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=2)
-    active_exams = await db.scalar(
+    t_active = db.scalar(
         select(func.count(ExamSession.id)).where(
             and_(
                 ExamSession.status == "ongoing",
@@ -66,14 +74,24 @@ async def get_overview_stats(
         )
     )
 
-    return {
+    # Execute all concurrently
+    user_count, pkg_count, q_count, revenue, trans_count, active_exams = await asyncio.gather(
+        t_users, t_pkgs, t_qs, t_rev, t_trans, t_active
+    )
+
+    result_data = {
         "total_users": user_count or 0,
         "total_packages": pkg_count or 0,
         "total_questions": q_count or 0,
-        "total_revenue": revenue,
+        "total_revenue": revenue or 0,
         "success_transactions": trans_count or 0,
         "active_exams": active_exams or 0
     }
+
+    # Cache for 5 minutes
+    await redis_service.set_cache(cache_key, result_data, expire=300)
+    
+    return result_data
 
 @router.get("/exam-performance", response_model=ExamAnalytics)
 async def get_exam_performance(
@@ -157,6 +175,11 @@ async def get_revenue_trends(
     db: AsyncSession = Depends(get_async_session),
     admin: User = Depends(get_current_admin)
 ):
+    cache_key = f"admin:analytics:rev_trends:{days}"
+    cached = await redis_service.get_cache(cache_key)
+    if cached:
+        return cached
+
     start_date = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
     
     # Daily Revenue (Exclude donations for consistent package analytics)
@@ -197,8 +220,13 @@ async def get_revenue_trends(
     cat_result = await db.execute(cat_stmt)
     cat_share = [{"label": row[0] or "Others", "value": float(row[1])} for row in cat_result.all()]
 
-    return {
+    result_data = {
         "daily_revenue": daily,
         "top_packages": top_pkgs,
         "category_share": cat_share
     }
+
+    # Cache for 15 minutes
+    await redis_service.set_cache(cache_key, result_data, expire=900)
+    
+    return result_data

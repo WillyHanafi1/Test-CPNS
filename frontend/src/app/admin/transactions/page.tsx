@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import { 
   Search, 
   Filter, 
@@ -47,7 +48,6 @@ export default function TransactionsAdmin() {
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
   const [actionLoading, setActionLoading] = useState(false);
-  const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
 
   useEffect(() => {
     fetchPackages();
@@ -106,7 +106,7 @@ export default function TransactionsAdmin() {
       setTotal(data.total);
     } catch (error) {
       console.error("Fetch transactions error:", error);
-      setMessage({ type: 'error', text: 'Gagal mengambil data transaksi' });
+      toast.error('Gagal mengambil data transaksi');
     } finally {
       setLoading(false);
     }
@@ -122,15 +122,15 @@ export default function TransactionsAdmin() {
       });
 
       if (response.ok) {
-        setMessage({ type: 'success', text: 'Status transaksi diperbarui' });
+        toast.success('Status transaksi diperbarui');
         setIsStatusModalOpen(false);
         fetchTransactions();
         fetchSummary();
       } else {
-        setMessage({ type: 'error', text: 'Gagal update status' });
+        toast.error('Gagal update status');
       }
     } catch (error) {
-      setMessage({ type: 'error', text: 'Terjadi kesalahan sistem' });
+      toast.error('Terjadi kesalahan sistem');
     } finally {
       setActionLoading(false);
     }
@@ -264,15 +264,6 @@ export default function TransactionsAdmin() {
          </Card>
       </div>
 
-      {message && (
-        <div className={`p-4 rounded-2xl flex items-center space-x-3 animate-in slide-in-from-top-4 duration-500 ${
-          message.type === 'success' ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400' : 'bg-rose-500/10 border border-rose-500/30 text-rose-400'
-        }`}>
-          {message.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
-          <p className="font-bold text-sm tracking-tight">{message.text}</p>
-          <button onClick={() => setMessage(null)} className="ml-auto opacity-50 hover:opacity-100"><X className="w-4 h-4" /></button>
-        </div>
-      )}
 
       {/* Filters & Search */}
       <Card className="bg-slate-900/40 border-slate-800/60 rounded-[2rem] overflow-hidden">

@@ -14,7 +14,8 @@ import {
   ChevronRight,
   ShieldCheck,
   Menu,
-  X
+  X,
+  MessageSquare
 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -50,6 +51,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: 'Paket Ujian', icon: Package, href: '/admin/packages' },
     { name: 'Transaksi', icon: CreditCard, href: '/admin/transactions' },
     { name: 'Pengguna', icon: Users, href: '/admin/users' },
+    { name: 'Saran', icon: MessageSquare, href: '/admin/feedback' },
     { name: 'Analitik', icon: BarChart3, href: '/admin/analytics' },
   ];
 

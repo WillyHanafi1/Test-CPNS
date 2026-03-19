@@ -12,7 +12,7 @@ interface FeedbackModalProps {
   onClose: () => void;
 }
 
-type FeedbackCategory = 'suggestion' | 'bug' | 'other';
+type FeedbackCategory = 'suggestion' | 'bug' | 'correction' | 'other';
 
 export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
   const { user } = useAuth();
@@ -42,7 +42,8 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           category,
-          content
+          content,
+          path_context: window.location.pathname
         }),
         credentials: 'include'
       });
@@ -92,7 +93,8 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
               {[
                 { id: 'suggestion', label: 'Saran', icon: Lightbulb, color: 'text-amber-400' },
                 { id: 'bug', label: 'Bug', icon: Bug, color: 'text-rose-400' },
-                { id: 'other', label: 'Lainnya', icon: HelpCircle, color: 'text-indigo-400' },
+                { id: 'correction', label: 'Koreksi Soal', icon: HelpCircle, color: 'text-emerald-400' },
+                { id: 'other', label: 'Lainnya', icon: MessageSquare, color: 'text-indigo-400' },
               ].map((cat) => (
                 <button
                   key={cat.id}

@@ -80,7 +80,8 @@ async def submit_feedback(
     feedback = Feedback(
         user_id=current_user.id,
         category=feedback_in.category,
-        content=feedback_in.content
+        content=feedback_in.content,
+        path_context=feedback_in.path_context
     )
     db.add(feedback)
     await db.commit()

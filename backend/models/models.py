@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, Integer, Text, JSON, Index
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, Integer, Text, JSON, Index, UniqueConstraint, CheckConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.db.session import Base
 
@@ -14,6 +14,11 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     role: Mapped[str] = mapped_column(String(20), default="participant") # admin, participant
     auth_provider: Mapped[str] = mapped_column(String(20), default="local") # local, google
+    
+    __table_args__ = (
+        CheckConstraint(role.in_(["admin", "participant"]), name="check_user_role"),
+        CheckConstraint(auth_provider.in_(["local", "google"]), name="check_auth_provider"),
+    )
     is_pro: Mapped[bool] = mapped_column(Boolean, default=False)
     pro_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
@@ -69,6 +74,11 @@ class Question(Base):
     segment: Mapped[str] = mapped_column(String(50)) # TWK, TIU, TKP
     sub_category: Mapped[Optional[str]] = mapped_column(String(100)) # Analogi, Pelayanan Publik, dll
     number: Mapped[int] = mapped_column(Integer) # Question number in package (1-110)
+
+    __table_args__ = (
+        UniqueConstraint("package_id", "number", name="uq_package_question_number"),
+        CheckConstraint(segment.in_(["TWK", "TIU", "TKP"]), name="check_question_segment"),
+    )
 
     package: Mapped["Package"] = relationship(back_populates="questions")
     options: Mapped[list["QuestionOption"]] = relationship(back_populates="question", cascade="all, delete-orphan")
@@ -143,6 +153,11 @@ class UserTransaction(Base):
     access_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
+    __table_args__ = (
+        CheckConstraint(payment_status.in_(["pending", "success", "failed"]), name="check_payment_status"),
+        CheckConstraint(transaction_type.in_(["single_package", "pro_upgrade"]), name="check_transaction_type"),
+    )
+
     user: Mapped["User"] = relationship(back_populates="transactions")
     package: Mapped["Package"] = relationship(back_populates="transactions")
 
@@ -174,8 +189,18 @@ class Feedback(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
-    category: Mapped[str] = mapped_column(String(50), default="suggestion") # suggestion, bug, other
+    category: Mapped[str] = mapped_column(String(50), default="suggestion") # suggestion, bug, correction, other
     content: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(20), default="pending", index=True) # pending, reviewed, in_progress, resolved
+    priority: Mapped[str] = mapped_column(String(10), default="medium") # low, medium, high, urgent
+    admin_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    path_context: Mapped[Optional[str]] = mapped_column(String(255), nullable=True) # Page URL context
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        CheckConstraint(status.in_(["pending", "reviewed", "in_progress", "resolved"]), name="check_feedback_status"),
+        CheckConstraint(priority.in_(["low", "medium", "high", "urgent"]), name="check_feedback_priority"),
+        CheckConstraint(category.in_(["suggestion", "bug", "correction", "other"]), name="check_feedback_category"),
+    )
 
     user: Mapped["User"] = relationship(back_populates="feedbacks")

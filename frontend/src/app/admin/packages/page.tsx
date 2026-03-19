@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import { 
   Plus, 
   Search, 
@@ -41,7 +42,6 @@ export default function PackagesAdmin() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<any>(null);
   const [formLoading, setFormLoading] = useState(false);
-  const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -84,7 +84,7 @@ export default function PackagesAdmin() {
       setTotal(data.total);
     } catch (error) {
       console.error("Fetch packages error:", error);
-      setMessage({ type: 'error', text: 'Gagal mengambil data paket' });
+      toast.error('Gagal mengambil data paket');
     } finally {
       setLoading(false);
     }
@@ -133,18 +133,15 @@ export default function PackagesAdmin() {
       });
 
       if (response.ok) {
-        setMessage({ 
-          type: 'success', 
-          text: isEdit ? 'Paket berhasil diperbarui' : 'Paket baru berhasil dibuat' 
-        });
+        toast.success(isEdit ? 'Paket berhasil diperbarui' : 'Paket baru berhasil dibuat');
         setIsFormModalOpen(false);
         fetchPackages();
       } else {
         const data = await response.json();
-        setMessage({ type: 'error', text: data.detail || 'Terjadi kesalahan' });
+        toast.error(data.detail || 'Terjadi kesalahan');
       }
     } catch (error) {
-      setMessage({ type: 'error', text: 'Gagal menghubungi server' });
+      toast.error('Gagal menghubungi server');
     } finally {
       setFormLoading(false);
     }
@@ -160,14 +157,14 @@ export default function PackagesAdmin() {
       });
 
       if (response.ok) {
-        setMessage({ type: 'success', text: 'Paket berhasil dihapus' });
+        toast.success('Paket berhasil dihapus');
         setIsDeleteModalOpen(false);
         fetchPackages();
       } else {
-        setMessage({ type: 'error', text: 'Gagal menghapus paket' });
+        toast.error('Gagal menghapus paket');
       }
     } catch (error) {
-      setMessage({ type: 'error', text: 'Terjadi kesalahan sistem' });
+      toast.error('Terjadi kesalahan sistem');
     } finally {
       setFormLoading(false);
     }
@@ -276,15 +273,6 @@ export default function PackagesAdmin() {
         }
       />
 
-      {message && (
-        <div className={`p-4 rounded-2xl flex items-center space-x-3 animate-in slide-in-from-top-4 duration-500 ${
-          message.type === 'success' ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400' : 'bg-rose-500/10 border border-rose-500/30 text-rose-400'
-        }`}>
-          {message.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
-          <p className="font-bold text-sm tracking-tight">{message.text}</p>
-          <button onClick={() => setMessage(null)} className="ml-auto opacity-50 hover:opacity-100"><X className="w-4 h-4" /></button>
-        </div>
-      )}
 
       {/* Filters & Search */}
       <Card className="bg-slate-900/40 border-slate-800/60 rounded-[2rem] overflow-hidden">
