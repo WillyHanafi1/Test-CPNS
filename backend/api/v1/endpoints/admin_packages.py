@@ -22,6 +22,7 @@ class PackageCreate(BaseModel):
     category: str
     is_published: bool = False
     is_weekly: bool = False
+    is_active: bool = True
     start_at: Optional[datetime] = None
     end_at: Optional[datetime] = None
 
@@ -33,6 +34,7 @@ class PackageUpdate(BaseModel):
     category: Optional[str] = None
     is_published: Optional[bool] = None
     is_weekly: Optional[bool] = None
+    is_active: Optional[bool] = None
     start_at: Optional[datetime] = None
     end_at: Optional[datetime] = None
 
@@ -45,6 +47,7 @@ class PackageResponse(BaseModel):
     category: str
     is_published: bool
     is_weekly: bool
+    is_active: bool
     start_at: Optional[datetime]
     end_at: Optional[datetime]
     question_count: int = 0
@@ -63,6 +66,7 @@ async def list_packages_admin(
     size: int = Query(10, ge=1, le=100),
     search: Optional[str] = None,
     category: Optional[str] = None,
+    include_archived: bool = Query(False),
     db: AsyncSession = Depends(get_async_session),
     admin: User = Depends(get_current_admin)
 ):
@@ -85,6 +89,9 @@ async def list_packages_admin(
         ))
     if category:
         stmt = stmt.where(Package.category == category)
+    
+    if not include_archived:
+        stmt = stmt.where(Package.is_active == True)
 
     # Total count
     count_stmt = select(func.count()).select_from(stmt.subquery())
@@ -159,43 +166,47 @@ async def delete_package_admin(
     db: AsyncSession = Depends(get_async_session),
     admin: User = Depends(get_current_admin)
 ):
-    # 1. First, check if package exists
+    """Soft delete (Archive) package."""
     result = await db.execute(select(Package).where(Package.id == package_id))
     package = result.scalar_one_or_none()
     if not package:
         raise HTTPException(status_code=404, detail="Package not found")
 
-    # 2. Then, check if package has been purchased
-    from backend.models.models import UserTransaction
-    trans_count = await db.scalar(
-        select(func.count(UserTransaction.id))
-        .where(UserTransaction.package_id == package_id)
-    )
-    if trans_count and trans_count > 0:
-        raise HTTPException(
-            status_code=400, 
-            detail="Tidak dapat menghapus paket yang sudah dibeli oleh peserta. Silakan ubah statusnya menjadi tidak aktif atau edit paket ini."
-        )
-    
-    # 3. Finally, check if package has any exam history (sessions)
-    session_count = await db.scalar(
-        select(func.count(ExamSession.id))
-        .where(ExamSession.package_id == package_id)
-    )
-    if session_count and session_count > 0:
-        raise HTTPException(
-            status_code=400, 
-            detail="Tidak dapat menghapus paket yang sudah memiliki riwayat pengerjaan (Exam Session). Silakan ubah statusnya menjadi tidak aktif."
-        )
-    
-    await db.delete(package)
+    # Set as inactive (Archived)
+    package.is_active = False
     await db.commit()
     
     # Invalidate Cache
     await redis_service.clear_pattern("packages:*")
     await redis_service.clear_pattern("package_public:*")
     
-    return {"message": "Package deleted successfully"}
+    return {"message": "Package has been archived"}
+
+@router.post("/{package_id}/restore", response_model=PackageResponse)
+async def restore_package_admin(
+    package_id: uuid.UUID,
+    db: AsyncSession = Depends(get_async_session),
+    admin: User = Depends(get_current_admin)
+):
+    """Restore archived package."""
+    result = await db.execute(select(Package).where(Package.id == package_id))
+    package = result.scalar_one_or_none()
+    if not package:
+        raise HTTPException(status_code=404, detail="Package not found")
+
+    package.is_active = True
+    await db.commit()
+    await db.refresh(package)
+    
+    # Get question count for response
+    q_count_result = await db.execute(select(func.count(Question.id)).where(Question.package_id == package_id))
+    package.question_count = q_count_result.scalar() or 0
+
+    # Invalidate Cache
+    await redis_service.clear_pattern("packages:*")
+    await redis_service.clear_pattern("package_public:*")
+    
+    return package
 
 @router.post("/{package_id}/copy", response_model=PackageResponse, status_code=status.HTTP_201_CREATED)
 async def copy_package_admin(

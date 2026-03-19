@@ -56,6 +56,7 @@ class Package(Base):
     category: Mapped[str] = mapped_column(String(50)) # TWK, TIU, TKP, Mix
     is_published: Mapped[bool] = mapped_column(Boolean, default=False)
     is_weekly: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     start_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     end_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
 

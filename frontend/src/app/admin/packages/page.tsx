@@ -36,6 +36,7 @@ export default function PackagesAdmin() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
+  const [includeArchived, setIncludeArchived] = useState(false);
   
   // Modals state
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -50,12 +51,13 @@ export default function PackagesAdmin() {
     price: 0,
     category: 'Mix',
     is_premium: false,
-    is_published: false
+    is_published: false,
+    is_active: true
   });
 
   useEffect(() => {
     fetchPackages();
-  }, [page, category]);
+  }, [page, category, includeArchived]);
 
   // Debounced search effect
   useEffect(() => {
@@ -72,6 +74,7 @@ export default function PackagesAdmin() {
       let url = `${API_URL}/api/v1/admin/packages?page=${page}&size=10`;
       if (search) url += `&search=${encodeURIComponent(search)}`;
       if (category) url += `&category=${category}`;
+      if (includeArchived) url += `&include_archived=true`;
       
       const response = await fetch(url, { 
         headers: { 'Content-Type': 'application/json' },
@@ -98,7 +101,8 @@ export default function PackagesAdmin() {
       price: 0,
       category: 'Mix',
       is_premium: false,
-      is_published: false
+      is_published: false,
+      is_active: true
     });
     setIsFormModalOpen(true);
   };
@@ -111,9 +115,30 @@ export default function PackagesAdmin() {
       price: pkg.price,
       category: pkg.category,
       is_premium: pkg.is_premium,
-      is_published: pkg.is_published
+      is_published: pkg.is_published,
+      is_active: pkg.is_active
     });
     setIsFormModalOpen(true);
+  };
+
+  const handleRestore = async (pkgId: string) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/v1/admin/packages/${pkgId}/restore`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+      if (response.ok) {
+        toast.success('Paket berhasil dikembalikan');
+        fetchPackages();
+      } else {
+        toast.error('Gagal mengembalikan paket');
+      }
+    } catch (error) {
+      toast.error('Kesalahan sistem');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -157,11 +182,11 @@ export default function PackagesAdmin() {
       });
 
       if (response.ok) {
-        toast.success('Paket berhasil dihapus');
+        toast.success('Paket berhasil diarsipkan');
         setIsDeleteModalOpen(false);
         fetchPackages();
       } else {
-        toast.error('Gagal menghapus paket');
+        toast.error('Gagal mengarsipkan paket');
       }
     } catch (error) {
       toast.error('Terjadi kesalahan sistem');
@@ -175,17 +200,24 @@ export default function PackagesAdmin() {
       header: 'Informasi Paket', 
       className: 'max-w-xs',
       render: (pkg) => (
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
-             <Package className="w-5 h-5 text-indigo-400" />
+        <div className={`flex items-center space-x-3 ${!pkg.is_active ? 'opacity-40' : ''}`}>
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${
+            !pkg.is_active ? 'bg-slate-800/10 border-slate-700/20' : 'bg-indigo-500/10 border-indigo-500/20'
+          }`}>
+             <Package className={`w-5 h-5 ${!pkg.is_active ? 'text-slate-500' : 'text-indigo-400'}`} />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <p className="font-bold text-slate-200">{pkg.title}</p>
-              {pkg.is_published ? (
-                <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" title="Published" />
-              ) : (
-                <div className="w-2 h-2 rounded-full bg-slate-600" title="Draft" />
+              <p className={`font-bold ${!pkg.is_active ? 'text-slate-500' : 'text-slate-200'}`}>
+                {pkg.title}
+                {!pkg.is_active && <span className="ml-2 text-[8px] border border-slate-700 px-1 rounded uppercase tracking-tighter">Arsip</span>}
+              </p>
+              {pkg.is_active && (
+                pkg.is_published ? (
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" title="Published" />
+                ) : (
+                  <div className="w-2 h-2 rounded-full bg-slate-600" title="Draft" />
+                )
               )}
             </div>
             <p className="text-[10px] text-slate-500 truncate max-w-[150px]">{pkg.description}</p>
@@ -236,25 +268,39 @@ export default function PackagesAdmin() {
       className: 'text-center',
       render: (pkg) => (
         <div className="flex items-center justify-center space-x-2">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="w-10 h-10 rounded-xl hover:bg-slate-800 hover:text-white transition-all"
-            onClick={() => handleOpenEdit(pkg)}
-          >
-            <Edit className="w-4 h-4" />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="w-10 h-10 rounded-xl hover:bg-rose-500/10 hover:text-rose-400 transition-all"
-            onClick={() => {
-              setSelectedPackage(pkg);
-              setIsDeleteModalOpen(true);
-            }}
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
+          {pkg.is_active ? (
+            <>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="w-10 h-10 rounded-xl hover:bg-slate-800 hover:text-white transition-all"
+                onClick={() => handleOpenEdit(pkg)}
+              >
+                <Edit className="w-4 h-4" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="w-10 h-10 rounded-xl hover:bg-rose-500/10 hover:text-rose-400 transition-all"
+                onClick={() => {
+                  setSelectedPackage(pkg);
+                  setIsDeleteModalOpen(true);
+                }}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </>
+          ) : (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="rounded-xl border-slate-700 hover:bg-emerald-500/10 hover:text-emerald-400 text-[10px] font-bold h-8"
+              onClick={() => handleRestore(pkg.id)}
+            >
+              <CheckCircle2 className="w-3 h-3 mr-1" />
+              Restore
+            </Button>
+          )}
         </div>
       )
     }
@@ -288,10 +334,10 @@ export default function PackagesAdmin() {
               />
             </div>
             <div className="flex items-center space-x-3">
-               <div className="bg-slate-950/50 border border-slate-800/80 rounded-2xl px-4 py-3 flex items-center min-w-[200px]">
+                <div className="bg-slate-950/50 border border-slate-800/80 rounded-2xl px-4 py-3 flex items-center min-w-[150px]">
                   <Filter className="w-4 h-4 text-slate-500 mr-2" />
                   <select 
-                    className="bg-transparent text-sm font-bold text-slate-300 focus:outline-none w-full appearance-none pr-10"
+                    className="bg-transparent text-sm font-bold text-slate-300 focus:outline-none w-full appearance-none"
                     value={category}
                     onChange={(e) => {
                       setCategory(e.target.value);
@@ -304,8 +350,18 @@ export default function PackagesAdmin() {
                     <option value="TKP">TKP</option>
                     <option value="Mix">Mix / Campuran</option>
                   </select>
-               </div>
-            </div>
+                </div>
+                {/* Archive Toggle */}
+                <div 
+                  className={`flex items-center space-x-2 px-6 py-3 rounded-2xl border cursor-pointer transition-all ${
+                    includeArchived ? 'bg-slate-800 border-slate-600 text-slate-200' : 'bg-slate-950/30 border-slate-800/80 text-slate-500 hover:border-slate-700'
+                  }`}
+                  onClick={() => setIncludeArchived(!includeArchived)}
+                >
+                  <Trash2 className={`w-4 h-4 ${includeArchived ? 'text-rose-400' : ''}`} />
+                  <span className="text-xs font-bold uppercase tracking-wider">Lihat Arsip</span>
+                </div>
+              </div>
           </div>
         </CardContent>
       </Card>
@@ -447,8 +503,8 @@ export default function PackagesAdmin() {
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={handleDelete}
-        title="Hapus Paket?"
-        description={`Apakah Anda yakin ingin menghapus paket "${selectedPackage?.title}"? Tindakan ini tidak dapat dibatalkan.`}
+        title="Arsipkan Paket?"
+        description={`Apakah Anda yakin ingin mengarsipkan paket "${selectedPackage?.title}"? Paket akan disembunyikan dari daftar utama tetapi data sejarah pengerjaan tetap tersimpan.`}
         variant="danger"
         loading={formLoading}
       />

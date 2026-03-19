@@ -122,3 +122,19 @@ Berdasarkan optimalisasi struktur proyek pada Maret 2026:
 3. **Utility Scripts (`/scripts`)**: Semua script Python pembantu (seperti script untuk audit, fix scoring, atau migrasi data satu kali jalankan) wajib diletakkan di folder `scripts/`.
 4. **Backend Tests**: Pastikan semua file pengetesan (`test_*.py`) berada di dalam folder `backend/tests/` untuk menjaga kerapihan modul API.
 5. **Documentation**: Dokumentasi pendukung (seperti `kepmenpan_rb_321_2024.md`) sebaiknya diletakkan di root jika bersifat krusial (seperti `GEMINI.md`) atau di folder `docs/` jika bersifat referensi teknis mendalam.
+
+### F. Media Assets & Database Sync (Standard Operating Procedure)
+Berdasarkan troubleshooting render gambar dan sinkronisasi database pada Maret 2026:
+1. **Supabase Storage Standard**: 
+    - Gunakan bucket `exam-assets`.
+    - Struktur folder: `figural/latihan{n}/` (misal: `figural/latihan4/`).
+    - Nama file harus konsisten dengan referensi di CSV (misal: `l4_q57_problem.png`).
+    - Pastikan bucket bersifat **Public** agar dapat diakses oleh frontend tanpa autentikasi tambahan.
+2. **Strict Deletion Order (Re-import Logic)**: Saat melakukan re-import atau sinkronisasi ulang paket soal yang sudah memiliki data interaksi, gunakan urutan penghapusan berikut untuk menghindari `ForeignKeyViolationError`:
+    - `ChatMessage` (berdasarkan `ChatSession`)
+    - `ChatSession` (berdasarkan `ExamSession` atau `Question`)
+    - `Answer` (berdasarkan `ExamSession` or `Question`)
+    - `QuestionOption` (berdasarkan `Question`)
+    - `ExamSession` (berdasarkan `Package`)
+    - `Question` (berdasarkan `Package`)
+3. **Standard Question Count**: Pastikan setiap paket latihan SKD memiliki total **110 soal** sesuai standar BKN (TWK, TIU, TKP) untuk menjaga konsistensi analitik.
