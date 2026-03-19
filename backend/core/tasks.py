@@ -104,7 +104,9 @@ async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: s
                         sub_cat_stats[sub_cat] = {"score": 0, "max_possible": 0}
                     
                     sub_cat_stats[sub_cat]["score"] += points
-                    sub_cat_stats[sub_cat]["max_possible"] += 5
+                    # DYNAMICALY CALCULATE MAX POSSIBLE SCORE
+                    max_q_score = max((opt.score for opt in q.options), default=5)
+                    sub_cat_stats[sub_cat]["max_possible"] += max_q_score
 
                 total_score = score_twk + score_tiu + score_tkp
                 
@@ -229,7 +231,6 @@ async def async_auto_finish_expired():
 
             logger.info(f"Found {len(expired_sessions)} expired session(s) to auto-finish")
 
-            from backend.models.models import User
             user_ids = list({s.user_id for s in expired_sessions})
             user_result = await db.execute(
                 select(User).where(User.id.in_(user_ids))
