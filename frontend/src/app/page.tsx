@@ -8,6 +8,30 @@ import WallOfFame from '@/components/WallOfFame';
 import Navbar from '@/components/Navbar';
 
 export default function LandingPage() {
+  const [stats, setStats] = React.useState({
+    users_count: "...",
+    questions_count: "...",
+    accuracy: "94%",
+    uptime: "98%",
+    last_update: "Maret 2026"
+  });
+
+  React.useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const response = await fetch(`${apiUrl}/api/v1/public/stats`);
+        if (response.ok) {
+          const data = await response.json();
+          setStats(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch landing stats:", error);
+      }
+    };
+    fetchStats();
+  }, []);
+
   return (
     <div className="min-h-screen bg-slate-950 text-white overflow-hidden">
       {/* Abstract Background Orbs */}
@@ -70,8 +94,8 @@ export default function LandingPage() {
               <div className="relative bg-slate-900/60 border border-slate-800 rounded-[2.5rem] p-8 backdrop-blur-xl shadow-2xl">
                 <div className="space-y-8">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-8">
-                    <StatBox count="50rb+" label="Pejuang Aktif" />
-                    <StatBox count="98%" label="Sistem Uptime" />
+                    <StatBox count={stats.users_count} label="Pejuang Aktif" />
+                    <StatBox count={stats.uptime} label="Sistem Uptime" />
                   </div>
 
                   <div className="space-y-6">
@@ -82,7 +106,7 @@ export default function LandingPage() {
                         </div>
                         <div>
                           <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Last Update</p>
-                          <p className="text-sm font-bold text-white uppercase italic">Bank Soal Maret 2026</p>
+                          <p className="text-sm font-bold text-white uppercase italic">Bank Soal {stats.last_update}</p>
                         </div>
                       </div>
                       <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">ONLINE</Badge>
@@ -95,7 +119,7 @@ export default function LandingPage() {
                         </div>
                         <div>
                           <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Accuracy</p>
-                          <p className="text-2xl font-black text-white italic">94<span className="text-xs text-emerald-500 not-italic ml-1">%</span></p>
+                          <p className="text-2xl font-black text-white italic">{stats.accuracy.replace('%','')}<span className="text-xs text-emerald-500 not-italic ml-1">%</span></p>
                         </div>
                       </div>
                     </div>
@@ -240,7 +264,7 @@ export default function LandingPage() {
               Masa Depan Anda <br /> Dimulai Hari Ini.
             </h2>
             <p className="text-indigo-100 text-xl max-w-2xl mx-auto opacity-80">
-              Jangan biarkan mimpi Anda menjadi ASN terhambat hanya karena kurang simulasi. Gabung dengan 50rb+ pejuang lainnya.
+              Jangan biarkan mimpi Anda menjadi ASN terhambat hanya karena kurang simulasi. Gabung dengan {stats.users_count} pejuang lainnya.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-4">
               <Link href="/register" className="w-full sm:w-auto">

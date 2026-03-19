@@ -11,6 +11,7 @@ from backend.api.v1.endpoints.admin_questions import router as admin_questions_r
 from backend.api.v1.endpoints.admin_import import router as admin_import_router
 from backend.api.v1.endpoints.admin_packages import router as admin_packages_router
 from backend.api.v1.endpoints.admin_users import router as admin_users_router
+from backend.api.v1.endpoints.public_stats import router as public_stats_router
 from backend.api.v1.endpoints.admin_transactions import router as admin_transactions_router
 from backend.api.v1.endpoints.admin_analytics import router as admin_analytics_router
 from backend.api.v1.endpoints.admin_feedback import router as admin_feedback_router
@@ -66,6 +67,7 @@ app.include_router(admin_analytics_router, prefix="/api/v1")
 app.include_router(admin_feedback_router, prefix="/api/v1")
 app.include_router(transactions_router, prefix="/api/v1")
 app.include_router(chat_router, prefix="/api/v1")
+app.include_router(public_stats_router, prefix="/api/v1")
 app.include_router(user_router, prefix="/api/v1")
 
 @app.get("/")
