@@ -44,6 +44,7 @@ class UserListResponse(BaseModel):
 class UserUpdate(BaseModel):
     role: Optional[str] = None
     is_active: Optional[bool] = None
+    is_pro: Optional[bool] = None
 
 @router.get("", response_model=UserListResponse)
 async def list_users_admin(

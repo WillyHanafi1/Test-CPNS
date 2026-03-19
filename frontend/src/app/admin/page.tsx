@@ -9,7 +9,8 @@ import {
   ArrowUpRight,
   TrendingUp,
   Clock,
-  ChevronRight
+  ChevronRight,
+  MessageSquare
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -131,6 +132,7 @@ export default function AdminDashboard() {
                 { name: 'Urus Paket Soal', href: '/admin/packages', icon: BookOpen, color: 'text-indigo-400' },
                 { name: 'Kelola Pengguna', href: '/admin/users', icon: Users, color: 'text-blue-400' },
                 { name: 'Monitor Transaksi', href: '/admin/transactions', icon: CreditCard, color: 'text-emerald-400' },
+                { name: 'Kelola Saran', href: '/admin/feedback', icon: MessageSquare, color: 'text-rose-400' },
               ].map((item) => (
                 <Link key={item.name} href={item.href}>
                   <div className="flex items-center justify-between p-4 bg-slate-950/40 border border-slate-800 rounded-2xl group hover:border-indigo-500/50 hover:bg-slate-900/60 transition-all mb-3">

@@ -1,3 +1,4 @@
+"use client";
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { 
@@ -132,6 +133,29 @@ export default function UsersAdmin() {
     }
   };
 
+  const handleTogglePro = async (user: any) => {
+    setActionLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/v1/admin/users/${user.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_pro: !user.is_pro }),
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        toast.success(`User ${!user.is_pro ? 'dijadikan PRO' : 'dikembalikan ke Standard'}`);
+        fetchUsers();
+      } else {
+        toast.error('Gagal mengubah status PRO');
+      }
+    } catch (error) {
+      toast.error('Terjadi kesalahan sistem');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleDeleteUser = async () => {
     if (!selectedUser) return;
     setActionLoading(true);
@@ -241,6 +265,18 @@ export default function UsersAdmin() {
       className: 'text-center',
       render: (u) => (
         <div className="flex items-center justify-center space-x-2">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className={`w-10 h-10 rounded-xl transition-all ${
+              u.is_pro ? 'bg-amber-500/10 text-amber-500 hover:bg-amber-500/20' : 'hover:bg-slate-800'
+            }`}
+            onClick={() => handleTogglePro(u)}
+            disabled={actionLoading}
+            title={u.is_pro ? 'Downgrade to Standard' : 'Upgrade to PRO'}
+          >
+            <Crown className={`w-4 h-4 ${u.is_pro ? 'fill-amber-500' : ''}`} />
+          </Button>
           <Button 
             variant="ghost" 
             size="icon" 
