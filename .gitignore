@@ -33,6 +33,7 @@ RAVEN-10000/
 *.csv
 *.pdf
 tmp/
+temp_figural/
 frontend/public/images/figural/
 
 # Internal / Agent files

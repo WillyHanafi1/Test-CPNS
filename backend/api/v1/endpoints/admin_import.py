@@ -68,15 +68,19 @@ async def import_questions(
 
     # Validate essential columns
     errors = []
-    essential = {
-        'num_col': find_col(['number', 'no', 'nomor']),
-        'seg_col': find_col(['segment', 'segmen']),
-        'con_col': find_col(['content', 'teks soal', 'soal']),
+    found_cols = {
+        'number': find_col(['number', 'no', 'nomor']),
+        'segment': find_col(['segment', 'segmen']),
+        'content': find_col(['content', 'teks soal', 'soal']),
     }
     
-    for key, val in essential.items():
+    for key, val in found_cols.items():
         if not val:
-            errors.append(f"Kolom wajib '{key.split('_')[0]}' tidak ditemukan (bisa gunakan: {mapping[key.split('_')[0]]})")
+            errors.append(f"Kolom wajib '{key}' tidak ditemukan (bisa gunakan: {mapping[key]})")
+
+    num_col = found_cols['number']
+    seg_col = found_cols['segment']
+    con_col = found_cols['content']
 
     # Options mapping A-E
     opt_map = {}
@@ -103,7 +107,7 @@ async def import_questions(
     for index, row in df.iterrows():
         row_idx = index + 2
         try:
-            num = int(row[essential['num_col']])
+            num = int(row[num_col])
             if num in existing_nums:
                 errors.append(f"Baris {row_idx}: Nomor {num} sudah ada di database.")
             if num in file_nums:
@@ -112,11 +116,11 @@ async def import_questions(
         except:
             errors.append(f"Baris {row_idx}: Nomor soal harus angka.")
 
-        segment = str(row[essential['seg_col']]).upper()
+        segment = str(row[seg_col]).upper()
         if segment not in ['TWK', 'TIU', 'TKP']:
             errors.append(f"Baris {row_idx}: Segmen '{segment}' tidak valid (Harus TWK/TIU/TKP).")
 
-        if not str(row[essential['con_col']]).strip():
+        if not str(row[con_col]).strip():
             errors.append(f"Baris {row_idx}: Teks soal kosong.")
 
     if errors:
@@ -136,9 +140,9 @@ async def import_questions(
         for _, row in df.iterrows():
             new_question = Question(
                 package_id=package_id,
-                number=int(row[essential['num_col']]),
-                segment=str(row[essential['seg_col']]).upper(),
-                content=str(row[essential['con_col']]).strip(),
+                number=int(row[num_col]),
+                segment=str(row[seg_col]).upper(),
+                content=str(row[con_col]).strip(),
                 image_url=str(row[q_img_col]).strip() if q_img_col and str(row[q_img_col]).strip() else None,
                 discussion=str(row[q_disc_col]).strip() if q_disc_col and str(row[q_disc_col]).strip() else None,
                 sub_category=str(row[q_sub_col]).strip() if q_sub_col and str(row[q_sub_col]).strip() else None
