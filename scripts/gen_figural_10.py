@@ -19,8 +19,8 @@ BUCKET = "exam-assets"
 
 RAVEN_BASE = Path("d:/ProjectAI/Test-CPNS/RAVEN-10000")
 OUTPUT_CSV = Path("d:/ProjectAI/Test-CPNS/data/csv/figural_10_output.csv")
-TEMP_IMAGE_DIR = Path("d:/ProjectAI/Test-CPNS/temp_figural")
-TEMP_IMAGE_DIR.mkdir(exist_ok=True)
+TEMP_IMAGE_DIR = Path("d:/ProjectAI/Test-CPNS/tmp/figural_10")
+TEMP_IMAGE_DIR.mkdir(parents=True, exist_ok=True)
 
 # Mapping Rule XML to BKN Discussion Style
 RULE_MAP = {
