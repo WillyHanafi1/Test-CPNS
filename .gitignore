@@ -29,7 +29,6 @@ start-dev.bat
 dev.bat
 
 # Large datasets & Assets
-RAVEN-10000/
 *.csv
 *.pdf
 tmp/

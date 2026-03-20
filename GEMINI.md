@@ -69,26 +69,6 @@ Sebagai panduan untuk tugas pengembangan di masa mendatang, berikut adalah stand
 - Frontend menggunakan `react-latex-next` dengan konfigurasi KaTeX.
 - Server wajib mengirim data matematika menggunakan sintaks **inline math `$...$`** atau **block math `$$...$$`**. Hindari penggunaan notasi matematika mentah (seperti x^2 atau akar(x)) di dalam CSV maupun PostgreSQL.
 
-#### B. Pembuatan & Imputasi Soal Figural (End-to-End)
-Jika Anda (Asisten AI) diminta untuk memproduksi atau melengkapi soal tipe Figural (Kemampuan Spasial/Matriks):
-1. **Gunakan RAVEN-10000 Dataset:** Gunakan kumpulan matriks biner (`.npz`) dan **wajib** mengekstrak logika dari file `.xml` yang sesuai untuk mencegah halusinasi.
-2. **Hybrid Workflow (Visual Bridge):** 
-   - JANGAN meminta AI membaca data mentah. Gunakan script Python (Pillow/Numpy) untuk merender array gambar menjadi file PNG.
-   - Ekstrak aturan dari tag `<Rules>` di XML (misal: `Progression`, `Constant`, `Arithmetic`) dan sertakan dalam prompt AI sebagai **Hard Constraint**.
-3. **Diferensiasi Format (Kepmenpan-RB 321/2024):** Sesuaikan template visual berdasarkan sub-kategori:
-   - **Analogi Gambar:** Format `A : B = C : ?` (Gunakan dataset RAVEN 2x2).
-   - **Ketidaksamaan Gambar:** Tampilkan 5 opsi (A-E) sejajar. Cari 1 yang paling berbeda rule-nya.
-   - **Serial Gambar:** Format alur horizontal `1 -> 2 -> 3 -> 4 -> ?` (Ambil sekuens dari dataset RAVEN 3x3).
-4. **Zero Hallucination Prompting:** 
-   - Selalu diktekan kunci jawaban ke AI sebelum generate pembahasan: *"Jawaban benar adalah [Huruf]. Jelaskan menggunakan aturan [Aturan XML] mengapa [Huruf] benar."*
-   - Map 8 kandidat RAVEN ke 5 opsi (A-E) CPNS secara konsisten melalui script.
-5. **Stateless CDN via Supabase:** 
-   - **JANGAN** pernah memasukkan file gambar fisik base64 ke dalam sistem utama.
-   - Gunakan `SUPABASE_SERVICE_ROLE_KEY` dari `.env` untuk melakukan *push upload* gambar (.png) ke *bucket* `exam-assets`.
-6. **Markdown Embedding (CSV/DB):**
-   - Gunakan **Sintaks Markdown**: `![Alt Text](URL_Public_Supabase)` pada kolom `image_url` atau konten soal.
-   - UI Frontend secara otomatis akan merender URL markdown tersebut.
-
 ### C. Backend Architecture & High Availability
 Berdasarkan analisis mendalam pada core backend:
 1. **Redis Optimization**: Gunakan `RedisService` dengan *connection pooling* untuk menangani ribuan koneksi simultan. Pastikan `json_serial` mendukung format `datetime` dan `UUID`.
