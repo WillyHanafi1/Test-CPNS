@@ -9,7 +9,6 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
-from datetime import datetime, timezone
 
 
 # revision identifiers, used by Alembic.
@@ -20,42 +19,60 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # 1. Add updated_at to exam_sessions
-    op.add_column('exam_sessions', sa.Column(
-        'updated_at', sa.DateTime(timezone=True), nullable=True,
-        server_default=sa.text('now()')
+    conn = op.get_bind()
+
+    # 1. Add updated_at to exam_sessions (idempotent)
+    try:
+        op.add_column('exam_sessions', sa.Column(
+            'updated_at', sa.DateTime(timezone=True), nullable=True,
+            server_default=sa.text('now()')
+        ))
+    except Exception:
+        pass  # Column already exists
+
+    # 2. Add updated_at to user_transactions (idempotent)
+    try:
+        op.add_column('user_transactions', sa.Column(
+            'updated_at', sa.DateTime(timezone=True), nullable=True,
+            server_default=sa.text('now()')
+        ))
+    except Exception:
+        pass  # Column already exists
+
+    # 3-9. Create indexes using IF NOT EXISTS (safe for re-runs)
+    conn.execute(sa.text(
+        "CREATE INDEX IF NOT EXISTS ix_package_published_active ON packages (is_published, is_active)"
     ))
-    
-    # 2. Add updated_at to user_transactions
-    op.add_column('user_transactions', sa.Column(
-        'updated_at', sa.DateTime(timezone=True), nullable=True,
-        server_default=sa.text('now()')
+    conn.execute(sa.text(
+        "CREATE INDEX IF NOT EXISTS ix_package_category ON packages (category)"
+    ))
+    conn.execute(sa.text(
+        "CREATE INDEX IF NOT EXISTS ix_answer_session_question ON answers (session_id, question_id)"
+    ))
+    conn.execute(sa.text(
+        "CREATE INDEX IF NOT EXISTS ix_exam_session_user_status ON exam_sessions (user_id, status)"
+    ))
+    conn.execute(sa.text(
+        "CREATE INDEX IF NOT EXISTS ix_exam_session_user_package ON exam_sessions (user_id, package_id)"
+    ))
+    conn.execute(sa.text(
+        "CREATE INDEX IF NOT EXISTS ix_chat_session_user_question ON chat_sessions (user_id, question_id)"
+    ))
+    conn.execute(sa.text(
+        "CREATE INDEX IF NOT EXISTS ix_chat_session_user_exam ON chat_sessions (user_id, exam_session_id)"
     ))
 
-    # 3. Add composite indexes to packages
-    op.create_index('ix_package_published_active', 'packages', ['is_published', 'is_active'], unique=False)
-    op.create_index('ix_package_category', 'packages', ['category'], unique=False)
-
-    # 4. Add composite index to answers
-    op.create_index('ix_answer_session_question', 'answers', ['session_id', 'question_id'], unique=False)
-
-    # 5. Add composite indexes to exam_sessions
-    op.create_index('ix_exam_session_user_status', 'exam_sessions', ['user_id', 'status'], unique=False)
-    op.create_index('ix_exam_session_user_package', 'exam_sessions', ['user_id', 'package_id'], unique=False)
-
-    # 6. Add composite indexes to chat_sessions
-    op.create_index('ix_chat_session_user_question', 'chat_sessions', ['user_id', 'question_id'], unique=False)
-    op.create_index('ix_chat_session_user_exam', 'chat_sessions', ['user_id', 'exam_session_id'], unique=False)
-
-    # 7. Update check_transaction_type constraint (remove single_package)
-    op.drop_constraint('check_transaction_type', 'user_transactions', type_='check')
+    # 10. Update check_transaction_type constraint (remove single_package)
+    try:
+        op.drop_constraint('check_transaction_type', 'user_transactions', type_='check')
+    except Exception:
+        pass
     op.create_check_constraint(
         'check_transaction_type', 'user_transactions',
         "transaction_type IN ('pro_upgrade', 'donation')"
     )
 
-    # 8. Update other check constraints to use SQL strings (idempotent re-creation)
-    # User role constraint
+    # 11. Update user role constraint
     try:
         op.drop_constraint('check_user_role', 'users', type_='check')
     except Exception:
@@ -65,7 +82,7 @@ def upgrade() -> None:
         "role IN ('admin', 'participant')"
     )
 
-    # Auth provider constraint
+    # 12. Update auth provider constraint
     try:
         op.drop_constraint('check_auth_provider', 'users', type_='check')
     except Exception:
@@ -77,22 +94,33 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # Remove new indexes
-    op.drop_index('ix_package_published_active', table_name='packages')
-    op.drop_index('ix_package_category', table_name='packages')
-    op.drop_index('ix_answer_session_question', table_name='answers')
-    op.drop_index('ix_exam_session_user_status', table_name='exam_sessions')
-    op.drop_index('ix_exam_session_user_package', table_name='exam_sessions')
-    op.drop_index('ix_chat_session_user_question', table_name='chat_sessions')
-    op.drop_index('ix_chat_session_user_exam', table_name='chat_sessions')
+    conn = op.get_bind()
+
+    # Remove indexes (IF EXISTS = safe)
+    conn.execute(sa.text("DROP INDEX IF EXISTS ix_package_published_active"))
+    conn.execute(sa.text("DROP INDEX IF EXISTS ix_package_category"))
+    conn.execute(sa.text("DROP INDEX IF EXISTS ix_answer_session_question"))
+    conn.execute(sa.text("DROP INDEX IF EXISTS ix_exam_session_user_status"))
+    conn.execute(sa.text("DROP INDEX IF EXISTS ix_exam_session_user_package"))
+    conn.execute(sa.text("DROP INDEX IF EXISTS ix_chat_session_user_question"))
+    conn.execute(sa.text("DROP INDEX IF EXISTS ix_chat_session_user_exam"))
 
     # Restore original constraint (with single_package)
-    op.drop_constraint('check_transaction_type', 'user_transactions', type_='check')
+    try:
+        op.drop_constraint('check_transaction_type', 'user_transactions', type_='check')
+    except Exception:
+        pass
     op.create_check_constraint(
         'check_transaction_type', 'user_transactions',
         "transaction_type IN ('pro_upgrade', 'single_package', 'donation')"
     )
-    
+
     # Remove updated_at columns
-    op.drop_column('user_transactions', 'updated_at')
-    op.drop_column('exam_sessions', 'updated_at')
+    try:
+        op.drop_column('user_transactions', 'updated_at')
+    except Exception:
+        pass
+    try:
+        op.drop_column('exam_sessions', 'updated_at')
+    except Exception:
+        pass
