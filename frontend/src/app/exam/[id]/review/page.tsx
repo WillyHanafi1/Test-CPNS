@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from 'react';
+import Latex from 'react-latex-next';
+import 'katex/dist/katex.min.css';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { 
@@ -202,9 +204,9 @@ export default function ReviewPage() {
               </div>
 
               <div className="space-y-6">
-                <p className="text-lg md:text-xl font-medium leading-relaxed text-slate-200">
-                  {currentQuestion.content}
-                </p>
+                <div className="text-lg md:text-xl font-medium leading-relaxed text-slate-200 overflow-x-auto">
+                  <Latex strict={false}>{currentQuestion.content ?? ''}</Latex>
+                </div>
 
                 {currentQuestion.image_url && (
                   <div className="rounded-2xl overflow-hidden border border-slate-800 max-w-sm shadow-2xl bg-slate-900/40 p-2">
@@ -247,9 +249,9 @@ export default function ReviewPage() {
                           {option.label}
                         </div>
                         <div className="flex-1 pt-1">
-                          <p className={`text-sm md:text-base ${isHighestScore || isUserSelection ? 'text-white font-medium' : 'text-slate-400'}`}>
-                            {option.content}
-                          </p>
+                           <div className={`text-sm md:text-base overflow-x-auto ${isHighestScore || isUserSelection ? 'text-white font-medium' : 'text-slate-400'}`}>
+                             <Latex strict={false}>{option.content ?? ''}</Latex>
+                           </div>
                           {option.image_url && (
                             <div className="mt-3 bg-white rounded-lg p-2 border border-slate-700 max-w-[150px]">
                               <img src={option.image_url} alt={`Option ${option.label}`} className="w-full h-auto" />
@@ -298,8 +300,8 @@ export default function ReviewPage() {
                 </div>
                 <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-6 md:p-8 space-y-4">
                   {currentQuestion.discussion ? (
-                    <div className="prose prose-invert max-w-none text-slate-300 leading-relaxed whitespace-pre-line">
-                      {currentQuestion.discussion}
+                    <div className="prose prose-invert max-w-none text-slate-300 leading-relaxed whitespace-pre-line overflow-x-auto">
+                      <Latex strict={false}>{currentQuestion.discussion ?? ''}</Latex>
                     </div>
                   ) : (
                     <div className="flex items-center text-slate-500 italic py-4">
