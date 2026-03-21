@@ -5,7 +5,7 @@ from typing import List, Optional
 import uuid
 
 from backend.db.session import get_async_session
-from backend.models.models import Package, Question, QuestionOption, UserTransaction, User
+from backend.models.models import Package, Question, QuestionOption, User
 from backend.schemas.package import (
     Package as PackageSchema, PackageCreate,
     Question as QuestionSchema, QuestionCreate, PackageWithQuestions,
@@ -93,7 +93,7 @@ async def get_active_weekly_package(
     """
     Get the currently active weekly tryout (if any).
     """
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = datetime.now(timezone.utc)
     
     query = (
         select(Package)
@@ -171,8 +171,7 @@ async def check_package_access(
     """
     Check if the current user has access to a specific package.
     Returns {has_access: bool}.
-    - Free packages always return True.
-    - Premium packages require a successful, non-expired transaction.
+    PRO-only model: free packages for all, premium packages require PRO.
     """
     result = await db.execute(select(Package).where(Package.id == package_id))
     package = result.scalar_one_or_none()
@@ -180,48 +179,25 @@ async def check_package_access(
     if not package:
         raise HTTPException(status_code=404, detail="Package not found")
 
-    # Fix: use timezone-aware datetime
     now = datetime.now(timezone.utc)
 
-    # 1. MENGUNCI SEMUA ORANG (Termasuk PRO) JIKA TRYOUT BELUM DIMULAI
+    # 1. Tryout belum dimulai — semua ditolak
     if package.start_at and package.start_at > now:
         return {"has_access": False, "reason": "upcoming", "start_at": package.start_at}
 
-    # 2. CEK STATUS PRO (Bisa akses soal meski masa tryout mingguan sudah lewat)
+    # 2. Paket gratis (is_premium=False) — akses terbuka
+    if not package.is_premium:
+        return {"has_access": True, "reason": "free_package"}
+
+    # 3. Paket premium — harus PRO
     if current_user.is_pro_active:
         return {"has_access": True, "reason": "pro_account"}
 
-    # 3. MENGUNCI PENGGUNA GRATIS JIKA MASA TRYOUT SUDAH HABIS
+    # 4. Tryout expired untuk non-PRO
     if package.end_at and package.end_at < now:
         return {"has_access": False, "reason": "expired", "end_at": package.end_at}
 
-    # 4. CEK PAKET PREMIUM UMUM
-    if not package.is_premium or package.price == 0:
-        return {"has_access": True}
-
-    # 5. CEK TRANSAKSI PEMBELIAN PAKET (Individual)
-    # Query transaksi sukses untuk paket ini yang belum expired
-    from sqlalchemy import and_
-    tx_result = await db.execute(
-        select(UserTransaction)
-        .where(
-            and_(
-                UserTransaction.user_id == current_user.id,
-                UserTransaction.package_id == package_id,
-                UserTransaction.payment_status == "success"
-            )
-        )
-        .order_by(UserTransaction.created_at.desc())
-        .limit(1)
-    )
-    transaction = tx_result.scalar_one_or_none()
-    
-    if transaction and (
-        not transaction.access_expires_at or transaction.access_expires_at > now
-    ):
-        return {"has_access": True, "reason": "purchased"}
-
-    return {"has_access": False, "reason": "subscription_required"}
+    return {"has_access": False, "reason": "pro_required"}
 
 
 # ── Admin Endpoints have been moved to admin/packages.py and admin/questions.py ──

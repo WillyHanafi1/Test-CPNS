@@ -49,43 +49,46 @@ async def get_overview_stats(
     if cached:
         return cached
 
-    # Parallelize counts for better performance
-    import asyncio
-    
-    # Define tasks
-    t_users = db.scalar(select(func.count(User.id)))
-    t_pkgs = db.scalar(select(func.count(Package.id)))
-    t_qs = db.scalar(select(func.count(Question.id)))
-    
-    # Revenue (success transactions)
-    rev_stmt = select(func.sum(UserTransaction.amount)).where(UserTransaction.payment_status == "success")
-    t_rev = db.scalar(rev_stmt)
-    
-    t_trans = db.scalar(select(func.count(UserTransaction.id)).where(UserTransaction.payment_status == "success"))
-    
-    # Active exams (started in last 2 hours AND still ongoing)
-    two_hours_ago = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=2)
-    t_active = db.scalar(
-        select(func.count(ExamSession.id)).where(
-            and_(
-                ExamSession.status == "ongoing",
-                ExamSession.start_time >= two_hours_ago
-            )
-        )
-    )
+    # Single query with scalar subqueries — safe (no concurrent session usage)
+    # and efficient (one DB roundtrip)
+    two_hours_ago = datetime.now(timezone.utc) - timedelta(hours=2)
 
-    # Execute all concurrently
-    user_count, pkg_count, q_count, revenue, trans_count, active_exams = await asyncio.gather(
-        t_users, t_pkgs, t_qs, t_rev, t_trans, t_active
+    stats_result = await db.execute(
+        select(
+            func.count(User.id).label("total_users"),
+            (select(func.count()).select_from(Package)).scalar_subquery().label("total_packages"),
+            (select(func.count()).select_from(Question)).scalar_subquery().label("total_questions"),
+            func.coalesce(
+                select(func.sum(UserTransaction.amount))
+                .where(UserTransaction.payment_status == "success")
+                .scalar_subquery(), 0
+            ).label("total_revenue"),
+            func.coalesce(
+                select(func.count())
+                .select_from(UserTransaction)
+                .where(UserTransaction.payment_status == "success")
+                .scalar_subquery(), 0
+            ).label("success_transactions"),
+            func.coalesce(
+                select(func.count(ExamSession.id))
+                .where(
+                    ExamSession.status == "ongoing",
+                    ExamSession.start_time >= two_hours_ago,
+                    ExamSession.is_preview.is_(False)
+                )
+                .scalar_subquery(), 0
+            ).label("active_exams"),
+        ).select_from(User)
     )
+    row = stats_result.one()
 
     result_data = {
-        "total_users": user_count or 0,
-        "total_packages": pkg_count or 0,
-        "total_questions": q_count or 0,
-        "total_revenue": revenue or 0,
-        "success_transactions": trans_count or 0,
-        "active_exams": active_exams or 0
+        "total_users": row.total_users or 0,
+        "total_packages": row.total_packages or 0,
+        "total_questions": row.total_questions or 0,
+        "total_revenue": row.total_revenue or 0,
+        "success_transactions": row.success_transactions or 0,
+        "active_exams": row.active_exams or 0
     }
 
     # Cache for 5 minutes
@@ -110,7 +113,7 @@ async def get_exam_performance(
         func.avg(ExamSession.score_twk).label("avg_twk"),
         func.avg(ExamSession.score_tiu).label("avg_tiu"),
         func.avg(ExamSession.score_tkp).label("avg_tkp")
-    ).where(ExamSession.status == "finished")
+    ).where(and_(ExamSession.status == "finished", ExamSession.is_preview.is_(False)))
     
     stats_result = await db.execute(stats_stmt)
     stats = stats_result.fetchone()
@@ -127,7 +130,8 @@ async def get_exam_performance(
             ExamSession.status == "finished",
             ExamSession.score_twk >= PASSING_GRADE["TWK"],
             ExamSession.score_tiu >= PASSING_GRADE["TIU"],
-            ExamSession.score_tkp >= PASSING_GRADE["TKP"]
+            ExamSession.score_tkp >= PASSING_GRADE["TKP"],
+            ExamSession.is_preview.is_(False)
         )
     )
     passed_count = await db.scalar(passed_stmt) or 0
@@ -141,7 +145,7 @@ async def get_exam_performance(
         func.count(case((and_(ExamSession.total_score >= 301, ExamSession.total_score <= 400), 1))).label("bucket_301_400"),
         func.count(case((and_(ExamSession.total_score >= 401, ExamSession.total_score <= 500), 1))).label("bucket_401_500"),
         func.count(case((ExamSession.total_score >= 501, 1))).label("bucket_501_plus")
-    ).where(ExamSession.status == "finished")
+    ).where(and_(ExamSession.status == "finished", ExamSession.is_preview.is_(False)))
     
     dist_result = await db.execute(dist_stmt)
     d = dist_result.fetchone()
@@ -180,7 +184,7 @@ async def get_revenue_trends(
     if cached:
         return cached
 
-    start_date = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
+    start_date = datetime.now(timezone.utc) - timedelta(days=days)
     
     # Daily Revenue (Exclude donations for consistent package analytics)
     stmt = (
@@ -230,3 +234,4 @@ async def get_revenue_trends(
     await redis_service.set_cache(cache_key, result_data, expire=900)
     
     return result_data
+

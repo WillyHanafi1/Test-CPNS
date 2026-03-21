@@ -5,10 +5,10 @@ from sqlalchemy.orm import selectinload
 import uuid
 from typing import List, Optional
 from pydantic import BaseModel, ConfigDict
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 from backend.db.session import get_async_session
-from backend.models.models import Package, Question, User, QuestionOption, ExamSession
+from backend.models.models import Package, Question, User, QuestionOption, ExamSession, Answer
 from backend.api.v1.endpoints.auth import get_current_admin
 from backend.core.redis_service import redis_service
 
@@ -267,3 +267,84 @@ async def copy_package_admin(
     await redis_service.clear_pattern("package_public:*")
     
     return new_pkg
+
+@router.post("/{package_id}/quick-preview")
+async def quick_preview_package(
+    package_id: uuid.UUID,
+    db: AsyncSession = Depends(get_async_session),
+    admin: User = Depends(get_current_admin)
+):
+    """
+    Generate a mock finished exam session for an admin to preview 
+    the result and discussion pages instantly.
+    """
+    # 1. Verify package exists with questions and options
+    result = await db.execute(
+        select(Package)
+        .options(selectinload(Package.questions).selectinload(Question.options))
+        .where(Package.id == package_id)
+    )
+    package = result.scalar_one_or_none()
+    if not package:
+        raise HTTPException(status_code=404, detail="Package not found")
+    
+    if not package.questions:
+        raise HTTPException(status_code=400, detail="Package has no questions to preview")
+
+    # 2. Create a mock finished session
+    now = datetime.now(timezone.utc)
+    session = ExamSession(
+        id=uuid.uuid4(),
+        user_id=admin.id,
+        package_id=package_id,
+        status="finished",
+        is_preview=True,
+        start_time=datetime.now(timezone.utc).replace(tzinfo=None),
+        end_time=now,
+        total_score=0, # Will calculate below
+        score_twk=0,
+        score_tiu=0,
+        score_tkp=0,
+        is_passed=True
+    )
+    db.add(session)
+    await db.flush()
+
+    # 3. Create mock answers (all correct/highest score)
+    total_score = 0
+    s_twk = 0
+    s_tiu = 0
+    s_tkp = 0
+
+    for q in package.questions:
+        # Pick the option with highest score
+        best_option = max(q.options, key=lambda o: o.score) if q.options else None
+        
+        if best_option:
+            ans = Answer(
+                session_id=session.id,
+                question_id=q.id,
+                option_id=best_option.id,
+                selected_option=best_option.label,
+                points_earned=best_option.score
+            )
+            db.add(ans)
+            
+            # Update scores
+            total_score += best_option.score
+            if q.segment == "TWK": s_twk += best_option.score
+            elif q.segment == "TIU": s_tiu += best_option.score
+            elif q.segment == "TKP": s_tkp += best_option.score
+
+    # 4. Finalize session scores
+    session.total_score = total_score
+    session.score_twk = s_twk
+    session.score_tiu = s_tiu
+    session.score_tkp = s_tkp
+    
+    await db.commit()
+    
+    # NOTE: We intentionally DO NOT update the Redis leaderboard here 
+    # to avoid polluting national rankings with admin preview data.
+
+    return {"session_id": session.id}

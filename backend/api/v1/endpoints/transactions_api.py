@@ -367,10 +367,6 @@ async def fulfill_transaction(db: AsyncSession, order_id: str, payment_status: s
                 user.pro_expires_at = user.pro_expires_at + timedelta(days=365)
             else:
                 user.pro_expires_at = now + timedelta(days=365)
-        elif transaction.transaction_type == "single_package":
-            now = datetime.now(timezone.utc)
-            # Default access: 1 year from purchase
-            transaction.access_expires_at = now + timedelta(days=365)
             
     # [REVOCATION LOGIC FIX]
     elif user and payment_status == "failed":
@@ -394,7 +390,5 @@ async def fulfill_transaction(db: AsyncSession, order_id: str, payment_status: s
                 logger.info(f"User {user.email} PRO status revoked due to failed transaction.")
             else:
                 logger.info(f"User {user.email} still has valid PRO access from another transaction. Revocation skipped.")
-        elif transaction.transaction_type == "single_package":
-            transaction.access_expires_at = None
                 
     await db.commit()

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Body
+from fastapi import APIRouter, Depends, HTTPException, status, Body, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -10,11 +10,11 @@ from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 
 from backend.db.session import get_async_session
-from backend.models.models import Package, Question, ExamSession, User, Answer, QuestionOption, UserTransaction
+from backend.models.models import Package, Question, ExamSession, User, Answer, QuestionOption
 from backend.api.v1.endpoints.auth import get_current_user
 from backend.core.redis_service import redis_service
 from backend.schemas.exam import ExamSessionListItem
-from backend.core.tasks import calculate_exam_score, async_run_scoring
+from backend.core.tasks import calculate_exam_score, async_run_scoring, generate_ai_analysis_task
 from sqlalchemy import func, case
 
 logger = logging.getLogger(__name__)
@@ -109,30 +109,12 @@ async def start_exam(
             await redis_service.redis.sadd(valid_options_key, *valid_ids)
             await redis_service.redis.expire(valid_options_key, 10800)
 
-    # Fix #6: RBAC enforcement — verify user has access to premium packages
-    if package.is_premium and package.price > 0:
-        if not current_user.is_pro_active:
-            tx_result = await db.execute(
-                select(UserTransaction)
-                .where(
-                    UserTransaction.user_id == current_user.id,
-                    UserTransaction.package_id == package_id,
-                    UserTransaction.payment_status == "success",
-                )
-                .order_by(UserTransaction.created_at.desc())
-                .limit(1)
-            )
-            transaction = tx_result.scalar_one_or_none()
-            if not transaction:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Anda belum memiliki akses ke paket ini. Silakan beli terlebih dahulu atau upgrade ke PRO."
-                )
-            if transaction.access_expires_at and transaction.access_expires_at < now:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Akses Anda ke paket ini telah kedaluwarsa."
-                )
+    # RBAC enforcement — premium packages require PRO subscription
+    if package.is_premium and not current_user.is_pro_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Paket ini hanya tersedia untuk pengguna PRO. Silakan upgrade ke PRO untuk mengakses seluruh paket."
+        )
 
     # 2. Check for duplicate "ongoing" session or finished session for Weekly TO
     # 2. Prevent Multiple Ongoing Sessions (Global Policy)
@@ -343,7 +325,7 @@ async def finish_exam(
         # Celery worker/broker not available — score synchronously as fallback
         logger.warning(f"Celery unavailable ({e}), falling back to synchronous scoring")
         try:
-            scoring_result = await async_run_scoring(
+            await async_run_scoring(
                 str(session_id), str(current_user.id), current_user.email
             )
             # Re-fetch session to get updated scores from the scoring function
@@ -351,10 +333,10 @@ async def finish_exam(
             return {
                 "status": "finished",
                 "package_id": str(session.package_id),
-                "total_score": getattr(session, 'total_score', 0) or 0,
-                "score_twk": scoring_result.get('score_twk', getattr(session, 'score_twk', 0)) or 0,
-                "score_tiu": scoring_result.get('score_tiu', getattr(session, 'score_tiu', 0)) or 0,
-                "score_tkp": scoring_result.get('score_tkp', getattr(session, 'score_tkp', 0)) or 0
+                "total_score": session.total_score or 0,
+                "score_twk": session.score_twk or 0,
+                "score_tiu": session.score_tiu or 0,
+                "score_tkp": session.score_tkp or 0
             }
         except Exception as fallback_error:
             # Revert status agar user bisa retry
@@ -539,7 +521,8 @@ async def get_my_stats(
         func.count(case((ExamSession.is_passed == True, 1))).label("passed")
     ).where(
         ExamSession.user_id == current_user.id,
-        ExamSession.status == "finished"
+        ExamSession.status == "finished",
+        ExamSession.is_preview == False
     )
     
     result = await db.execute(query)
@@ -576,15 +559,19 @@ async def get_my_rank(
 
 @router.get("/sessions/me", response_model=List[ExamSessionListItem])
 async def get_my_sessions(
+    limit: int = Query(20, ge=1, le=50),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_user)
 ):
-    # Fetch all sessions for current user with package info
+    # Fetch sessions for current user with package info (paginated)
     result = await db.execute(
         select(ExamSession, Package.title.label("package_title"))
         .join(Package, ExamSession.package_id == Package.id)
-        .where(ExamSession.user_id == current_user.id)
+        .where(ExamSession.user_id == current_user.id, ExamSession.is_preview.is_(False))
         .order_by(ExamSession.start_time.desc())
+        .offset(offset)
+        .limit(limit)
     )
     
     sessions = []
@@ -621,7 +608,11 @@ async def generate_manual_ai(
 
     # 2. Validation: Sesi milik user dan sudah selesai
     result = await db.execute(
-        select(ExamSession).where(ExamSession.id == session_id, ExamSession.user_id == current_user.id)
+        select(ExamSession).where(
+            ExamSession.id == session_id, 
+            ExamSession.user_id == current_user.id,
+            ExamSession.is_preview == False
+        )
     )
     session = result.scalar_one_or_none()
     if not session:
@@ -637,7 +628,6 @@ async def generate_manual_ai(
         return {"status": "completed", "message": "Analisis AI sudah tersedia."}
 
     # 4. Prepare data for AI
-    from backend.models.models import Answer, Question
     ans_result = await db.execute(
         select(Answer, Question.sub_category)
         .join(Question, Answer.question_id == Question.id)
@@ -668,7 +658,8 @@ async def generate_manual_ai(
         .where(
             ExamSession.user_id == current_user.id,
             ExamSession.id != session_id,
-            ExamSession.status == "finished"
+            ExamSession.status == "finished",
+            ExamSession.is_preview.is_(False)
         )
         .order_by(ExamSession.start_time.desc())
         .limit(5)
@@ -691,7 +682,6 @@ async def generate_manual_ai(
     session.ai_status = "processing"
     await db.commit()
     
-    from backend.core.tasks import generate_ai_analysis_task
     generate_ai_analysis_task.delay(str(session_id), current_stats, history_data)
 
     return {"status": "processing", "message": "Permintaan Analisis AI telah dikirim dengan data riwayat."}

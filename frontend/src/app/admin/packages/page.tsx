@@ -3,18 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { 
-  Plus, 
-  Search, 
-  Filter, 
-  Trash2, 
-  Edit, 
-  Package,
-  MoreVertical,
-  CheckCircle2,
-  AlertCircle,
-  X,
-  Loader2
+  ChevronLeft, ChevronRight, Search, Plus, Filter, 
+  Settings, Trash2, Edit2, CheckCircle, XCircle, 
+  ExternalLink, Eye, Package, X, Loader2, AlertCircle
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -40,9 +33,13 @@ export default function PackagesAdmin() {
   
   // Modals state
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [packageToDelete, setPackageToDelete] = useState<string | null>(null);
   const [selectedPackage, setSelectedPackage] = useState<any>(null);
   const [formLoading, setFormLoading] = useState(false);
+
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const router = useRouter();
 
   // Form state
   const [formData, setFormData] = useState({
@@ -72,22 +69,25 @@ export default function PackagesAdmin() {
 
   useEffect(() => {
     fetchPackages();
-  }, [page, category, includeArchived]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, category, includeArchived, debouncedSearch]);
 
-  // Debounced search effect
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (page !== 1) setPage(1);
-      else fetchPackages();
+      setDebouncedSearch(search);
     }, 500);
     return () => clearTimeout(timer);
   }, [search]);
+
+  useEffect(() => {
+    if (page !== 1) setPage(1);
+  }, [debouncedSearch, category, includeArchived]);
 
   const fetchPackages = async () => {
     setLoading(true);
     try {
       let url = `${API_URL}/api/v1/admin/packages?page=${page}&size=10`;
-      if (search) url += `&search=${encodeURIComponent(search)}`;
+      if (debouncedSearch) url += `&search=${encodeURIComponent(debouncedSearch)}`;
       if (category) url += `&category=${category}`;
       if (includeArchived) url += `&include_archived=true`;
       
@@ -213,7 +213,7 @@ export default function PackagesAdmin() {
 
       if (response.ok) {
         toast.success('Paket berhasil diarsipkan');
-        setIsDeleteModalOpen(false);
+        setShowDeleteModal(false);
         fetchPackages();
       } else {
         toast.error('Gagal mengarsipkan paket');
@@ -222,6 +222,32 @@ export default function PackagesAdmin() {
       toast.error('Terjadi kesalahan sistem');
     } finally {
       setFormLoading(false);
+    }
+  };
+
+  const handlePreviewPackage = async (pkgId: string) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/v1/admin/packages/${pkgId}/quick-preview`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Gagal membuat pratinjau');
+      }
+      
+      const data = await response.json();
+      toast.success('Pratinjau berhasil dibuat! Mengalihkan...');
+      
+      // Redirect to the result page of the newly created mock session
+      router.push(`/exam/${data.session_id}/result`);
+    } catch (error: any) {
+      console.error("Preview error:", error);
+      toast.error(error.message || 'Gagal membuat pratinjau');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -303,10 +329,19 @@ export default function PackagesAdmin() {
               <Button 
                 variant="ghost" 
                 size="icon" 
+                title="Pratinjau Hasil & Pembahasan"
+                className="w-10 h-10 rounded-xl hover:bg-indigo-500/10 hover:text-indigo-400 transition-all"
+                onClick={() => handlePreviewPackage(pkg.id)}
+              >
+                <Eye className="w-4 h-4" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
                 className="w-10 h-10 rounded-xl hover:bg-slate-800 hover:text-white transition-all"
                 onClick={() => handleOpenEdit(pkg)}
               >
-                <Edit className="w-4 h-4" />
+                <Edit2 className="w-4 h-4" />
               </Button>
               <Button 
                 variant="ghost" 
@@ -314,7 +349,7 @@ export default function PackagesAdmin() {
                 className="w-10 h-10 rounded-xl hover:bg-rose-500/10 hover:text-rose-400 transition-all"
                 onClick={() => {
                   setSelectedPackage(pkg);
-                  setIsDeleteModalOpen(true);
+                  setShowDeleteModal(true);
                 }}
               >
                 <Trash2 className="w-4 h-4" />
@@ -327,7 +362,7 @@ export default function PackagesAdmin() {
               className="rounded-xl border-slate-700 hover:bg-emerald-500/10 hover:text-emerald-400 text-[10px] font-bold h-8"
               onClick={() => handleRestore(pkg.id)}
             >
-              <CheckCircle2 className="w-3 h-3 mr-1" />
+              <CheckCircle className="w-3 h-3 mr-1" />
               Restore
             </Button>
           )}
@@ -553,7 +588,7 @@ export default function PackagesAdmin() {
                          className="flex-[2] bg-indigo-600 hover:bg-indigo-700 py-7 rounded-2xl font-bold shadow-xl shadow-indigo-600/20"
                          disabled={formLoading}
                        >
-                          {formLoading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : (selectedPackage ? <CheckCircle2 className="w-5 h-5 mr-2" /> : <Plus className="w-5 h-5 mr-2" />)}
+                          {formLoading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : (selectedPackage ? <CheckCircle className="w-5 h-5 mr-2" /> : <Plus className="w-5 h-5 mr-2" />)}
                           {selectedPackage ? 'Update Paket' : 'Buat Paket'}
                        </Button>
                     </div>
@@ -565,8 +600,8 @@ export default function PackagesAdmin() {
 
       {/* Delete Modal */}
       <ConfirmModal 
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
         onConfirm={handleDelete}
         title="Arsipkan Paket?"
         description={`Apakah Anda yakin ingin mengarsipkan paket "${selectedPackage?.title}"? Paket akan disembunyikan dari daftar utama tetapi data sejarah pengerjaan tetap tersimpan.`}

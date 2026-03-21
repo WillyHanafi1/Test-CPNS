@@ -16,6 +16,22 @@ from backend.core.ai_service import ai_service
 from backend.core.constants import PASSING_GRADE
 from backend.config import settings
 
+
+# ====================================================================
+# Helper: DRY Celery async wrapper
+# ====================================================================
+
+def run_async_task(coro_func):
+    """Wrapper to run async function in a new event loop for Celery."""
+    def wrapper(*args, **kwargs):
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(coro_func(*args, **kwargs))
+        finally:
+            loop.close()
+    return wrapper
+
 # ====================================================================
 # Loggers
 # ====================================================================
@@ -140,7 +156,7 @@ async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: s
                 result_package = await db.execute(select(Package).where(Package.id == session.package_id))
                 package_obj = result_package.scalar_one_or_none()
 
-                if package_obj and package_obj.is_weekly:
+                if package_obj and package_obj.is_weekly and not session.is_preview:
                     now_utc = datetime.now(timezone.utc)
                     if package_obj.end_at and now_utc > package_obj.end_at:
                         logger_scoring.info(f"Tryout {session.package_id} expired at {package_obj.end_at} — skipping leaderboard update")
@@ -163,7 +179,14 @@ async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: s
                 await redis_client.aclose()
 
         logger_scoring.info(f"Scoring completed — session={session_id_str} total={total_score}")
-        return {"session_id": session_id_str, "total_score": total_score, "status": "success"}
+        return {
+            "session_id": session_id_str,
+            "total_score": total_score,
+            "score_twk": score_twk,
+            "score_tiu": score_tiu,
+            "score_tkp": score_tkp,
+            "status": "success"
+        }
 
     except (OperationalError, ConnectionError):
         # Explicitly raise for Celery autoretry_for
@@ -187,12 +210,7 @@ async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: s
     default_retry_delay=10,
 )
 def calculate_exam_score(session_id: str, user_id: str, user_email: str):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        return loop.run_until_complete(async_run_scoring(session_id, user_id, user_email))
-    finally:
-        loop.close()
+    return run_async_task(async_run_scoring)(session_id, user_id, user_email)
 
 
 # ====================================================================
@@ -286,12 +304,7 @@ async def _mark_session_expired(session_factory, session_id: uuid.UUID):
     default_retry_delay=60,
 )
 def auto_finish_expired_sessions():
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        return loop.run_until_complete(async_auto_finish_expired())
-    finally:
-        loop.close()
+    return run_async_task(async_auto_finish_expired)()
 
 
 # ====================================================================
@@ -319,7 +332,8 @@ async def async_generate_ai_analysis(session_id_str: str, stats: dict, history: 
                         .where(
                             ExamSession.user_id == current_session.user_id,
                             ExamSession.status == "finished",
-                            ExamSession.id != session_id
+                            ExamSession.id != session_id,
+                            ExamSession.is_preview == False
                         )
                         .order_by(ExamSession.start_time.desc())
                         .limit(3)
@@ -372,9 +386,4 @@ async def async_generate_ai_analysis(session_id_str: str, stats: dict, history: 
     default_retry_delay=10,
 )
 def generate_ai_analysis_task(session_id: str, stats: dict, history: list = None):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        return loop.run_until_complete(async_generate_ai_analysis(session_id, stats, history))
-    finally:
-        loop.close()
+    return run_async_task(async_generate_ai_analysis)(session_id, stats, history)
