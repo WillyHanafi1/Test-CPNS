@@ -21,25 +21,19 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     conn = op.get_bind()
 
-    # 1. Add updated_at to exam_sessions (idempotent)
-    try:
-        op.add_column('exam_sessions', sa.Column(
-            'updated_at', sa.DateTime(timezone=True), nullable=True,
-            server_default=sa.text('now()')
-        ))
-    except Exception:
-        pass  # Column already exists
+    # 1. Add updated_at to exam_sessions — IF NOT EXISTS (avoids transaction abort)
+    conn.execute(sa.text("""
+        ALTER TABLE exam_sessions
+        ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+    """))
 
-    # 2. Add updated_at to user_transactions (idempotent)
-    try:
-        op.add_column('user_transactions', sa.Column(
-            'updated_at', sa.DateTime(timezone=True), nullable=True,
-            server_default=sa.text('now()')
-        ))
-    except Exception:
-        pass  # Column already exists
+    # 2. Add updated_at to user_transactions — IF NOT EXISTS
+    conn.execute(sa.text("""
+        ALTER TABLE user_transactions
+        ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+    """))
 
-    # 3-9. Create indexes using IF NOT EXISTS (safe for re-runs)
+    # 3. Indexes — IF NOT EXISTS (fully idempotent)
     conn.execute(sa.text(
         "CREATE INDEX IF NOT EXISTS ix_package_published_active ON packages (is_published, is_active)"
     ))
@@ -62,41 +56,42 @@ def upgrade() -> None:
         "CREATE INDEX IF NOT EXISTS ix_chat_session_user_exam ON chat_sessions (user_id, exam_session_id)"
     ))
 
-    # 10. Update check_transaction_type constraint (remove single_package)
-    try:
-        op.drop_constraint('check_transaction_type', 'user_transactions', type_='check')
-    except Exception:
-        pass
-    op.create_check_constraint(
-        'check_transaction_type', 'user_transactions',
-        "transaction_type IN ('pro_upgrade', 'donation')"
-    )
+    # 4. Update check_transaction_type — drop IF EXISTS, then create
+    conn.execute(sa.text("""
+        ALTER TABLE user_transactions
+        DROP CONSTRAINT IF EXISTS check_transaction_type
+    """))
+    conn.execute(sa.text("""
+        ALTER TABLE user_transactions
+        ADD CONSTRAINT check_transaction_type
+        CHECK (transaction_type IN ('pro_upgrade', 'donation'))
+    """))
 
-    # 11. Update user role constraint
-    try:
-        op.drop_constraint('check_user_role', 'users', type_='check')
-    except Exception:
-        pass
-    op.create_check_constraint(
-        'check_user_role', 'users',
-        "role IN ('admin', 'participant')"
-    )
+    # 5. Update check_user_role — drop IF EXISTS, then create
+    conn.execute(sa.text("""
+        ALTER TABLE users DROP CONSTRAINT IF EXISTS check_user_role
+    """))
+    conn.execute(sa.text("""
+        ALTER TABLE users
+        ADD CONSTRAINT check_user_role
+        CHECK (role IN ('admin', 'participant'))
+    """))
 
-    # 12. Update auth provider constraint
-    try:
-        op.drop_constraint('check_auth_provider', 'users', type_='check')
-    except Exception:
-        pass
-    op.create_check_constraint(
-        'check_auth_provider', 'users',
-        "auth_provider IN ('local', 'google')"
-    )
+    # 6. Update check_auth_provider — drop IF EXISTS, then create
+    conn.execute(sa.text("""
+        ALTER TABLE users DROP CONSTRAINT IF EXISTS check_auth_provider
+    """))
+    conn.execute(sa.text("""
+        ALTER TABLE users
+        ADD CONSTRAINT check_auth_provider
+        CHECK (auth_provider IN ('local', 'google'))
+    """))
 
 
 def downgrade() -> None:
     conn = op.get_bind()
 
-    # Remove indexes (IF EXISTS = safe)
+    # Remove indexes
     conn.execute(sa.text("DROP INDEX IF EXISTS ix_package_published_active"))
     conn.execute(sa.text("DROP INDEX IF EXISTS ix_package_category"))
     conn.execute(sa.text("DROP INDEX IF EXISTS ix_answer_session_question"))
@@ -106,21 +101,19 @@ def downgrade() -> None:
     conn.execute(sa.text("DROP INDEX IF EXISTS ix_chat_session_user_exam"))
 
     # Restore original constraint (with single_package)
-    try:
-        op.drop_constraint('check_transaction_type', 'user_transactions', type_='check')
-    except Exception:
-        pass
-    op.create_check_constraint(
-        'check_transaction_type', 'user_transactions',
-        "transaction_type IN ('pro_upgrade', 'single_package', 'donation')"
-    )
+    conn.execute(sa.text("""
+        ALTER TABLE user_transactions DROP CONSTRAINT IF EXISTS check_transaction_type
+    """))
+    conn.execute(sa.text("""
+        ALTER TABLE user_transactions
+        ADD CONSTRAINT check_transaction_type
+        CHECK (transaction_type IN ('pro_upgrade', 'single_package', 'donation'))
+    """))
 
     # Remove updated_at columns
-    try:
-        op.drop_column('user_transactions', 'updated_at')
-    except Exception:
-        pass
-    try:
-        op.drop_column('exam_sessions', 'updated_at')
-    except Exception:
-        pass
+    conn.execute(sa.text(
+        "ALTER TABLE user_transactions DROP COLUMN IF EXISTS updated_at"
+    ))
+    conn.execute(sa.text(
+        "ALTER TABLE exam_sessions DROP COLUMN IF EXISTS updated_at"
+    ))
