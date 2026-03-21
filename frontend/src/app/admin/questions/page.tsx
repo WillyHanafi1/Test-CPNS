@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
@@ -426,17 +426,20 @@ export default function QuestionsAdmin() {
       {isDrawerOpen && (
         <div className="fixed inset-0 z-[70] overflow-hidden">
            <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity" onClick={() => setIsDrawerOpen(false)} />
-           <div className={`absolute top-0 right-0 h-full w-full max-w-2xl bg-slate-950 border-l border-slate-800 shadow-2xl transform transition-transform duration-500 ease-in-out overflow-y-auto ${isDrawerOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-              <div className="p-10 pb-32">
-                 <div className="flex items-center justify-between mb-10">
-                    <div>
-                       <h2 className="text-3xl font-black tracking-tight">{isEditing ? 'Edit Soal' : 'Tambah Soal Baru'}</h2>
-                       <p className="text-xs font-bold text-indigo-400 uppercase tracking-widest mt-1">CAT CPNS Engine Editor</p>
-                    </div>
-                    <Button variant="ghost" size="icon" onClick={() => setIsDrawerOpen(false)} className="rounded-2xl hover:bg-slate-900">
-                       <X className="w-6 h-6" />
-                    </Button>
+           <div className={`absolute top-0 right-0 h-full w-full max-w-2xl bg-slate-950 border-l border-slate-800 shadow-2xl flex flex-col transform transition-transform duration-500 ease-in-out ${isDrawerOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+              {/* Drawer Header â€” stays fixed at top */}
+              <div className="flex items-center justify-between px-10 py-8 border-b border-slate-800 flex-shrink-0">
+                 <div>
+                    <h2 className="text-3xl font-black tracking-tight">{isEditing ? 'Edit Soal' : 'Tambah Soal Baru'}</h2>
+                    <p className="text-xs font-bold text-indigo-400 uppercase tracking-widest mt-1">CAT CPNS Engine Editor</p>
                  </div>
+                 <Button variant="ghost" size="icon" onClick={() => setIsDrawerOpen(false)} className="rounded-2xl hover:bg-slate-900">
+                    <X className="w-6 h-6" />
+                 </Button>
+              </div>
+
+              {/* Scrollable content area */}
+              <div className="flex-1 overflow-y-auto p-10">
 
                  <form onSubmit={saveQuestion} className="space-y-8">
                     {/* Basic Info */}
@@ -483,9 +486,10 @@ export default function QuestionsAdmin() {
                                 <div className="w-12 h-12 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center font-black text-slate-500 group-hover:border-indigo-500 group-hover:text-indigo-400 transition-colors">
                                    {opt.label}
                                 </div>
-                                <Input 
-                                   className="flex-1 bg-slate-900 border-slate-800 p-6 rounded-2xl text-sm"
+                                <textarea
+                                   className="flex-1 bg-slate-900 border border-slate-800 rounded-2xl p-3 text-sm text-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none leading-relaxed min-h-[48px]"
                                    value={opt.content}
+                                   rows={2}
                                    onChange={(e) => {
                                       const newOpts = [...currentQuestion.options];
                                       newOpts[index].content = e.target.value;
@@ -526,28 +530,30 @@ export default function QuestionsAdmin() {
                        />
                     </div>
 
-                    <div className="fixed bottom-0 right-0 w-full max-w-2xl bg-slate-950 p-6 border-t border-slate-800 flex space-x-4">
-                       <Button 
-                          type="button" 
-                          variant="ghost" 
-                          className="flex-1 py-7 rounded-2xl font-bold text-slate-400"
-                          onClick={() => setIsDrawerOpen(false)}
-                       >
-                          Batal
-                       </Button>
-                       <Button 
-                          type="submit" 
-                          className="flex-[2] bg-indigo-600 hover:bg-indigo-700 py-7 rounded-2xl font-bold shadow-xl shadow-indigo-600/20"
-                          disabled={formLoading}
-                       >
-                          {formLoading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <CheckCircle2 className="w-5 h-5 mr-2" />}
-                          Simpan Perubahan
-                       </Button>
-                    </div>
-                 </form>
-              </div>
-           </div>
-        </div>
+               </form>
+            </div>
+
+               <div className="flex-shrink-0 bg-slate-950 p-6 border-t border-slate-800 flex space-x-4">
+                  <Button
+                     type="button"
+                     variant="ghost"
+                     className="flex-1 py-7 rounded-2xl font-bold text-slate-400"
+                     onClick={() => setIsDrawerOpen(false)}
+                  >
+                     Batal
+                  </Button>
+                  <Button
+                     type="submit"
+                     form="question-form"
+                     className="flex-[2] bg-indigo-600 hover:bg-indigo-700 py-7 rounded-2xl font-bold shadow-xl shadow-indigo-600/20"
+                     disabled={formLoading}
+                  >
+                     {formLoading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <CheckCircle2 className="w-5 h-5 mr-2" />}
+                     Simpan Perubahan
+                  </Button>
+               </div>
+            </div>
+         </div>
       )}
 
       <ConfirmModal 
@@ -598,7 +604,7 @@ export default function QuestionsAdmin() {
                       <p className="text-xs font-black text-rose-400 uppercase tracking-widest mb-2">Daftar Kesalahan Baris:</p>
                       <ul className="space-y-1">
                          {importErrors.map((err, i) => (
-                           <li key={i} className="text-[11px] text-rose-300 font-medium leading-relaxed italic">• {err}</li>
+                           <li key={i} className="text-[11px] text-rose-300 font-medium leading-relaxed italic">â€¢ {err}</li>
                          ))}
                       </ul>
                    </div>
@@ -688,3 +694,4 @@ export default function QuestionsAdmin() {
     </div>
   );
 }
+
