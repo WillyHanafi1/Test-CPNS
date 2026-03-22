@@ -29,7 +29,6 @@ const FEATURES = [
   'Simulasi waktu real-time 100 menit',
   'Pembahasan soal mendalam setelah ujian',
   'Statistik performa per kategori (TWK/TIU/TKP)',
-  'Peringkat nasional Live Leaderboard',
   'Bisa diulang tanpa batas',
 ];
 
