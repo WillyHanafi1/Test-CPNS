@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { BookOpen, Clock, Star } from 'lucide-react';
+import { BookOpen, Clock, Star, CheckCircle2 } from 'lucide-react';
 
 interface PackageProps {
   id: string;
@@ -68,9 +68,21 @@ export function PackageCard({ id, title, description, price, is_premium, categor
         <CardTitle className="text-xl font-bold text-white group-hover:text-indigo-400 transition-colors">
           {title}
         </CardTitle>
-        <CardDescription className="text-slate-400 line-clamp-2 mt-2">
-          {description}
-        </CardDescription>
+        <div className="mt-4 flex flex-col gap-2.5">
+          {description.split('\n')
+            .map(line => line.trim())
+            .filter(line => line.length > 0)
+            .map((line, index) => {
+              // Menghilangkan tanda "-" atau "*" di awal kalimat jika data dari db sudah ber-bullet
+              const cleanLine = line.replace(/^[-*]\s*/, '');
+              return (
+                <div key={index} className="flex items-start text-sm text-slate-300">
+                  <CheckCircle2 className="w-4 h-4 mr-2.5 text-indigo-400 shrink-0 mt-0.5 opacity-80" />
+                  <span className="leading-snug">{cleanLine}</span>
+                </div>
+              );
+          })}
+        </div>
       </CardHeader>
       
       <CardContent className="flex-grow pt-0">
@@ -91,7 +103,13 @@ export function PackageCard({ id, title, description, price, is_premium, categor
           <div className="flex flex-col">
             <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Harga</span>
             <span className="text-lg font-bold text-white">
-              {price === 0 ? 'Gratis' : `Rp ${price.toLocaleString('id-ID')}`}
+              {is_premium ? (
+                <span className="text-amber-400 flex items-center">
+                  PREMIUM
+                </span>
+              ) : (
+                price === 0 ? 'Gratis' : `Rp ${price.toLocaleString('id-ID')}`
+              )}
             </span>
           </div>
           <Link href={`/catalog/${id}`}>

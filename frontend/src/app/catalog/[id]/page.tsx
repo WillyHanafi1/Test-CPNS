@@ -70,7 +70,7 @@ export default function PackageDetailPage() {
     if (!pkg || !user) return;
 
     // Free packages: always accessible
-    if (!pkg.is_premium || pkg.price === 0) {
+    if (!pkg.is_premium) {
       setAccessState('granted');
       return;
     }
@@ -218,12 +218,12 @@ export default function PackageDetailPage() {
                     <div className="flex items-baseline justify-between">
                       <span className="text-slate-400 text-sm">Status Akses</span>
                       <span className="text-xl font-bold text-white">
-                        {pkg.price === 0 ? (
+                        {!pkg.is_premium ? (
                           <span className="text-emerald-400">GRATIS</span>
                         ) : (
                           <div className="flex flex-col items-end">
-                            <Badge className="bg-amber-500 text-slate-950 border-0 mb-1">PREMIUM</Badge>
-                            <span className="text-[10px] text-slate-500 font-normal">Termasuk Paket PRO</span>
+                            <Badge className="bg-amber-500 text-slate-950 border-0 mb-1 font-bold shadow-md shadow-amber-500/20"><Zap className="w-3 h-3 mr-1 fill-current"/>PREMIUM</Badge>
+                            <span className="text-[10px] text-slate-500 font-medium">Khusus Member PRO</span>
                           </div>
                         )}
                       </span>
@@ -271,7 +271,7 @@ export default function PackageDetailPage() {
                     )}
 
                     <p className="text-center text-[10px] text-slate-600 italic leading-relaxed">
-                      {pkg.price === 0 ? 'Tersedia untuk semua pengguna' : 'Aktifkan PRO untuk akses tak terbatas seluruh paket soal'}
+                      {!pkg.is_premium ? 'Tersedia gratis untuk semua pengguna' : 'Aktifkan PRO untuk akses tak terbatas dari seluruh soal premium'}
                     </p>
                   </div>
               </CardContent>
