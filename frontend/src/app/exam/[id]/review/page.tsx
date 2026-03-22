@@ -7,7 +7,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { 
   Loader2, Check, X, Info, ChevronLeft, LayoutGrid, 
-  BookOpen, Home, ChevronRight, CheckCircle2, AlertCircle, HelpCircle
+  BookOpen, Home, ChevronRight, CheckCircle2, AlertCircle, HelpCircle, ZoomIn
 } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
@@ -56,6 +56,7 @@ export default function ReviewPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [zoomImage, setZoomImage] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const scrollToTop = () => {
@@ -209,8 +210,14 @@ export default function ReviewPage() {
                 </div>
 
                 {currentQuestion.image_url && (
-                  <div className="rounded-2xl overflow-hidden border border-slate-800 max-w-sm shadow-2xl bg-slate-900/40 p-2">
-                    <img src={currentQuestion.image_url} alt="Question Diagram" className="w-full h-auto rounded-xl" />
+                  <div 
+                    className="rounded-2xl overflow-hidden border border-slate-800 w-full max-w-2xl mx-auto shadow-2xl bg-slate-900/40 p-2 relative group cursor-zoom-in"
+                    onClick={() => setZoomImage(currentQuestion.image_url as string)}
+                  >
+                    <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px] rounded-2xl">
+                      <ZoomIn className="w-10 h-10 text-white opacity-80" />
+                    </div>
+                    <img src={currentQuestion.image_url} alt="Question Diagram" className="w-full h-auto rounded-xl object-contain" />
                   </div>
                 )}
               </div>
@@ -253,8 +260,17 @@ export default function ReviewPage() {
                              <Latex strict={false}>{option.content ?? ''}</Latex>
                            </div>
                           {option.image_url && (
-                            <div className="mt-3 bg-white rounded-lg p-2 border border-slate-700 max-w-[150px]">
-                              <img src={option.image_url} alt={`Option ${option.label}`} className="w-full h-auto" />
+                            <div 
+                              className="mt-3 bg-white rounded-lg p-2 border border-slate-700 max-w-[150px] relative cursor-zoom-in group/opt"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setZoomImage(option.image_url as string);
+                              }}
+                            >
+                              <img src={option.image_url} alt={`Option ${option.label}`} className="w-full h-auto object-contain" />
+                              <div className="absolute inset-0 bg-slate-900/10 opacity-0 group-hover/opt:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
+                                 <ZoomIn className="w-6 h-6 text-slate-800" />
+                              </div>
                             </div>
                           )}
                         </div>
@@ -396,6 +412,27 @@ export default function ReviewPage() {
         questionNumber={currentQuestion.number}
         packageTitle={data.package_title}
       />
+
+      {/* Lightbox Modal */}
+      {zoomImage && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8 bg-slate-950/90 backdrop-blur-sm animate-in fade-in duration-200" 
+          onClick={() => setZoomImage(null)}
+        >
+          <button 
+            className="absolute top-6 right-6 p-3 bg-slate-800 hover:bg-slate-700 rounded-full text-white transition-colors shadow-2xl"
+            onClick={() => setZoomImage(null)}
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <img 
+            src={zoomImage} 
+            alt="Zoomed Content" 
+            className="max-w-full max-h-full object-contain rounded-xl shadow-2xl ring-1 ring-slate-800" 
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }

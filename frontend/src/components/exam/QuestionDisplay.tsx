@@ -1,15 +1,17 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useExamStore } from '@/store/useExamStore';
 import { Button } from '@/components/ui/button';
-import { Check, Info, Flag } from 'lucide-react';
+import { Check, Info, Flag, X, ZoomIn } from 'lucide-react';
 import Latex from 'react-latex-next';
 import 'katex/dist/katex.min.css';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
 export default function QuestionDisplay() {
+  const [zoomImage, setZoomImage] = useState<string | null>(null);
+
   const {
     questions,
     currentIndex,
@@ -78,8 +80,14 @@ export default function QuestionDisplay() {
         </div>
 
         {question.image_url && (
-          <div className="rounded-xl overflow-hidden border border-slate-800 max-w-sm shadow-xl bg-slate-900/40">
-            <img src={question.image_url} alt="Question Diagram" className="w-full h-auto" />
+          <div 
+            className="rounded-xl overflow-hidden border border-slate-800 w-full max-w-2xl mx-auto shadow-xl bg-slate-900/40 relative group cursor-zoom-in"
+            onClick={() => setZoomImage(question.image_url as string)}
+          >
+            <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
+              <ZoomIn className="w-10 h-10 text-white opacity-80" />
+            </div>
+            <img src={question.image_url} alt="Question Diagram" className="w-full h-auto object-contain" />
           </div>
         )}
       </div>
@@ -118,8 +126,17 @@ export default function QuestionDisplay() {
             </div>
 
             {option.image_url && (
-              <div className="relative w-full aspect-square bg-white rounded-lg overflow-hidden border border-slate-700 flex items-center justify-center p-1">
+              <div 
+                className="relative w-full aspect-square bg-white rounded-lg overflow-hidden border border-slate-700 flex items-center justify-center p-1 cursor-zoom-in group/opt"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setZoomImage(option.image_url as string);
+                }}
+              >
                 <img src={option.image_url} alt={`Option ${option.label}`} className="max-w-full max-h-full object-contain" />
+                <div className="absolute inset-0 bg-slate-900/10 opacity-0 group-hover/opt:opacity-100 transition-opacity flex items-center justify-center">
+                   <ZoomIn className="w-6 h-6 text-slate-800" />
+                </div>
               </div>
             )}
           </button>
@@ -148,6 +165,27 @@ export default function QuestionDisplay() {
           Selanjutnya →
         </Button>
       </div>
+
+      {/* Lightbox Modal */}
+      {zoomImage && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8 bg-slate-950/90 backdrop-blur-sm animate-in fade-in duration-200" 
+          onClick={() => setZoomImage(null)}
+        >
+          <button 
+            className="absolute top-6 right-6 p-3 bg-slate-800 hover:bg-slate-700 rounded-full text-white transition-colors shadow-2xl"
+            onClick={() => setZoomImage(null)}
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <img 
+            src={zoomImage} 
+            alt="Zoomed Content" 
+            className="max-w-full max-h-full object-contain rounded-xl shadow-2xl ring-1 ring-slate-800" 
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }

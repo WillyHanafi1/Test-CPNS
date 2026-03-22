@@ -31,6 +31,7 @@ dev.bat
 # Large datasets & Assets
 *.csv
 *.pdf
+data/
 tmp/
 frontend/public/images/figural/
 

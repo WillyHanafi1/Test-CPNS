@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
@@ -441,7 +441,7 @@ export default function QuestionsAdmin() {
               {/* Scrollable content area */}
               <div className="flex-1 overflow-y-auto p-10">
 
-                 <form onSubmit={saveQuestion} className="space-y-8">
+                 <form id="question-form" onSubmit={saveQuestion} className="space-y-8">
                     {/* Basic Info */}
                     <div className="grid grid-cols-2 gap-4">
                        <div className="space-y-2">
