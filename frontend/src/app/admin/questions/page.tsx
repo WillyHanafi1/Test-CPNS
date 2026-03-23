@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
-import Latex from 'react-latex-next';
-import 'katex/dist/katex.min.css';
+import MarkdownRenderer from '@/components/ui/MarkdownRenderer';
 import {
   Plus,
   Upload,
@@ -244,7 +243,7 @@ export default function QuestionsAdmin() {
       className: 'max-w-md',
       render: (q) => (
         <div className="text-sm font-medium text-slate-200 line-clamp-2 leading-relaxed overflow-x-auto">
-          <Latex strict={false}>{q.content ?? ''}</Latex>
+          <MarkdownRenderer>{q.content ?? ''}</MarkdownRenderer>
         </div>
       )
     },

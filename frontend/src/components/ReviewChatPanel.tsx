@@ -5,7 +5,7 @@ import {
   X, Send, Loader2, Bot, User, MessageSquare, 
   Sparkles, RefreshCcw, AlertCircle
 } from 'lucide-react';
-import Latex from 'react-latex-next';
+import MarkdownRenderer from '@/components/ui/MarkdownRenderer';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 
@@ -251,7 +251,7 @@ export default function ReviewChatPanel({
                                <div key={i} className={`mb-1 ${isBullet ? 'flex gap-2' : ''}`}>
                                  {isBullet && <span className="text-indigo-400 shrink-0">•</span>}
                                  <span>
-                                    <Latex>{content}</Latex>
+                                    <MarkdownRenderer>{content}</MarkdownRenderer>
                                  </span>
                                </div>
                              );

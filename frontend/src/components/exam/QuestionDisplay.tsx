@@ -4,8 +4,7 @@ import React, { useState } from 'react';
 import { useExamStore } from '@/store/useExamStore';
 import { Button } from '@/components/ui/button';
 import { Check, Info, Flag, X, ZoomIn } from 'lucide-react';
-import Latex from 'react-latex-next';
-import 'katex/dist/katex.min.css';
+import MarkdownRenderer from '@/components/ui/MarkdownRenderer';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
@@ -76,7 +75,7 @@ export default function QuestionDisplay() {
       {/* Question Content */}
       <div className="space-y-4">
         <div className="text-lg md:text-xl font-medium leading-relaxed text-slate-200 overflow-x-auto">
-          <Latex strict={false}>{question.content}</Latex>
+          <MarkdownRenderer>{question.content}</MarkdownRenderer>
         </div>
 
         {question.image_url && (
@@ -116,7 +115,7 @@ export default function QuestionDisplay() {
               
               {!option.image_url && option.content && (
                 <div className={`text-base flex-1 overflow-x-auto ${selectedOptionId === option.id ? 'text-white' : 'text-slate-300'}`}>
-                  <Latex strict={false}>{option.content}</Latex>
+                  <MarkdownRenderer>{option.content}</MarkdownRenderer>
                 </div>
               )}
 

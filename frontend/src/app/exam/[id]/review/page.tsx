@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from 'react';
-import Latex from 'react-latex-next';
-import 'katex/dist/katex.min.css';
+import MarkdownRenderer from '@/components/ui/MarkdownRenderer';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { 
@@ -206,7 +205,7 @@ export default function ReviewPage() {
 
               <div className="space-y-6">
                 <div className="text-lg md:text-xl font-medium leading-relaxed text-slate-200 overflow-x-auto">
-                  <Latex strict={false}>{currentQuestion.content ?? ''}</Latex>
+                  <MarkdownRenderer>{currentQuestion.content ?? ''}</MarkdownRenderer>
                 </div>
 
                 {currentQuestion.image_url && (
@@ -257,7 +256,7 @@ export default function ReviewPage() {
                         </div>
                         <div className="flex-1 pt-1">
                            <div className={`text-sm md:text-base overflow-x-auto ${isHighestScore || isUserSelection ? 'text-white font-medium' : 'text-slate-400'}`}>
-                             <Latex strict={false}>{option.content ?? ''}</Latex>
+                             <MarkdownRenderer>{option.content ?? ''}</MarkdownRenderer>
                            </div>
                           {option.image_url && (
                             <div 
@@ -317,7 +316,7 @@ export default function ReviewPage() {
                 <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-6 md:p-8 space-y-4">
                   {currentQuestion.discussion ? (
                     <div className="prose prose-invert max-w-none text-slate-300 leading-relaxed whitespace-pre-line overflow-x-auto">
-                      <Latex strict={false}>{currentQuestion.discussion ?? ''}</Latex>
+                      <MarkdownRenderer>{currentQuestion.discussion ?? ''}</MarkdownRenderer>
                     </div>
                   ) : (
                     <div className="flex items-center text-slate-500 italic py-4">
