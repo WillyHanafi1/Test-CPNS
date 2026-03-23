@@ -96,7 +96,7 @@ export default function QuestionDisplay() {
       <div className={`grid gap-3 ${
           question.options.some(o => o.image_url) 
             ? 'grid-cols-2 lg:grid-cols-5' 
-            : 'grid-cols-1 md:grid-cols-2'
+            : 'grid-cols-1 md:grid-cols-2 md:grid-rows-3 md:grid-flow-col'
         }`}>
         {question.options.map((option) => (
           <button

@@ -11,7 +11,7 @@ export function useQuestions() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [selectedPackage, setSelectedPackage] = useState('');
-  const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
+  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set());
 
   const fetchQuestions = useCallback(async () => {
@@ -20,13 +20,13 @@ export function useQuestions() {
       let url = `${API_URL}/api/v1/admin/questions?page=${page}&size=10`;
       if (selectedPackage) url += `&package_id=${selectedPackage}`;
       if (search) url += `&search=${encodeURIComponent(search)}`;
-      
-      const response = await fetch(url, { 
+
+      const response = await fetch(url, {
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include' 
+        credentials: 'include'
       });
       if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-      
+
       const data = await response.json();
       setQuestions(data.items);
       setTotal(data.total);
@@ -69,7 +69,7 @@ export function useQuestions() {
 
   const bulkDeleteQuestions = async () => {
     if (selectedIds.size === 0) return;
-    
+
     const idsArray = Array.from(selectedIds);
     const previousQuestions = [...questions];
     const previousTotal = total;
@@ -86,7 +86,7 @@ export function useQuestions() {
         body: JSON.stringify(idsArray),
         credentials: 'include'
       });
-      
+
       if (!response.ok) throw new Error("Bulk delete failed");
       setMessage({ type: 'success', text: `${idsArray.length} soal berhasil dihapus` });
     } catch (error) {
