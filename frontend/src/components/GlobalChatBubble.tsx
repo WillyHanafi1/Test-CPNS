@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { Bot, X, Sparkles, MessageCircle } from 'lucide-react';
 import { Button } from './ui/button';
 import ReviewChatPanel from './ReviewChatPanel';
@@ -8,10 +9,17 @@ import { useAuth } from '@/context/AuthContext';
 
 export default function GlobalChatBubble() {
   const { user } = useAuth();
+  const pathname = usePathname() || "";
   const [isOpen, setIsOpen] = useState(false);
 
   // Only show for PRO users
   if (!user?.is_pro) return null;
+
+  // Hide on active exam pages: /exam/[id]
+  // This regex matches /exam/ followed by exactly one segment (the id),
+  // so it won't hide the chat on /exam/[id]/review or /exam/[id]/result
+  const isExamPage = /^\/exam\/[^/]+$/.test(pathname);
+  if (isExamPage) return null;
 
   return (
     <>
