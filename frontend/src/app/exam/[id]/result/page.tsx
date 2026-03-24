@@ -4,7 +4,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, CheckCircle, XCircle, Award, BarChart3, Home, ArrowRight, BookOpen } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Award, BarChart3, Home, BookOpen, ArrowRight } from 'lucide-react';
 import { useExamStore } from '@/store/useExamStore';
 import AIAnalysisCard from '@/components/AIAnalysisCard';
 
@@ -25,6 +25,7 @@ export default function ResultPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
   const [retryTrigger, setRetryTrigger] = useState(0);
+  const [rankData, setRankData] = useState<{ rank: number | null, percentile: number, totalParticipants: number }>({ rank: null, percentile: 0, totalParticipants: 0 });
   const retryCountRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -166,6 +167,27 @@ export default function ResultPage() {
       if (pollTimeout) clearTimeout(pollTimeout);
     };
   }, [id, router, retryTrigger]);
+
+  // Fetch rank once result is loaded and we have a package_id
+  useEffect(() => {
+    if (!result?.package_id) return;
+    const fetchRank = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/v1/exam/my-rank/${result.package_id}`, { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          setRankData({ 
+            rank: data.rank, 
+            percentile: data.percentile || 0, 
+            totalParticipants: data.totalParticipants || data.total_participants || 0 
+          });
+        }
+      } catch (e) {
+        console.error("Gagal mengambil data rank", e);
+      }
+    };
+    fetchRank();
+  }, [result?.package_id]);
 
   if (loading) {
     return (

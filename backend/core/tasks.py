@@ -156,21 +156,31 @@ async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: s
                 result_package = await db.execute(select(Package).where(Package.id == session.package_id))
                 package_obj = result_package.scalar_one_or_none()
 
-                if package_obj and package_obj.is_weekly and not session.is_preview:
-                    now_utc = datetime.now(timezone.utc)
-                    if package_obj.end_at and now_utc > package_obj.end_at:
-                        logger_scoring.info(f"Tryout {session.package_id} expired at {package_obj.end_at} — skipping leaderboard update")
+                if package_obj and not session.is_preview:
+                    # Composite tie-breaker: total → TKP → TIU → TWK
+                    tie_breaker_score = (
+                        (total_score * 1_000_000_000) +
+                        (score_tkp  *     1_000_000) +
+                        (score_tiu  *         1_000) +
+                        score_twk
+                    )
+
+                    if package_obj.is_weekly:
+                        now_utc = datetime.now(timezone.utc)
+                        if package_obj.end_at and now_utc > package_obj.end_at:
+                            logger_scoring.info(f"Tryout {session.package_id} expired at {package_obj.end_at} — skipping leaderboard update")
+                        else:
+                            lb_key = f"leaderboard:weekly:{session.package_id}"
+                            await redis_client.zadd(lb_key, {user_email: tie_breaker_score}, gt=True)
+                            logger_scoring.info(f"Leaderboard updated for user {user_email} on package {session.package_id}")
                     else:
-                        lb_key = f"leaderboard:weekly:{session.package_id}"
-                        # Composite tie-breaker: total → TKP → TIU → TWK
-                        tie_breaker_score = (
-                            (total_score * 1_000_000_000) +
-                            (score_tkp  *     1_000_000) +
-                            (score_tiu  *         1_000) +
-                            score_twk
-                        )
+                        # Practice Package Leaderboard
+                        lb_key = f"leaderboard:practice:{session.package_id}"
+                        # Hanya update jika skor baru LEBIH TINGGI dari skor lama (gt=True)
                         await redis_client.zadd(lb_key, {user_email: tie_breaker_score}, gt=True)
-                        logger_scoring.info(f"Leaderboard updated for user {user_email} on package {session.package_id}")
+                        # Set rolling expiry (30 hari) agar data lama terhapus otomatis jika tidak ada aktivitas
+                        await redis_client.expire(lb_key, 30 * 24 * 3600)
+                        logger_scoring.info(f"Practice Leaderboard updated for user {user_email} on package {session.package_id}")
 
                 await redis_client.delete(cache_key)
                 logger_scoring.info(f"Redis cache cleared for session {session_id_str}")

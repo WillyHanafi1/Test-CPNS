@@ -456,7 +456,15 @@ async def get_leaderboard(
     # Ensure limit is reasonable
     limit = max(1, min(limit, 100))
     
-    lb_key = f"leaderboard:weekly:{package_id}"
+    # Check if package is weekly or practice
+    result_pkg = await db.execute(select(Package).where(Package.id == package_id))
+    package = result_pkg.scalar_one_or_none()
+    
+    if not package:
+        raise HTTPException(status_code=404, detail="Paket tidak ditemukan")
+
+    lb_type = "weekly" if package.is_weekly else "practice"
+    lb_key = f"leaderboard:{lb_type}:{package_id}"
 
     # Fetch from Redis ZSET
     raw_leaderboard = await redis_service.redis.zrevrange(lb_key, 0, limit - 1, withscores=True)
@@ -537,20 +545,41 @@ async def get_my_stats(
 @router.get("/my-rank/{package_id}")
 async def get_my_rank(
     package_id: uuid.UUID,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_session)
 ):
-    # Get user's rank for specific Weekly TO
-    lb_key = f"leaderboard:weekly:{package_id}"
+    # Determine the correct leaderboard key based on package type
+    result = await db.execute(select(Package).where(Package.id == package_id))
+    package = result.scalar_one_or_none()
+    
+    if not package:
+        raise HTTPException(status_code=404, detail="Paket tidak ditemukan")
+
+    lb_type = "weekly" if package.is_weekly else "practice"
+    lb_key = f"leaderboard:{lb_type}:{package_id}"
         
     rank = await redis_service.redis.zrevrank(lb_key, current_user.email)
     score = await redis_service.redis.zscore(lb_key, current_user.email)
+    total_participants = await redis_service.redis.zcard(lb_key)
     
     if rank is None:
-        return {"rank": None, "score": 0, "score_twk": 0, "score_tiu": 0, "score_tkp": 0}
+        return {
+            "rank": None, 
+            "score": 0, 
+            "score_twk": 0, 
+            "score_tiu": 0, 
+            "score_tkp": 0, 
+            "total_participants": total_participants, 
+            "percentile": 0
+        }
         
     packed_score = int(score) if score is not None else 0
+    percentile = round(((total_participants - rank) / total_participants) * 100, 1) if total_participants > 0 else 0
+
     return {
         "rank": rank + 1, # Convert to 1-indexed
+        "total_participants": total_participants,
+        "percentile": percentile,
         "score": packed_score // 1000000000,
         "score_twk": packed_score % 1000,
         "score_tiu": (packed_score % 1000000) // 1000,

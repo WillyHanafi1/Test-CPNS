@@ -222,7 +222,11 @@ export default function ReviewPage() {
               </div>
 
               {/* Options */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className={`grid gap-3 ${
+                  currentQuestion.options.some(o => o.image_url) 
+                    ? 'grid-cols-2 lg:grid-cols-5' 
+                    : 'grid-cols-1 md:grid-cols-2 md:grid-rows-3 md:grid-flow-col'
+                }`}>
                 {currentQuestion.options.map((option) => {
                   const isUserSelection = currentQuestion.selected_option_id === option.id;
                   const maxScore = Math.max(...currentQuestion.options.map(o => o.score));
