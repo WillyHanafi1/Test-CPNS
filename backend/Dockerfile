@@ -27,4 +27,4 @@ EXPOSE 8001
 
 # Run migrations and start uvicorn
 # We use 'backend.main:app' because the folder 'backend' is inside '/app'
-CMD ["sh", "-c", "alembic -c backend/alembic.ini upgrade head && uvicorn backend.main:app --host 0.0.0.0 --port 8001"]
+CMD ["sh", "-c", "alembic -c backend/alembic.ini upgrade head && uvicorn backend.main:app --host 0.0.0.0 --port 8001 --workers ${UVICORN_WORKERS:-4} --loop uvloop --http httptools"]

@@ -32,6 +32,8 @@ services:
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      # Workers: 1vCPU/2GB=2, 4vCPU/8GB=9, 8vCPU/16GB=17
+      - UVICORN_WORKERS=${UVICORN_WORKERS:-2}
     depends_on:
       redis:
         condition: service_healthy
@@ -42,7 +44,9 @@ services:
       dockerfile: Dockerfile
     container_name: cat_worker
     restart: unless-stopped
-    command: celery -A backend.core.celery_app.celery_app worker --loglevel=${LOG_LEVEL:-INFO}
+    # concurrency=2 agar tidak bersaing RAM dengan backend di droplet 1vCPU/2GB
+    # Naik ke --concurrency=8 saat pindah ke 4+ vCPU
+    command: celery -A backend.core.celery_app.celery_app worker --loglevel=${LOG_LEVEL:-INFO} --concurrency=2
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=redis://redis:6379/0

@@ -15,8 +15,9 @@ class RedisService:
             self._redis = redis.from_url(
                 settings.REDIS_URL, 
                 decode_responses=True,
-                max_connections=20,
+                max_connections=50,           # Tuned untuk 1 vCPU/2GB. Naik ke 200 saat upgrade ke 4+ vCPU
                 socket_timeout=5,
+                socket_connect_timeout=5,     # Timeout saat membuka koneksi baru
                 retry_on_timeout=True,
                 health_check_interval=30
             )
