@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Body
+from fastapi import APIRouter, Depends, HTTPException, status, Body, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -13,6 +13,7 @@ from backend.db.session import get_async_session
 from backend.models.models import User, ChatSession, ChatMessage, ExamSession, Question, Answer
 from backend.api.v1.endpoints.auth import get_current_user
 from backend.core.ai_service import ai_service
+from backend.core.rate_limiter import limiter
 from pydantic import BaseModel, ConfigDict
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -33,7 +34,9 @@ class ChatSessionDetailSchema(ChatSessionSchema):
     messages: List[ChatMessageSchema]
 
 @router.post("/start", response_model=ChatSessionDetailSchema)
+@limiter.limit("10/minute")
 async def start_chat(
+    request: Request,
     exam_session_id: Optional[uuid.UUID] = Body(None),
     question_id: Optional[uuid.UUID] = Body(None),
     db: AsyncSession = Depends(get_async_session),
@@ -88,9 +91,11 @@ async def start_chat(
     return session
 
 @router.post("/{session_id}/message")
+@limiter.limit("10/minute")
 async def send_message(
+    request: Request,
     session_id: uuid.UUID,
-    content: str = Body(..., embed=True),
+    content: str = Body(..., embed=True, min_length=1, max_length=2000),
     question_id: Optional[uuid.UUID] = Body(None), # Context for current question
     db: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_user)

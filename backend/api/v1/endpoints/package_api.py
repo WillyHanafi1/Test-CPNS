@@ -14,6 +14,7 @@ from backend.schemas.package import (
 from backend.core.redis_service import redis_service
 from sqlalchemy.orm import selectinload
 from backend.api.v1.endpoints.auth import get_current_user, get_optional_user
+from backend.core.utils import sanitize_search
 from datetime import datetime, timezone
 
 router = APIRouter(prefix="/packages", tags=["packages"])
@@ -40,9 +41,10 @@ async def get_packages(
     if category:
         query = query.where(Package.category == category)
     if search:
+        safe_search = sanitize_search(search)
         query = query.where(
-            Package.title.ilike(f"%{search}%") |
-            Package.description.ilike(f"%{search}%")
+            Package.title.ilike(f"%{safe_search}%") |
+            Package.description.ilike(f"%{safe_search}%")
         )
 
     query = query.offset(skip).limit(limit)

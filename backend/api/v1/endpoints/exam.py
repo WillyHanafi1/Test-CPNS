@@ -446,7 +446,7 @@ async def get_exam_review(
 @router.get("/leaderboard/{package_id}")
 async def get_leaderboard(
     package_id: uuid.UUID,
-    limit: int = 50,
+    limit: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_async_session)
 ):
     """

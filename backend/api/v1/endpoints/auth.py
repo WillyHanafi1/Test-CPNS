@@ -9,6 +9,9 @@ from pydantic import BaseModel, EmailStr
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 import hashlib
+import logging
+
+logger = logging.getLogger("backend.api.v1.endpoints.auth")
 
 from backend.db.session import get_async_session
 from backend.models.models import User, UserProfile
@@ -253,8 +256,16 @@ async def reset_password(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    # [SECURITY] Prevent reset token reuse — single-use enforcement
+    hashed_reset_token = hashlib.sha256(payload.token.encode()).hexdigest()
+    if await redis_service.redis.exists(f"reset_used:{hashed_reset_token}"):
+        raise HTTPException(status_code=400, detail="Token reset ini sudah pernah digunakan. Silakan minta ulang.")
+
     user.hashed_password = get_password_hash(payload.new_password)
     await db.commit()
+    
+    # Mark token as used (block for 15 minutes — the token's natural TTL)
+    await redis_service.redis.setex(f"reset_used:{hashed_reset_token}", 900, "1")
     
     return {"message": "Password has been reset successfully."}
 
@@ -349,4 +360,10 @@ async def google_login(
     except ValueError as ve:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(ve))
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        # [SECURITY] Log full error internally, but return generic message to client
+        # to prevent leaking internal stack traces, library versions, or DB connection strings.
+        logger.error(f"Google login internal error: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail="Terjadi kesalahan saat memproses login Google. Silakan coba lagi."
+        )

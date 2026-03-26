@@ -88,7 +88,9 @@ async def create_pro_upgrade_transaction(
         }
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to create Midtrans transaction: {str(e)}")
+        # [SECURITY] Log full error internally, return generic message to prevent leaking Midtrans server key
+        logger.error(f"Midtrans create transaction error for {order_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Gagal membuat transaksi pembayaran. Silakan coba lagi.")
 
 @router.get("/my-transactions")
 async def get_user_transactions(
@@ -168,7 +170,9 @@ async def create_donation_transaction(
         }
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to create Midtrans transaction: {str(e)}")
+        # [SECURITY] Log full error internally, return generic message to prevent leaking Midtrans server key
+        logger.error(f"Midtrans create donation error for {order_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Gagal membuat transaksi donasi. Silakan coba lagi.")
 
 @router.get("/donations/wall-of-fame", response_model=List[SupporterResponse])
 async def get_wall_of_fame(
@@ -343,8 +347,11 @@ async def midtrans_webhook(
         return {"status": "error", "message": "Internal processing error"}
 
 async def fulfill_transaction(db: AsyncSession, order_id: str, payment_status: str):
+    # [SECURITY] Row-level lock to prevent race conditions from duplicate Midtrans webhooks
     result = await db.execute(
-        select(UserTransaction).where(UserTransaction.order_id == order_id)
+        select(UserTransaction)
+        .where(UserTransaction.order_id == order_id)
+        .with_for_update()
     )
     transaction = result.scalar_one_or_none()
     

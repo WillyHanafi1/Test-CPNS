@@ -10,6 +10,7 @@ from datetime import datetime
 from backend.db.session import get_async_session
 from backend.models.models import User, UserProfile, ExamSession, UserTransaction
 from backend.api.v1.endpoints.auth import get_current_admin
+from backend.core.utils import sanitize_search
 import logging
 
 logger = logging.getLogger("admin.audit")
@@ -76,10 +77,11 @@ async def list_users_admin(
 
     # Filters
     if search:
+        safe_search = sanitize_search(search)
         stmt = stmt.join(User.profile)
         stmt = stmt.where(or_(
-            User.email.ilike(f"%{search}%"),
-            UserProfile.full_name.ilike(f"%{search}%")
+            User.email.ilike(f"%{safe_search}%"),
+            UserProfile.full_name.ilike(f"%{safe_search}%")
         ))
     
     if role:
@@ -92,10 +94,11 @@ async def list_users_admin(
     
     if search:
         # Re-apply JOIN for search
+        safe_search = sanitize_search(search)
         count_stmt = count_stmt.join(User.profile)
         count_stmt = count_stmt.where(or_(
-            User.email.ilike(f"%{search}%"),
-            UserProfile.full_name.ilike(f"%{search}%")
+            User.email.ilike(f"%{safe_search}%"),
+            UserProfile.full_name.ilike(f"%{safe_search}%")
         ))
     
     if role:
@@ -200,11 +203,15 @@ async def delete_user_admin(
     if user.id == admin.id:
         raise HTTPException(status_code=400, detail="Cannot delete your own admin account")
     
-    await db.delete(user)
+    # [SECURITY] Soft delete instead of hard delete to preserve:
+    # - Financial transaction records (audit/tax compliance)
+    # - Exam history data integrity  
+    # - Ability to undo accidental deletions
+    user.is_active = False
     await db.commit()
     
     logger.info(
-        f"ADMIN_ACTION: User {user_id} (Email: {user.email}) DELETED by Admin {admin.email} (ID: {admin.id})"
+        f"ADMIN_ACTION: User {user_id} (Email: {user.email}) DEACTIVATED (soft-deleted) by Admin {admin.email} (ID: {admin.id})"
     )
     
     return {"message": "User deleted successfully"}

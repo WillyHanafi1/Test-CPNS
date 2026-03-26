@@ -12,6 +12,7 @@ from backend.db.session import get_async_session
 from backend.models.models import UserTransaction, User, Package
 from backend.api.v1.endpoints.auth import get_current_admin
 from backend.api.v1.endpoints.transactions_api import fulfill_transaction
+from backend.core.utils import sanitize_search
 
 router = APIRouter(prefix="/admin/transactions", tags=["admin-transactions"])
 
@@ -69,7 +70,8 @@ async def list_transactions_admin(
 
     # Filters
     if search:
-        stmt = stmt.join(UserTransaction.user).where(User.email.ilike(f"%{search}%"))
+        safe_search = sanitize_search(search)
+        stmt = stmt.join(UserTransaction.user).where(User.email.ilike(f"%{safe_search}%"))
     if status:
         stmt = stmt.where(UserTransaction.payment_status == status)
     if package_id:

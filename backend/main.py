@@ -76,4 +76,42 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy"}
+    """
+    Enhanced health check: verifies DB and Redis are reachable.
+    Returns 503 if any dependency is down, so load balancers can route traffic away.
+    """
+    from fastapi.responses import JSONResponse
+    from sqlalchemy import text
+    from backend.db.session import get_async_session
+    from backend.core.redis_service import redis_service
+    
+    health = {"status": "healthy", "db": "unknown", "redis": "unknown"}
+    is_healthy = True
+    
+    # Check Database
+    try:
+        async for db in get_async_session():
+            await db.execute(text("SELECT 1"))
+            health["db"] = "ok"
+            break
+    except Exception as e:
+        health["db"] = f"error: {type(e).__name__}"
+        is_healthy = False
+    
+    # Check Redis
+    try:
+        if redis_service.redis:
+            await redis_service.redis.ping()
+            health["redis"] = "ok"
+        else:
+            health["redis"] = "not initialized"
+            is_healthy = False
+    except Exception as e:
+        health["redis"] = f"error: {type(e).__name__}"
+        is_healthy = False
+    
+    if not is_healthy:
+        health["status"] = "unhealthy"
+        return JSONResponse(status_code=503, content=health)
+    
+    return health

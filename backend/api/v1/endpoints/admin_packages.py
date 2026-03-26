@@ -11,6 +11,7 @@ from backend.db.session import get_async_session
 from backend.models.models import Package, Question, User, QuestionOption, ExamSession, Answer
 from backend.api.v1.endpoints.auth import get_current_admin
 from backend.core.redis_service import redis_service
+from backend.core.utils import sanitize_search
 
 router = APIRouter(prefix="/admin/packages", tags=["admin-packages"])
 
@@ -83,9 +84,10 @@ async def list_packages_admin(
 
     # Filters
     if search:
+        safe_search = sanitize_search(search)
         stmt = stmt.where(or_(
-            Package.title.ilike(f"%{search}%"),
-            Package.description.ilike(f"%{search}%")
+            Package.title.ilike(f"%{safe_search}%"),
+            Package.description.ilike(f"%{safe_search}%")
         ))
     if category:
         stmt = stmt.where(Package.category == category)
@@ -232,8 +234,8 @@ async def copy_package_admin(
         description=source.description,
         is_weekly=True,
         is_published=False,  # draft dulu, publish manual
-        start_at=new_start_at.replace(tzinfo=None), # naive for DB
-        end_at=new_end_at.replace(tzinfo=None),
+        start_at=new_start_at,  # [SECURITY] Keep timezone-aware per SOP
+        end_at=new_end_at,
         category=source.category,
         price=source.price,
         is_premium=source.is_premium

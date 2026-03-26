@@ -10,6 +10,7 @@ from backend.api.v1.endpoints.auth import get_current_admin
 from pydantic import BaseModel, ConfigDict, field_validator
 from sqlalchemy.orm import selectinload
 from sqlalchemy import delete
+from backend.core.utils import sanitize_search
 
 router = APIRouter(prefix="/admin/questions", tags=["admin-questions"])
 
@@ -105,8 +106,9 @@ async def list_questions(
         query = query.where(Question.segment == segment)
         count_query = count_query.where(Question.segment == segment)
     if search:
-        query = query.where(Question.content.ilike(f"%{search}%"))
-        count_query = count_query.where(Question.content.ilike(f"%{search}%"))
+        safe_search = sanitize_search(search)
+        query = query.where(Question.content.ilike(f"%{safe_search}%"))
+        count_query = count_query.where(Question.content.ilike(f"%{safe_search}%"))
     
     # Optimized Count
     total = await db.execute(count_query)
