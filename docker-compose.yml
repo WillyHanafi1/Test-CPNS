@@ -5,6 +5,7 @@ services:
     image: redis:alpine
     container_name: cat_redis
     restart: unless-stopped
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
     # Port 6379 tidak perlu diekspos ke publik (:6379), cukup internal
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]

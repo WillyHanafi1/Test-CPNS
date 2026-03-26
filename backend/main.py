@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler as _default_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from backend.api.v1.endpoints.auth import router as auth_router
 from backend.api.v1.endpoints.package_api import router as package_router
@@ -41,6 +42,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# GZIP Compression for payload efficiency
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # Rate Limiting — slowapi backed by Redis
 app.state.limiter = limiter
