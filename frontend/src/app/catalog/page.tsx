@@ -90,7 +90,7 @@ export default function CatalogPage() {
               Katalog Paket Ujian
             </h1>
             <p className="text-slate-400 text-lg">
-              Pilih paket simulasi SKD dan SKB terbaik untuk persiapan ujian CPNS Anda. Semua paket dirancang sesuai standar BKN terbaru.
+              Pilih paket tryout SKD dan SKB terbaik untuk persiapan ujian CPNS Anda. Semua paket dirancang sesuai standar BKN terbaru.
             </p>
           </div>
 
@@ -182,12 +182,12 @@ export default function CatalogPage() {
                 </section>
               )}
 
-              {/* Latihan Section */}
+              {/* Tryout Mandiri Section */}
               {packages.filter(p => !p.is_weekly).length > 0 && (
                 <section>
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-2 h-8 bg-slate-700 rounded-full" />
-                    <h2 className="text-2xl font-bold text-slate-200">Latihan Mandiri</h2>
+                    <h2 className="text-2xl font-bold text-slate-200">Tryout Mandiri</h2>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {packages.filter(p => !p.is_weekly).map((pkg) => (

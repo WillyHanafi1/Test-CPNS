@@ -137,7 +137,7 @@ export default function UpgradeProPage() {
             Upgrade ke Akun PRO
           </h1>
           <p className="text-slate-400 text-xl max-w-2xl mx-auto">
-            Satu kali pembayaran untuk akses tak terbatas ke seluruh fitur dan paket soal simulasi CPNS terbaik.
+            Satu kali pembayaran untuk akses tak terbatas ke seluruh fitur dan paket soal tryout CPNS terbaik.
           </p>
         </div>
 

@@ -51,7 +51,7 @@ export default function LandingPage() {
           </div>
           <h1 className="text-5xl md:text-8xl font-black tracking-tight mb-8 leading-[1.05] animate-in fade-in slide-in-from-bottom-6 duration-1000">
             Lolos CPNS dengan <br />
-            <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent">Simulasi Paling Akurat.</span>
+            <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent">Tryout Paling Akurat.</span>
           </h1>
           <p className="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto mb-12 leading-relaxed animate-in fade-in slide-in-from-bottom-8 duration-1000">
             Platform Computer Assisted Test (CAT) premium dengan arsitektur enterprise. Rasakan pengalaman ujian seperti aslinya dengan sistem anti-lag dan database soal terupdate.
@@ -59,7 +59,7 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-in fade-in slide-in-from-bottom-10 duration-1000">
             <Link href="/register" className="w-full sm:w-auto">
               <Button className="h-14 px-10 text-lg font-bold bg-indigo-600 hover:bg-indigo-700 shadow-xl shadow-indigo-500/30 w-full rounded-2xl">
-                Mulai Simulasi Gratis
+                Coba Tryout Gratis
               </Button>
             </Link>
             <Link href="/catalog" className="w-full sm:w-auto">
@@ -84,7 +84,7 @@ export default function LandingPage() {
 
               <div className="space-y-8">
                 <StepItem number="01" title="Daftar Akun Gratis" description="Gunakan email atau Google Login untuk akses instan ke dasbor pejuang." />
-                <StepItem number="02" title="Pilih Paket Simulasi" description="Tersedia 1.000+ bank soal terbaru SKD (TWK, TIU, TKP) & SKB Instansi." />
+                <StepItem number="02" title="Pilih Paket Tryout" description="Tersedia 1.000+ bank soal terbaru SKD (TWK, TIU, TKP) & SKB Instansi." />
                 <StepItem number="03" title="Mulai & Analisis Hasil" description="Selesaikan CAT dan dapatkan analisis kelemahan Anda secara mendalam." />
               </div>
             </div>
@@ -164,7 +164,7 @@ export default function LandingPage() {
             <FeatureCard
               icon={<Shield className="w-6 h-6 text-emerald-400" />}
               title="Validasi Server-side"
-              description="Timer aman di sisi server. Tidak ada kecurangan waktu, hasil simulasi Anda benar-benar valid."
+              description="Timer aman di sisi server. Tidak ada kecurangan waktu, hasil tryout Anda benar-benar valid."
             />
             <FeatureCard
               icon={<Target className="w-6 h-6 text-indigo-400" />}
@@ -264,7 +264,7 @@ export default function LandingPage() {
               Masa Depan Anda <br /> Dimulai Hari Ini.
             </h2>
             <p className="text-indigo-100 text-xl max-w-2xl mx-auto opacity-80">
-              Jangan biarkan mimpi Anda menjadi ASN terhambat hanya karena kurang simulasi. Gabung dengan {stats.users_count} pejuang lainnya.
+              Jangan biarkan mimpi Anda menjadi ASN terhambat hanya karena kurang tryout. Gabung dengan {stats.users_count} pejuang lainnya.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-4">
               <Link href="/register" className="w-full sm:w-auto">
@@ -287,13 +287,13 @@ export default function LandingPage() {
                 <span className="font-bold text-xl">CAT CPNS <span className="text-indigo-500">PRO</span></span>
               </div>
               <p className="text-slate-500 text-sm leading-relaxed">
-                Platform simulasi ujian CPNS paling akurat dan andal di Indonesia. Membantu pejuang ASN mewujudkan mimpi sejak 2024.
+                Platform tryout ujian CPNS paling akurat dan andal di Indonesia. Membantu pejuang ASN mewujudkan mimpi sejak 2024.
               </p>
             </div>
             <div>
               <h4 className="font-bold mb-6 text-white uppercase text-xs tracking-widest">Produk</h4>
               <ul className="space-y-4 text-sm text-slate-500">
-                <li><Link href="/catalog" className="hover:text-indigo-400 transition-colors">Paket Latihan</Link></li>
+                <li><Link href="/catalog" className="hover:text-indigo-400 transition-colors">Paket Tryout</Link></li>
                 <li><Link href="/catalog?weekly=true" className="hover:text-indigo-400 transition-colors">Tryout Mingguan</Link></li>
               </ul>
             </div>

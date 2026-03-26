@@ -126,7 +126,7 @@ export default function HistoryPage() {
             <span className="text-sm font-bold uppercase tracking-[0.2em]">Personal Achievements</span>
           </div>
           <h1 className="text-4xl font-black tracking-tight mb-3 bg-gradient-to-r from-white via-slate-200 to-slate-500 bg-clip-text text-transparent">
-            Riwayat Simulasi CAT
+            Riwayat Tryout CAT
           </h1>
           <p className="text-slate-400 max-w-2xl">
             Pantau perkembangan skor Anda dari waktu ke waktu. Analisis kelemahan dan terus tingkatkan kemampuan.
@@ -155,7 +155,7 @@ export default function HistoryPage() {
               <AlertCircle className="h-10 w-10 text-slate-700 group-hover:text-indigo-500 transition-colors" />
             </div>
             <h3 className="text-2xl font-bold text-slate-300 mb-2">Belum Ada Riwayat Ujian</h3>
-            <p className="text-slate-500 mb-8 max-w-sm mx-auto">Mulai simulasi ujian pertama Anda sekarang!</p>
+            <p className="text-slate-500 mb-8 max-w-sm mx-auto">Mulai tryout pertama Anda sekarang!</p>
             <Link href="/catalog">
               <Button className="bg-indigo-600 hover:bg-indigo-700 px-8 py-6 rounded-2xl font-bold shadow-xl shadow-indigo-600/20">
                 Explore Katalog Ujian
@@ -221,7 +221,7 @@ export default function HistoryPage() {
                             {session.package_title}
                           </h3>
                           <div className="flex items-center text-slate-500 text-xs font-medium">
-                            <BookOpen className="w-3 h-3 mr-1.5" /> Simulasi CAT BKN Standar
+                            <BookOpen className="w-3 h-3 mr-1.5" /> Tryout CAT BKN Standar
                           </div>
                         </div>
 

@@ -51,7 +51,7 @@ export default function SupportHubPage() {
           </h1>
           <p className="text-slate-400 max-w-2xl mx-auto text-lg leading-relaxed">
             Platform ini dibangun dengan semangat edukasi gratis. Donasi Anda membantu kami membayar server, 
-            memperbarui bank soal, dan terus mengembangkan fitur simulasi CAT yang lebih baik.
+            memperbarui bank soal, dan terus mengembangkan fitur tryout CAT yang lebih baik.
           </p>
           <div className="pt-4">
             <Button 

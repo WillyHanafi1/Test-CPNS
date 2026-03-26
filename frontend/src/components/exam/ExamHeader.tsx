@@ -45,7 +45,7 @@ export default function ExamHeader({ onToggleSidebar }: ExamHeaderProps) {
             <ShieldAlert className="w-4 h-4 text-white" />
           </div>
           <div>
-            <h2 className="font-bold text-sm leading-tight">SIMULASI CAT CPNS</h2>
+            <h2 className="font-bold text-sm leading-tight">TRYOUT CAT CPNS</h2>
             <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest hidden sm:block">Live Session — Standard BKN</p>
           </div>
         </div>

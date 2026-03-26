@@ -45,9 +45,9 @@ services:
       dockerfile: Dockerfile
     container_name: cat_worker
     restart: unless-stopped
-    # Celery Concurrency=1 (Extreme Save Mode RAM 1vCPU)
+    # concurrency=2 agar tidak bersaing RAM dengan backend di droplet 1vCPU/2GB
     # Naik ke --concurrency=8 saat pindah ke 4+ vCPU
-    command: celery -A backend.core.celery_app.celery_app worker --loglevel=${LOG_LEVEL:-INFO} --concurrency=1
+    command: celery -A backend.core.celery_app.celery_app worker --loglevel=${LOG_LEVEL:-INFO} --concurrency=2
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=redis://redis:6379/0

@@ -375,7 +375,7 @@ export default function PackagesAdmin() {
     <div className="space-y-8 pb-20">
       <AdminPageHeader 
         title="Paket Ujian" 
-        subtitle={`Manajemen ${total} Paket Simulasi`}
+        subtitle={`Manajemen ${total} Paket Tryout`}
         actions={
           <Button className="bg-indigo-600 hover:bg-indigo-700 rounded-2xl py-6 px-10 font-bold shadow-xl shadow-indigo-600/20" onClick={handleOpenCreate}>
             <Plus className="w-5 h-5 mr-2" />

@@ -265,7 +265,7 @@ export default function ResultPage() {
             <Award className="w-10 h-10 text-indigo-500" />
           </div>
           <h1 className="text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
-            Hasil Simulasi CAT
+            Hasil Tryout CAT
           </h1>
           <p className="text-slate-400 font-medium">Rincian skor Seleksi Kompetensi Dasar (SKD)</p>
         </div>

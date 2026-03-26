@@ -26,7 +26,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
 const FEATURES = [
   '110 Soal standar BKN terbaru',
-  'Simulasi waktu real-time 100 menit',
+  'Tryout waktu real-time 100 menit',
   'Pembahasan soal mendalam setelah ujian',
   'Statistik performa per kategori (TWK/TIU/TKP)',
   'Bisa diulang tanpa batas',

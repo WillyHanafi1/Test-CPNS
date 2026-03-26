@@ -140,12 +140,12 @@ export default function DashboardPage() {
               Selamat datang, <span className="text-indigo-400">{firstName}</span> 👋
             </h1>
             <p className="text-slate-400 text-lg mb-8 max-w-xl">
-              Pantau perkembanganmu dan mulai simulasi CAT untuk menembus Passing Grade BKN.
+              Pantau perkembanganmu dan mulai tryout CAT untuk menembus Passing Grade BKN.
             </p>
             <Link href="/catalog">
               <Button className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-8 py-6 rounded-2xl shadow-xl shadow-indigo-600/30 text-base group">
                 <Zap className="w-5 h-5 mr-2 group-hover:scale-125 transition-transform" />
-                Mulai Simulasi CAT
+                Mulai Tryout CAT
                 <ChevronRight className="w-4 h-4 ml-2 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
               </Button>
             </Link>
@@ -245,7 +245,7 @@ export default function DashboardPage() {
           <StatCard
             loading={statsLoading}
             icon={<BookOpen className="w-5 h-5 text-indigo-400" />}
-            label="Total Simulasi"
+            label="Total Tryout"
             value={stats.total_sessions.toString()}
             sub="sesi selesai"
             color="indigo"
@@ -342,7 +342,7 @@ export default function DashboardPage() {
               <div className="flex flex-col items-center justify-center py-10 text-center">
                 <AlertCircle className="w-12 h-12 text-slate-700 mb-4" />
                 <p className="text-slate-400 font-medium mb-2">Belum ada sesi selesai</p>
-                <p className="text-slate-600 text-sm">Kerjakan simulasi pertamamu untuk melihat statistik di sini.</p>
+                <p className="text-slate-600 text-sm">Kerjakan tryout pertamamu untuk melihat statistik di sini.</p>
               </div>
             )}
           </div>
