@@ -229,7 +229,7 @@ async def forgot_password(
     
     if user:
         reset_token = create_reset_token(user.email)
-        frontend_url = app_settings.cors_origins_list[0]
+        frontend_url = app_settings.FRONTEND_URL
         reset_link = f"{frontend_url}/reset-password?token={reset_token}"
         
         # Fire-and-forget email sending

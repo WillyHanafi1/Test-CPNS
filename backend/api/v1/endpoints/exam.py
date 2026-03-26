@@ -250,6 +250,27 @@ async def autosave_answer(
         # HAPUS FALLBACK DB. Langsung tolak jika ID opsi ngawur.
         raise HTTPException(status_code=400, detail="Pilihan jawaban tidak valid atau bukan dari paket soal ini")
 
+    # 4b. [SECURITY] Validate question_id belongs to the session's package
+    # Without this, an attacker could save answers under arbitrary question_ids
+    # from different packages, corrupting scoring data.
+    valid_questions_key = f"valid_questions:{session_id}"
+    has_valid_questions = await redis_service.redis.exists(valid_questions_key)
+    
+    if not has_valid_questions:
+        # Populate valid questions set from DB (same pattern as valid_options)
+        from backend.models.models import Question
+        q_result = await db.execute(
+            select(Question.id).where(Question.package_id == session.package_id)
+        )
+        question_ids = [str(row[0]) for row in q_result.fetchall()]
+        if question_ids:
+            await redis_service.redis.sadd(valid_questions_key, *question_ids)
+            await redis_service.redis.expire(valid_questions_key, 10800)
+    
+    is_valid_question = await redis_service.redis.sismember(valid_questions_key, str(question_id))
+    if not is_valid_question:
+        raise HTTPException(status_code=400, detail="Soal tidak valid atau bukan dari paket ujian ini")
+
     # 5. Proses simpan jika waktu masih ada
     # Rule: Always save to Redis first for anti-lag
     # Key format: exam_answers:{user_id}:{session_id}
@@ -343,8 +364,9 @@ async def finish_exam(
             try:
                 session.status = "ongoing"
                 await db.commit()
-            except Exception:
-                pass  # DB mungkin juga down, tidak bisa berbuat banyak
+            except Exception as revert_err:
+                logger.error(f"CRITICAL: Failed to revert session {session_id} to ongoing: {revert_err}")
+                # Session stuck in 'processing' — manual intervention needed
             logger.error(traceback.format_exc())
             raise HTTPException(status_code=500, detail=f"Gagal menghitung nilai ujian: {str(fallback_error)}")
 

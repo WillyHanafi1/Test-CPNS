@@ -73,6 +73,12 @@ async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: s
             cache_key = f"exam_answers:{user_id_str}:{session_id_str}"
             redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
 
+            # [DEFENSIVE] Initialize score vars before try block so no code path
+            # can reference them uninitialized if the try block fails early
+            score_twk = score_tiu = score_tkp = total_score = 0
+            db_answers = []
+            sub_cat_stats = {}
+
             try:
                 redis_answers = await redis_client.hgetall(cache_key)
                 logger_scoring.info(f"Found {len(redis_answers)} answers in Redis for session {session_id_str}")
@@ -84,10 +90,6 @@ async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: s
                 )
                 questions = result.scalars().all()
                 logger_scoring.info(f"Found {len(questions)} questions for package {session.package_id}")
-
-                score_twk = score_tiu = score_tkp = 0
-                db_answers = []
-                sub_cat_stats = {}
 
                 for q in questions:
                     q_id_str = str(q.id)
@@ -158,6 +160,10 @@ async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: s
 
                 if package_obj and not session.is_preview:
                     # Composite tie-breaker: total → TKP → TIU → TWK
+                    # SAFETY NOTE: Redis ZSet scores are IEEE 754 doubles (53-bit mantissa).
+                    # Max safe integer is 2^53 ≈ 9,007,199,254,740,992.
+                    # With CPNS max total_score ~500, packed max ≈ 500_999_999_999 which is safe.
+                    # If scoring changes to allow total > 9,007,199, this packing WILL LOSE PRECISION.
                     tie_breaker_score = (
                         (total_score * 1_000_000_000) +
                         (score_tkp  *     1_000_000) +

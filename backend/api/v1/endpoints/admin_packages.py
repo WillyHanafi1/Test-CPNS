@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 from sqlalchemy.orm import selectinload
@@ -210,11 +210,14 @@ async def restore_package_admin(
     
     return package
 
+class CopyPackageRequest(BaseModel):
+    new_start_at: datetime
+    new_end_at: datetime
+
 @router.post("/{package_id}/copy", response_model=PackageResponse, status_code=status.HTTP_201_CREATED)
 async def copy_package_admin(
     package_id: uuid.UUID,
-    new_start_at: datetime,
-    new_end_at: datetime,
+    body: CopyPackageRequest = Body(...),
     db: AsyncSession = Depends(get_async_session),
     admin: User = Depends(get_current_admin)
 ):
@@ -234,8 +237,8 @@ async def copy_package_admin(
         description=source.description,
         is_weekly=True,
         is_published=False,  # draft dulu, publish manual
-        start_at=new_start_at,  # [SECURITY] Keep timezone-aware per SOP
-        end_at=new_end_at,
+        start_at=body.new_start_at,  # [SECURITY] From request body, not query params
+        end_at=body.new_end_at,
         category=source.category,
         price=source.price,
         is_premium=source.is_premium
@@ -301,7 +304,7 @@ async def quick_preview_package(
         package_id=package_id,
         status="finished",
         is_preview=True,
-        start_time=datetime.now(timezone.utc).replace(tzinfo=None),
+        start_time=now,  # [FIX] Both must be timezone-aware UTC — no .replace(tzinfo=None)
         end_time=now,
         total_score=0, # Will calculate below
         score_twk=0,

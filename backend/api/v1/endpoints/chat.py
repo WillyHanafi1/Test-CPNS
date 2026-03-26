@@ -124,11 +124,23 @@ async def send_message(
         pass
 
     if question_id:
-        q_result = await db.execute(
-            select(Question)
-            .options(selectinload(Question.options))
-            .where(Question.id == question_id)
-        )
+        # [SECURITY] Validate question belongs to the exam session's package
+        # Without this, a user could supply any question_id and leak its discussion text
+        q_query = select(Question).options(selectinload(Question.options)).where(Question.id == question_id)
+        
+        if chat_session.exam_session_id:
+            # Cross-check: question must belong to the same package as the exam session
+            from backend.models.models import ExamSession
+            exam_result = await db.execute(
+                select(ExamSession.package_id)
+                .where(ExamSession.id == chat_session.exam_session_id,
+                       ExamSession.user_id == current_user.id)
+            )
+            pkg_id = exam_result.scalar_one_or_none()
+            if pkg_id:
+                q_query = q_query.where(Question.package_id == pkg_id)
+        
+        q_result = await db.execute(q_query)
         question = q_result.scalar_one_or_none()
         
         # Also try to get user's answer for this session
@@ -177,6 +189,14 @@ async def get_chat_sessions(
     db: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_user)
 ):
+    """
+    List user's chat sessions.
+    
+    [DESIGN DECISION] No PRO gate on read endpoints intentionally.
+    Users who previously had PRO should retain read-only access to their chat history.
+    Data they generated during their subscription period should not be locked away.
+    Only creating new chats (POST /start) and sending messages (POST /{id}/message) require PRO.
+    """
     result = await db.execute(
         select(ChatSession)
         .where(ChatSession.user_id == current_user.id)

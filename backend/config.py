@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import model_validator
 from typing import Optional, List
 import os
 import warnings
@@ -15,11 +16,25 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7 # 7 days
 
-    # CORS — comma-separated origins in .env, e.g. CORS_ORIGINS=http://localhost:3000,https://yourdomain.com
-    CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://localhost:3002,http://127.0.0.1:3001,http://127.0.0.1:3002")
+    # Frontend URL — dedicated config for reset emails, not dependent on CORS list ordering
+    # pydantic-settings will override from env/file if FRONTEND_URL is set
+    FRONTEND_URL: str = "http://localhost:3000"
 
-    # Cookie security — set to True when running behind HTTPS in production
-    COOKIE_SECURE: bool = os.getenv("ENV") == "production"
+    # CORS — comma-separated origins in .env, e.g. CORS_ORIGINS=http://localhost:3000,https://yourdomain.com
+    CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://localhost:3002,http://127.0.0.1:3001,http://127.0.0.1:3002"
+
+    # Environment mode — pydantic-settings will load from .env
+    ENV: str = "development"
+
+    # Cookie security — derived from ENV via model_validator, NOT os.getenv()
+    COOKIE_SECURE: bool = False
+
+    @model_validator(mode="after")
+    def derive_cookie_secure(self):
+        """Set COOKIE_SECURE=True when ENV=production, after pydantic-settings has loaded .env"""
+        if self.ENV == "production":
+            self.COOKIE_SECURE = True
+        return self
 
     # Google SSO
     GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
@@ -68,11 +83,16 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-# Issue #9: Warn if default SECRET_KEY is used
-if settings.SECRET_KEY == "your-secret-key-keep-it-secret" and os.getenv("ENV") == "production":
-    warnings.warn(
-        "\n⚠️  CRITICAL SECURITY WARNING: Anda menggunakan SECRET_KEY default di production!\n"
-        "   Set SECRET_KEY di file .env dengan string acak yang kuat.\n"
-        "   Contoh: openssl rand -hex 32",
-        stacklevel=1,
-    )
+# Issue #9: Refuse to start with default SECRET_KEY in production, warn in all others
+if settings.SECRET_KEY == "your-secret-key-keep-it-secret":
+    if settings.ENV == "production":
+        raise RuntimeError(
+            "\n🚨 FATAL: Default SECRET_KEY detected in production — refusing to start.\n"
+            "   Set SECRET_KEY di file .env dengan string acak yang kuat.\n"
+            "   Contoh: openssl rand -hex 64"
+        )
+    else:
+        warnings.warn(
+            "\n⚠️  Using default SECRET_KEY. Set a real value before exposing this service.",
+            stacklevel=1,
+        )
