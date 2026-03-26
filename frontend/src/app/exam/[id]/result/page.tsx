@@ -305,6 +305,82 @@ export default function ResultPage() {
           </div>
         </div>
 
+        {/* Percentile Ranking Card */}
+        {rankData.totalParticipants > 1 && rankData.rank !== null && (
+          <div className={`relative p-6 md:p-8 rounded-[2rem] border-2 overflow-hidden transition-all duration-500 hover:shadow-xl ${
+            rankData.percentile >= 75 ? 'bg-indigo-500/5 border-indigo-500/20 hover:shadow-indigo-500/10' :
+            rankData.percentile >= 50 ? 'bg-amber-500/5 border-amber-500/20 hover:shadow-amber-500/10' :
+            'bg-slate-500/5 border-slate-700 hover:shadow-slate-500/10'
+          }`}>
+            <div className={`absolute -top-20 -right-20 w-56 h-56 rounded-full blur-[80px] opacity-15 ${
+              rankData.percentile >= 75 ? 'bg-indigo-500' : rankData.percentile >= 50 ? 'bg-amber-500' : 'bg-slate-500'
+            }`} />
+
+            <div className="relative space-y-5">
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                    rankData.percentile >= 75 ? 'bg-indigo-500/10' : rankData.percentile >= 50 ? 'bg-amber-500/10' : 'bg-slate-500/10'
+                  }`}>
+                    <BarChart3 className={`w-5 h-5 ${
+                      rankData.percentile >= 75 ? 'text-indigo-400' : rankData.percentile >= 50 ? 'text-amber-400' : 'text-slate-400'
+                    }`} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">Peringkat Anda</h3>
+                    <p className="text-xs text-slate-500">Dibandingkan dengan peserta lain</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-black text-white">#{rankData.rank}</div>
+                  <p className="text-[10px] text-slate-500 font-medium">dari {rankData.totalParticipants} peserta</p>
+                </div>
+              </div>
+
+              {/* Percentile Bar */}
+              <div className="space-y-2">
+                <div className="h-4 bg-slate-800/80 rounded-full overflow-hidden p-[2px]">
+                  <div
+                    className={`h-full rounded-full transition-all duration-[2000ms] ease-out ${
+                      rankData.percentile >= 75 ? 'bg-gradient-to-r from-indigo-600 to-indigo-400' :
+                      rankData.percentile >= 50 ? 'bg-gradient-to-r from-amber-600 to-amber-400' :
+                      'bg-gradient-to-r from-slate-600 to-slate-400'
+                    }`}
+                    style={{ width: `${Math.max(rankData.percentile, 3)}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[10px] text-slate-500 font-medium px-1">
+                  <span>0%</span>
+                  <span className={`text-xs font-bold ${
+                    rankData.percentile >= 75 ? 'text-indigo-400' : rankData.percentile >= 50 ? 'text-amber-400' : 'text-slate-400'
+                  }`}>
+                    Top {(100 - rankData.percentile).toFixed(1)}%
+                  </span>
+                  <span>100%</span>
+                </div>
+              </div>
+
+              {/* Motivational Text */}
+              <div className={`text-center py-3 px-4 rounded-xl ${
+                rankData.percentile >= 75 ? 'bg-indigo-500/10' : rankData.percentile >= 50 ? 'bg-amber-500/10' : 'bg-slate-800/50'
+              }`}>
+                <p className="text-sm font-semibold text-white">
+                  {rankData.percentile >= 90 ? '🏆 ' : rankData.percentile >= 75 ? '🔥 ' : rankData.percentile >= 50 ? '💪 ' : '📈 '}
+                  Hasil ujian Anda lebih baik dari{' '}
+                  <span className={`font-black ${
+                    rankData.percentile >= 75 ? 'text-indigo-400' : rankData.percentile >= 50 ? 'text-amber-400' : 'text-slate-300'
+                  }`}>
+                    {rankData.percentile}%
+                  </span>
+                  {' '}peserta lainnya
+                  {rankData.percentile >= 90 ? '!' : rankData.percentile >= 50 ? '.' : '. Terus berlatih!'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* AI Analysis Section */}
         <AIAnalysisCard 
           status={result.ai_status} 

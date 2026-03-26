@@ -7,7 +7,8 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { UserPlus } from 'lucide-react';
+import { UserPlus, Loader2 } from 'lucide-react';
+import { GoogleLogin } from '@react-oauth/google';
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
@@ -16,7 +17,7 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
-  const { register } = useAuth();
+  const { register, refreshSession } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,6 +29,36 @@ export default function RegisterPage() {
       router.push('/login?registered=true');
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    setIsLoading(true);
+    setError('');
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+
+    try {
+      const res = await fetch(`${API_URL}/api/v1/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: credentialResponse.credential }),
+        credentials: 'include',
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        await refreshSession();
+        router.replace(data.role === 'admin' ? '/admin' : '/dashboard');
+      } else {
+        const data = await res.json();
+        setError(data.detail || 'Google registration failed');
+      }
+    } catch (err: any) {
+      console.error('Google register error:', err);
+      const errorMessage = err?.message || err?.detail || (typeof err === 'string' ? err : 'Terjadi kesalahan sistem saat registrasi Google');
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -90,13 +121,39 @@ export default function RegisterPage() {
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
             <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white border-0 py-6 text-base font-semibold transition-all duration-200 ease-in-out transform hover:scale-[1.02]" disabled={isLoading}>
-              {isLoading ? 'Creating account...' : (
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating account...
+                </>
+              ) : (
                 <>
                   <UserPlus className="mr-2 h-4 w-4" /> Sign Up
                 </>
               )}
             </Button>
-            <p className="text-sm text-slate-400 text-center">
+
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-slate-800" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-[#0f172a] px-2 text-slate-500">Or continue with</span>
+              </div>
+            </div>
+
+            <div className="flex justify-center w-full">
+              <div className="w-full flex justify-center">
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={() => setError('Google Registration Failed')}
+                  theme="filled_black"
+                  shape="rectangular"
+                  text="signup_with"
+                />
+              </div>
+            </div>
+
+            <p className="text-sm text-slate-400 text-center mt-6">
               Already have an account?{' '}
               <Link href="/login" className="text-indigo-400 hover:text-indigo-300 font-medium">
                 Log in here
