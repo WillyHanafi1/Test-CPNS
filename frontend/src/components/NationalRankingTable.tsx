@@ -18,11 +18,12 @@ interface NationalRankingTableProps {
   packageId?: string;
   packageTitle?: string;
   currentUserEmail?: string;
+  isCompact?: boolean;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
-export default function NationalRankingTable({ packageId, packageTitle, currentUserEmail }: NationalRankingTableProps) {
+export default function NationalRankingTable({ packageId, packageTitle, currentUserEmail, isCompact = false }: NationalRankingTableProps) {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [myRank, setMyRank] = useState<{ 
     rank: number | null, 
@@ -85,9 +86,12 @@ export default function NationalRankingTable({ packageId, packageTitle, currentU
           <div className="bg-amber-500/10 p-2 rounded-xl border border-amber-500/20">
             <Trophy className="w-5 h-5 text-amber-500" />
           </div>
-          <h2 className="text-xl font-bold text-white tracking-tight uppercase italic">
-            Top 10 Nasional <span className="text-slate-500 mx-2 text-sm normal-case not-italic font-normal">—</span> <span className="text-indigo-400 capitalize">{packageTitle || "Tryout Terkini"}</span>
-          </h2>
+          <div className={`flex ${isCompact ? 'flex-col' : 'items-center'} overflow-hidden`}>
+            <h2 className={`font-bold text-white tracking-tight uppercase italic ${isCompact ? 'text-sm' : 'text-xl'}`}>
+              Top 10 Nasional {!isCompact && <span className="text-slate-500 mx-2 text-sm normal-case not-italic font-normal">—</span>}
+            </h2>
+            <span className={`text-indigo-400 capitalize truncate ${isCompact ? 'text-xs w-32 sm:w-48' : 'text-xl'}`}>{packageTitle || "Tryout Terkini"}</span>
+          </div>
         </div>
         <Link href={`/leaderboard?package_id=${packageId}`}>
           <Button variant="ghost" size="sm" className="text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/5 rounded-xl text-xs font-bold uppercase tracking-widest">
@@ -101,10 +105,10 @@ export default function NationalRankingTable({ packageId, packageTitle, currentU
           <thead>
             <tr className="border-b border-slate-800/50">
               <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Rank</th>
-              <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Peserta</th>
-              <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 text-center hidden sm:table-cell">TWK</th>
-              <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 text-center hidden sm:table-cell">TIU</th>
-              <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 text-center hidden sm:table-cell">TKP</th>
+              <th className={`px-4 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 ${isCompact ? 'text-left' : 'text-center'}`}>Peserta</th>
+              <th className={`px-4 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 text-center ${isCompact ? 'hidden' : 'hidden sm:table-cell'}`}>TWK</th>
+              <th className={`px-4 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 text-center ${isCompact ? 'hidden' : 'hidden sm:table-cell'}`}>TIU</th>
+              <th className={`px-4 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 text-center ${isCompact ? 'hidden' : 'hidden sm:table-cell'}`}>TKP</th>
               <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 text-right">Total</th>
             </tr>
           </thead>
@@ -121,28 +125,28 @@ export default function NationalRankingTable({ packageId, packageTitle, currentU
                       {rank}
                     </span>
                   </td>
-                  <td className="px-6 py-5">
+                  <td className={`px-4 py-5 ${isCompact ? 'w-24' : ''}`}>
                     <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all ${isTop3 ? 'bg-indigo-600/10 border-indigo-500/30' : 'bg-slate-800 border-slate-700'}`}>
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all shrink-0 ${isTop3 ? 'bg-indigo-600/10 border-indigo-500/30' : 'bg-slate-800 border-slate-700'}`}>
                         <User className={`w-5 h-5 ${isTop3 ? 'text-indigo-400' : 'text-slate-500'}`} />
                       </div>
-                      <div>
-                        <p className="font-bold text-slate-200 group-hover:text-white transition-colors text-sm uppercase tracking-tight">
+                      <div className="truncate">
+                        <p className={`font-bold text-slate-200 group-hover:text-white transition-colors text-sm uppercase tracking-tight truncate ${isCompact ? 'w-24 sm:w-32' : ''}`}>
                           {item.name}
                         </p>
-                        <p className="text-[10px] text-slate-500 font-medium sm:hidden">
+                        <p className={`text-[10px] text-slate-500 font-medium tracking-widest ${isCompact ? 'block' : 'sm:hidden'}`}>
                           {item.score_twk || 0}/{item.score_tiu || 0}/{item.score_tkp || 0}
                         </p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-5 text-center hidden sm:table-cell">
+                  <td className={`px-4 py-5 text-center ${isCompact ? 'hidden' : 'hidden sm:table-cell'}`}>
                     <span className="text-sm font-bold text-slate-400">{item.score_twk || 0}</span>
                   </td>
-                  <td className="px-4 py-5 text-center hidden sm:table-cell">
+                  <td className={`px-4 py-5 text-center ${isCompact ? 'hidden' : 'hidden sm:table-cell'}`}>
                     <span className="text-sm font-bold text-slate-400">{item.score_tiu || 0}</span>
                   </td>
-                  <td className="px-4 py-5 text-center hidden sm:table-cell">
+                  <td className={`px-4 py-5 text-center ${isCompact ? 'hidden' : 'hidden sm:table-cell'}`}>
                     <span className="text-sm font-bold text-orange-400/80">{item.score_tkp || 0}</span>
                   </td>
                   <td className="px-6 py-5 text-right">

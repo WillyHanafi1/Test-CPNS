@@ -14,7 +14,7 @@ import Link from 'next/link';
 import DonationModal from '@/components/DonationModal';
 import FeedbackModal from '@/components/FeedbackModal';
 import WallOfFame from '@/components/WallOfFame';
-import NationalRankingTable from '@/components/NationalRankingTable';
+import ReadinessWidget from '@/components/ReadinessWidget';
 import MagicBento from '@/components/MagicBento';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
@@ -348,30 +348,8 @@ export default function DashboardPage() {
           </div>
 
           <div className="space-y-6">
-            {/* National Leaderboard */}
-            {(weeklyPackage || latestSession) ? (
-              <NationalRankingTable 
-                packageId={weeklyPackage ? weeklyPackage.id : latestSession.package_id} 
-                packageTitle={weeklyPackage ? weeklyPackage.title : latestSession.package_title}
-                currentUserEmail={user.email} 
-              />
-            ) : (
-              <div className="bg-slate-900/50 border border-slate-800 rounded-3xl p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-sm font-bold text-slate-100 flex items-center">
-                    <Trophy className="w-4 h-4 mr-2 text-amber-400" /> Peringkat Tryout
-                  </h2>
-                </div>
-                <p className="text-xs text-slate-500 mb-4">
-                  Lihat peringkat nasional untuk setiap paket Tryout Mingguan yang sedang aktif.
-                </p>
-                <Link href="/catalog">
-                  <Button variant="secondary" size="sm" className="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl">
-                    Buka Katalog Tryout
-                  </Button>
-                </Link>
-              </div>
-            )}
+            {/* Readiness Widget */}
+            <ReadinessWidget />
 
             {/* Donation Card */}
             <div className="bg-gradient-to-br from-indigo-900/40 to-slate-900 border border-indigo-500/20 rounded-3xl p-6">
