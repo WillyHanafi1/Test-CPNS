@@ -484,6 +484,51 @@ async def get_exam_review(
         questions=review_questions
     )
 
+async def _fallback_rebuild_leaderboard(package_id: uuid.UUID, package: Package, db: AsyncSession):
+    """
+    Self-healing utility: rebuilds a specific package's leaderboard in Redis
+    from PostgreSQL Database if the Redis ZSET is empty (e.g., after an unexpected restart).
+    """
+    lb_type = "weekly" if package.is_weekly else "practice"
+    lb_key = f"leaderboard:{lb_type}:{package_id}"
+    
+    result = await db.execute(
+        select(ExamSession)
+        .options(selectinload(ExamSession.user))
+        .where(
+            ExamSession.package_id == package_id,
+            ExamSession.status == "finished",
+            ExamSession.is_preview == False
+        )
+    )
+    sessions = result.scalars().all()
+    
+    if not sessions:
+        return False
+        
+    best_scores = {}
+    for session in sessions:
+        if not session.user: continue
+        email = session.user.email
+        packed_score = (
+            (session.total_score or 0) * 1000000000 +
+            (session.score_tkp or 0) * 1000000 +
+            (session.score_tiu or 0) * 1000 +
+            (session.score_twk or 0)
+        )
+        if packed_score > best_scores.get(email, 0):
+            best_scores[email] = packed_score
+            
+    if best_scores:
+        mapping = {email: float(score) for email, score in best_scores.items()}
+        await redis_service.redis.delete(lb_key)
+        await redis_service.redis.zadd(lb_key, mapping)
+        if not package.is_weekly:
+            await redis_service.redis.expire(lb_key, 30 * 24 * 60 * 60)
+            
+    logger.info(f"Leaderboard fallback rebuilt for package {package_id} with {len(best_scores)} users.")
+    return True
+
 @router.get("/leaderboard/{package_id}")
 async def get_leaderboard(
     package_id: uuid.UUID,
@@ -509,6 +554,12 @@ async def get_leaderboard(
 
     # Fetch from Redis ZSET
     raw_leaderboard = await redis_service.redis.zrevrange(lb_key, 0, limit - 1, withscores=True)
+    
+    if not raw_leaderboard:
+        # FALLBACK TO DATABASE (SELF-HEALING)
+        rebuilt = await _fallback_rebuild_leaderboard(package_id, package, db)
+        if rebuilt:
+            raw_leaderboard = await redis_service.redis.zrevrange(lb_key, 0, limit - 1, withscores=True)
     
     if not raw_leaderboard:
         return []
@@ -600,6 +651,17 @@ async def get_my_rank(
     lb_key = f"leaderboard:{lb_type}:{package_id}"
         
     rank = await redis_service.redis.zrevrank(lb_key, current_user.email)
+    
+    if rank is None:
+        total_participants = await redis_service.redis.zcard(lb_key)
+        if total_participants == 0:
+            # FALLBACK TO DATABASE (SELF-HEALING)
+            logger.warning(f"Redis leaderboard empty for {package_id} rank check. Triggering DB fallback.")
+            rebuilt = await _fallback_rebuild_leaderboard(package_id, package, db)
+            if rebuilt:
+                rank = await redis_service.redis.zrevrank(lb_key, current_user.email)
+                total_participants = await redis_service.redis.zcard(lb_key)
+                
     score = await redis_service.redis.zscore(lb_key, current_user.email)
     total_participants = await redis_service.redis.zcard(lb_key)
     
