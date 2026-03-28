@@ -52,6 +52,13 @@ export default function ResultPage() {
           signal: controller.signal
         });
 
+        // Specific 404 Handling
+        if (getRes.status === 404) {
+          setErrorMsg("Sesi ujian tidak ditemukan. Mungkin Anda sudah keluar atau sesi telah kadaluarsa.");
+          setLoading(false);
+          return;
+        }
+
         if (getRes.ok) {
           const getData = await getRes.json();
 
@@ -83,7 +90,14 @@ export default function ResultPage() {
           signal: controller.signal
         });
 
+        if (response.status === 404) {
+          setErrorMsg("Sesi ujian tidak dapat diselesaikan karena tidak ditemukan.");
+          setLoading(false);
+          return;
+        }
+
         if (!response.ok) throw new Error("Gagal memproses hasil ujian");
+
 
         const data = await response.json();
 

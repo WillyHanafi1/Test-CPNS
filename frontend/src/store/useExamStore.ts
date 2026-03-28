@@ -59,9 +59,11 @@ export const useExamStore = create<ExamState>()(
 
       startExam: (packageId, sessionId, questions, durationMinutes, serverEndTimeISO) => {
         const state = get();
-        const isSameSession = state.sessionId === sessionId && state.isStarted;
+        // A session is only considered "the same" if both packageId and sessionId match perfectly
+        const isSameSession = state.packageId === packageId && state.sessionId === sessionId && state.isStarted;
 
         // Calculate offset: ServerTime - LocalTime
+        // This offset is used to sync the client timer with the server's absolute end_time
         const currentOffset = serverEndTimeISO
           ? new Date(serverEndTimeISO).getTime() - (durationMinutes * 60 * 1000) - Date.now()
           : state.serverTimeOffset;
@@ -79,20 +81,23 @@ export const useExamStore = create<ExamState>()(
           timeLeft = durationMinutes * 60;
         }
 
+        // If not the same session, we MUST reset answers and doubt status
+        // to prevent leaking data from a previous attempt/package.
         set({
           packageId,
           sessionId,
-          questions: questions.sort((a, b) => a.number - b.number),
+          questions: [...questions].sort((a, b) => a.number - b.number),
           timeLeft,
           serverEndTime: serverEndTimeISO ?? state.serverEndTime,
           serverTimeOffset: currentOffset,
           isStarted: true,
-          isFinished: false,
-          currentIndex: isSameSession ? state.currentIndex : 0, // preserve position on refresh
-          answers: isSameSession ? state.answers : {},           // preserve answers on refresh
+          isFinished: timeLeft <= 0, // Mark finished immediately if time is up
+          currentIndex: isSameSession ? state.currentIndex : 0,
+          answers: isSameSession ? state.answers : {},
           doubtStatus: isSameSession ? state.doubtStatus : {},
         });
       },
+
 
       selectOption: (questionId, optionId) =>
         set((state) => ({

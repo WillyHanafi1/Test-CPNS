@@ -20,6 +20,7 @@ export default function ExamPage() {
     isStarted,
     isFinished,
     startExam,
+    resetExam,
     tick,
     questions,
     sessionId,
@@ -32,11 +33,21 @@ export default function ExamPage() {
   // HOOK 1: Initialize Exam
   useEffect(() => {
     const initExam = async () => {
+      // If we are coming from a different package, RESET the store first.
+      // This is CRITICAL to prevent 'isFinished: true' from a previous exam
+      // from triggering an immediate redirect to an old result page.
+      if (packageId && packageId !== String(id)) {
+        resetExam();
+        // Return here and let the next effect cycle pick up the clean state
+        return;
+      }
+
       // Resume if already started for same package
       if (isStarted && questions.length > 0) {
         setLoading(false);
         return;
       }
+
 
       try {
         const response = await fetch(`${API_URL}/api/v1/exam/start/${id}`, {

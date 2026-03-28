@@ -129,14 +129,33 @@ async def start_exam(
     existing_session = existing_check.scalar_one_or_none()
     
     if existing_session:
-        # If it's weekly and already finished, we shouldn't even get here if we check finish status first
-        # But for safety, handle "ongoing" resume here
-        await populate_valid_options(existing_session.id)
-        return {
-            "session_id": existing_session.id,
-            "package": package,
-            "end_time": existing_session.end_time.replace(tzinfo=timezone.utc)
-        }
+        # Check if the session is actually expired
+        now_utc = datetime.now(timezone.utc)
+        session_end = existing_session.end_time
+        if session_end.tzinfo is None:
+            session_end = session_end.replace(tzinfo=timezone.utc)
+
+        if session_end < now_utc:
+            # Auto-finish the expired session
+            logger.info(f"Auto-finishing expired session {existing_session.id} for user {current_user.id}")
+            existing_session.status = "finished"
+            await db.commit()
+            
+            # Trigger background scoring (imported here to avoid circular dependencies)
+            from backend.core.tasks import async_run_scoring
+            async_run_scoring.delay(existing_session.id)
+            
+            # Reset existing_session to None so a new one can be created
+            existing_session = None
+        else:
+            # Resume valid ongoing session
+            await populate_valid_options(existing_session.id)
+            return {
+                "session_id": existing_session.id,
+                "package": package,
+                "end_time": existing_session.end_time.replace(tzinfo=timezone.utc)
+            }
+
 
     # 2b. Specifically for Weekly TO: Check if already finished
     if package.is_weekly:
