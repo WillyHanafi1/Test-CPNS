@@ -369,7 +369,14 @@ export default function ResultPage() {
                   <span className={`text-xs font-bold ${
                     rankData.percentile >= 75 ? 'text-indigo-400' : rankData.percentile >= 50 ? 'text-amber-400' : 'text-slate-400'
                   }`}>
-                    Top {(100 - rankData.percentile).toFixed(1)}%
+                    {
+                      (100 - rankData.percentile) <= 0.1 ? "Top 0.1%" :
+                      (100 - rankData.percentile) <= 1 ? "Top 1%" :
+                      (100 - rankData.percentile) <= 10 ? "Top 10%" :
+                      (100 - rankData.percentile) <= 25 ? "Top 25%" :
+                      (100 - rankData.percentile) <= 50 ? "Top 50%" :
+                      (100 - rankData.percentile) <= 75 ? "Top 75%" : "Perlu Latihan"
+                    }
                   </span>
                   <span>100%</span>
                 </div>
