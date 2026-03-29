@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import pandas as pd
@@ -6,7 +6,7 @@ import io
 import uuid
 from typing import List, Dict
 from backend.db.session import get_async_session
-from backend.models.models import Question, QuestionOption, Package, User
+from backend.models.models import Question, QuestionOption, Package, User, Answer, ExamSession, ChatSession, ChatMessage
 from backend.api.v1.endpoints.auth import get_current_admin
 from backend.core.redis_service import redis_service
 
@@ -16,7 +16,8 @@ MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 
 @router.post("/questions")
 async def import_questions(
-    package_id: uuid.UUID,
+    package_id: uuid.UUID = Query(...),
+    replace: bool = Query(False),
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_async_session),
     admin: User = Depends(get_current_admin)
@@ -99,16 +100,56 @@ async def import_questions(
             detail={"message": "Validasi Header gagal.", "errors": errors}
         )
 
-    # 3. PRE-FLIGHT VALIDATION (Dry Run)
-    existing_nums_result = await db.execute(select(Question.number).where(Question.package_id == package_id))
-    existing_nums = {row[0] for row in existing_nums_result.all()}
-    file_nums = set()
+    # 3. Handling Replace / Overwrite
+    if replace:
+        from sqlalchemy import delete
+        try:
+            # Order matters based on GEMINI.md requirements
+            # 1. ChatMessage (via ChatSession lookup)
+            chat_session_ids_result = await db.execute(
+                select(ChatSession.id).where(
+                    (ChatSession.question_id.in_(select(Question.id).where(Question.package_id == package_id))) |
+                    (ChatSession.exam_session_id.in_(select(ExamSession.id).where(ExamSession.package_id == package_id)))
+                )
+            )
+            chat_session_ids = [r[0] for r in chat_session_ids_result.all()]
+            
+            if chat_session_ids:
+                await db.execute(delete(ChatMessage).where(ChatMessage.session_id.in_(chat_session_ids)))
+                await db.execute(delete(ChatSession).where(ChatSession.id.in_(chat_session_ids)))
+
+            # 2. Answer (via Question or Session lookup)
+            await db.execute(
+                delete(Answer).where(
+                    (Answer.question_id.in_(select(Question.id).where(Question.package_id == package_id))) |
+                    (Answer.session_id.in_(select(ExamSession.id).where(ExamSession.package_id == package_id)))
+                )
+            )
+            
+            # 3. QuestionOption & Question
+            # Cascading usually handled by models, but being explicit for re-import
+            await db.execute(delete(QuestionOption).where(QuestionOption.question_id.in_(select(Question.id).where(Question.package_id == package_id))))
+            await db.execute(delete(ExamSession).where(ExamSession.package_id == package_id))
+            await db.execute(delete(Question).where(Question.package_id == package_id))
+            
+            # Flush but don't commit yet (insertion follows)
+            await db.flush()
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=f"Gagal membersihkan data lama: {str(e)}")
+
+    # 4. PRE-FLIGHT VALIDATION (Dry Run)
+    existing_nums = set()
+    if not replace:
+        existing_nums_result = await db.execute(select(Question.number).where(Question.package_id == package_id))
+        existing_nums = {row[0] for row in existing_nums_result.all()}
     
+    file_nums = set()
     for index, row in df.iterrows():
         row_idx = index + 2
         try:
             num = int(row[num_col])
-            if num in existing_nums:
+            if not replace and num in existing_nums:
                 errors.append(f"Baris {row_idx}: Nomor {num} sudah ada di database.")
             if num in file_nums:
                 errors.append(f"Baris {row_idx}: Nomor {num} duplikat di file.")

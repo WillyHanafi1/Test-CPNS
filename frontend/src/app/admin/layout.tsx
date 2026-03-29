@@ -13,6 +13,7 @@ import {
   LogOut, 
   ChevronRight,
   ShieldCheck,
+  ShieldAlert,
   Menu,
   X,
   MessageSquare

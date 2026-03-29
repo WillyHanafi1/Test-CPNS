@@ -60,6 +60,7 @@ export default function QuestionsAdmin() {
   const [importLoading, setImportLoading] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importPackageId, setImportPackageId] = useState('');
+  const [importReplace, setImportReplace] = useState(false);
   const [importErrors, setImportErrors] = useState<string[]>([]);
 
   // Drawer State
@@ -190,7 +191,7 @@ export default function QuestionsAdmin() {
     formData.append('file', importFile);
 
     try {
-      const response = await fetch(`${API_URL}/api/v1/admin/import/questions?package_id=${importPackageId}`, {
+      const response = await fetch(`${API_URL}/api/v1/admin/import/questions?package_id=${importPackageId}&replace=${importReplace}`, {
         method: 'POST',
         body: formData,
         credentials: 'include'
@@ -589,7 +590,7 @@ export default function QuestionsAdmin() {
                 </div>
                 <button onClick={() => {
                   setIsImportModalOpen(false);
-                  setImportErrors([]);
+                  setImportReplace(false);
                 }} className="text-slate-500 hover:text-white transition-colors">
                   <X className="w-6 h-6" />
                 </button>
@@ -645,6 +646,18 @@ export default function QuestionsAdmin() {
                   </select>
                 </div>
 
+                <div className="flex items-center space-x-3 p-4 bg-rose-500/5 border border-rose-500/10 rounded-2xl group cursor-pointer hover:bg-rose-500/10 transition-all select-none" onClick={() => setImportReplace(!importReplace)}>
+                  <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${importReplace ? 'bg-rose-500 border-rose-400' : 'border-slate-700 bg-slate-950'}`}>
+                    {importReplace && <CheckCircle2 className="w-4 h-4 text-white" />}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-slate-200">Timpa data lama dalam paket ini?</p>
+                    <p className="text-[10px] text-rose-400 font-medium leading-relaxed italic mt-1 uppercase tracking-widest">
+                      PERINGATAN: Semua soal, opsi, dan sesi ujian user yang ada akan dihapus permanen!
+                    </p>
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">File Soal (.xlsx / .csv)</label>
                   <div className={`border-2 border-dashed rounded-3xl p-10 flex flex-col items-center justify-center transition-all ${importFile ? 'border-indigo-500/50 bg-indigo-500/5' : 'border-slate-800 hover:border-slate-700'
@@ -669,7 +682,10 @@ export default function QuestionsAdmin() {
                     type="button"
                     variant="ghost"
                     className="flex-1 py-7 rounded-2xl font-bold text-slate-400"
-                    onClick={() => setIsImportModalOpen(false)}
+                    onClick={() => {
+                      setIsImportModalOpen(false);
+                      setImportReplace(false);
+                    }}
                   >
                     Batal
                   </Button>
