@@ -274,7 +274,8 @@ Tutor AI:"""
         difficulty: str,
         regulation_context: str,
         example_question: str = "",
-        custom_prompt: str = ""
+        custom_prompt: str = "",
+        existing_topics: list[str] = None,
     ) -> Dict[str, Any]:
         """
         Generate a complete CPNS question from scratch with options, scores, and discussion.
@@ -348,6 +349,14 @@ Tutor AI:"""
         if custom_prompt:
             custom_section = f"\n            INSTRUKSI TAMBAHAN: {custom_prompt}\n"
 
+        existing_topics_section = ""
+        if existing_topics:
+            topics_str = "\n".join(f"  - {t}" for t in existing_topics)
+            existing_topics_section = f"""
+            TOPIK YANG SUDAH DIBUAT SEBELUMNYA (WAJIB buat topik/skenario/pola yang BERBEDA TOTAL):
+            {topics_str}
+            """
+
         prompt = f"""
         Kamu adalah Ahli Senior Pembuat Soal CPNS BKN dengan pengalaman 20 tahun.
         Buatkan 1 soal ORIGINAL untuk Seleksi Kompetensi Dasar (SKD) CPNS.
@@ -369,6 +378,7 @@ Tutor AI:"""
         {scoring_instruction}
         {example_section}
         {custom_section}
+        {existing_topics_section}
 
         ATURAN OUTPUT:
         1. Soal WAJIB original, tidak boleh menyalin soal yang sudah beredar.
@@ -377,6 +387,12 @@ Tutor AI:"""
         4. Pembahasan (discussion) harus JELAS menjelaskan MENGAPA jawaban benar itu benar dan yang lain salah.
         5. KHUSUS TIU (Matematika/Logika/Analitis): Anda WAJIB menggunakan format LaTeX ketat `$ ... $` untuk angka/rumus inline dan `$$ ... $$` untuk rumus blok terpisah. Apabila menyajikan data berkolom/tabel, WAJIB gunakan sintaks Markdown Table terstruktur.
         6. JANGAN membuat soal tentang gambar/figural/visual.
+
+        ATURAN AKURASI MATEMATIS (WAJIB untuk TIU):
+        1. Hitung jawaban step-by-step SEBELUM menyusun opsi. Jawaban benar WAJIB cocok persis dengan salah satu opsi.
+        2. DILARANG KERAS menyertakan catatan revisi, self-correction, atau komentar internal ("ini tidak mungkin, mari revisi...") di dalam teks soal maupun pembahasan.
+        3. Setiap pengecoh (distractor) harus merupakan angka yang BISA muncul jika peserta salah langkah di titik tertentu — bukan angka acak.
+        4. Pembahasan WAJIB membuktikan perhitungan rigor step-by-step hingga jawaban final.
 
         FORMAT OUTPUT (JSON VALID):
         {{
@@ -408,5 +424,176 @@ Tutor AI:"""
         except Exception as e:
             logger.error(f"Failed to generate full question ({segment}/{sub_category}): {str(e)}")
             return {}
+
+    async def generate_full_question_batch(
+        self,
+        segment: str,
+        sub_category: str,
+        count: int,
+        difficulty: str,
+        regulation_context: str,
+        example_question: str = "",
+        custom_prompt: str = "",
+        existing_topics: list[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Generate multiple CPNS questions for a sub-category in a SINGLE API call.
+        This prevents duplicates naturally since the AI sees all questions at once.
+        Returns a list of question dicts.
+        """
+        if not self.client:
+            return []
+
+        difficulty_profiles = {
+            "easy": {
+                "instruction": "Buat soal dengan konteks SEDERHANA dan UMUM. Buat 1 opsi sebagai pengecoh utama (distractor) yang sedikit mengecoh. Buat 3 opsi lainnya sebagai opsi sederhana yang salah secara fakta/logika, tapi JANGAN dibuat terlalu kentara salah. Opsi sederhana harus tetap terlihat masuk akal secara sekilas. Gunakan bahasa lugas.",
+                "twk_hint": "Gunakan konsep dasar yang sering dibahas di buku PKN SMA/umum.",
+                "tiu_hint": "Gunakan angka kecil (1-100), operasi dasar, pola sederhana, dan hanya 1-2 langkah penyelesaian.",
+                "tkp_hint": "Buat situasi kerja sehari-hari yang jelas. Gradasi pilihan harus mudah dibedakan antara sikap baik dan buruk."
+            },
+            "medium": {
+                "instruction": "Buat soal SETARA level SKD CPNS. Buat 2 opsi pengecoh utama yang SANGAT MIRIP dengan jawaban benar dan terdengar sangat positif/ideal/logis, namun secara substansi keliru berdasarkan konteks soal. 2 opsi lainnya adalah jawaban salah standar yang masuk akal namun lebih mudah dikenali salahnya.",
+                "twk_hint": "Gunakan konteks situasional yang membutuhkan penerapan nilai, bukan sekadar hafalan.",
+                "tiu_hint": "Gunakan angka menengah, operasi campuran, pola bertingkat, dan 2-3 langkah penyelesaian. Sertakan LaTeX ketat untuk rumus.",
+                "tkp_hint": "Buat dilema kerja realistis. Gradasi pilihan harus halus, butuh analisis untuk membedakan skor tertinggi."
+            },
+            "hard": {
+                "instruction": "Buat soal SULIT dengan konteks BERLAPIS. Buat 4 opsi pengecoh di mana KESEMUANYA terdengar sangat positif, ideal, dan sangat masuk akal secara mandiri. Peserta harus benar-benar jeli memahami akar masalah spesifik pada soal untuk bisa membedakan 1 jawaban paling benar di antara 4 pengecoh bersinar tersebut.",
+                "twk_hint": "Gabungkan 2+ konsep (misal: nasionalisme + otonomi daerah + HAM). Gunakan kasus kontemporer yang kontroversial.",
+                "tiu_hint": "Gunakan angka besar/pecahan, operasi bertingkat, pola non-trivial, dan 3-4 langkah penyelesaian. Sertakan jebakan logis. Sertakan LaTeX ketat untuk rumus.",
+                "tkp_hint": "Buat dilema etis yang kompleks di mana SEMUA opsi terlihat saling menguntungkan (win-win) lalu buat kontradiksi halus."
+            },
+            "extreme": {
+                "instruction": "Buat soal SANGAT SULIT (HOTS Maksimal). Ke-4 pengecoh BUKAN sekadar positif, melainkan harus mewakili KESALAHAN UMUM (Common Misconception) orang pandai. Pengecoh tersebut mungkin legal/benar di situasi lain, tapi menabrak satu aturan kecil yang tersembunyi/tersirat pada kasus unik di soal.",
+                "twk_hint": "Gunakan kasus hukum tata negara yang ambigu, konflik silang antar-pasal UUD. Pengecoh bersandar pada norma yang salah konteks.",
+                "tiu_hint": "Gunakan kombinatorik tingkat lanjut. 4 Pengecoh adalah angka yang muncul jika peserta salah menjumlahkan di langkah terakhir atau lupa salah satu syarat kecil di narasi. Sertakan LaTeX ketat.",
+                "tkp_hint": "Buat skenario persimpangan di mana 4 opsi terlihat BENAR. Perbedaan hanya pada prosedur administratif mikroskopis atau penjatuhan hirarki kebijakan (loyalitas pimpinan vs hukum negara)."
+            }
+        }
+
+        profile = difficulty_profiles.get(difficulty, difficulty_profiles["medium"])
+
+        segment_hint = ""
+        if segment == "TWK":
+            segment_hint = profile["twk_hint"]
+        elif segment == "TIU":
+            segment_hint = profile["tiu_hint"]
+        elif segment == "TKP":
+            segment_hint = profile["tkp_hint"]
+
+        scoring_instruction = ""
+        if segment in ("TWK", "TIU"):
+            scoring_instruction = """
+            ATURAN SKOR (TWK/TIU):
+            - Tepat 1 opsi bernilai 5 (jawaban benar), 4 opsi lainnya bernilai 0.
+            - Tentukan sendiri posisi jawaban benar (acak di A-E, variasikan antar soal!).
+            - Key JSON skor: score_a, score_b, score_c, score_d, score_e.
+            """
+        else:  # TKP
+            scoring_instruction = """
+            ATURAN SKOR (TKP):
+            - TIDAK ADA jawaban salah. Semua 5 opsi memiliki skor 1, 2, 3, 4, atau 5 (masing-masing UNIK, tidak boleh ada duplikat skor).
+            - Skor 5 = sikap PALING ideal. Skor 1 = sikap PALING tidak ideal.
+            - Tentukan sendiri distribusi skor di A-E (variasikan antar soal!).
+            - Key JSON skor: score_a, score_b, score_c, score_d, score_e.
+            """
+
+        example_section = ""
+        if example_question:
+            example_section = f"""
+            CONTOH SOAL REFERENSI (untuk gaya bahasa dan format, JANGAN salin kontennya):
+            {example_question}
+            """
+
+        custom_section = ""
+        if custom_prompt:
+            custom_section = f"\n            INSTRUKSI TAMBAHAN: {custom_prompt}\n"
+
+        existing_topics_section = ""
+        if existing_topics:
+            topics_str = "\n".join(f"  - {t}" for t in existing_topics)
+            existing_topics_section = f"""
+            TOPIK YANG SUDAH DIBUAT (WAJIB hindari pengulangan):
+            {topics_str}
+            """
+
+        prompt = f"""
+        Kamu adalah Ahli Senior Pembuat Soal CPNS BKN dengan pengalaman 20 tahun.
+        Buatkan {count} soal ORIGINAL untuk Seleksi Kompetensi Dasar (SKD) CPNS.
+
+        REGULASI ACUAN:
+        {regulation_context}
+
+        SPESIFIKASI SOAL:
+        - Segmen: {segment}
+        - Sub-Kategori/Materi: {sub_category}
+        - Level Kesulitan: {difficulty.upper()}
+        - Jumlah Soal: {count}
+
+        INSTRUKSI LEVEL:
+        {profile["instruction"]}
+
+        DETAIL SEGMEN:
+        {segment_hint}
+
+        {scoring_instruction}
+        {example_section}
+        {custom_section}
+        {existing_topics_section}
+
+        ATURAN KRITIS - VARIASI & ANTI-DUPLIKAT:
+        1. Setiap soal WAJIB memiliki KONTEKS/SKENARIO/SUDUT PANDANG yang BERBEDA TOTAL.
+        2. DILARANG KERAS mengulang tema, situasi, atau pola kalimat yang mirip antar soal.
+        3. Variasikan: setting (kantor/lapangan/rapat/digital), aktor (atasan/rekan/masyarakat), dan konflik.
+        4. Sebar posisi jawaban benar secara acak (jangan semua di opsi yang sama).
+        5. Pastikan SETIAP soal berkualitas tinggi — jangan menurunkan kualitas di soal terakhir.
+
+        ATURAN OUTPUT:
+        1. Soal WAJIB original, tidak boleh menyalin soal yang sudah beredar.
+        2. Teks soal harus PANJANG dan KONTEKSTUAL (minimal 2-3 kalimat situasi, lalu pertanyaan).
+        3. Setiap opsi jawaban harus PANJANG dan SETARA (±15% karakter antar opsi). Hindari opsi terlalu pendek.
+        4. Pembahasan (discussion) harus JELAS menjelaskan MENGAPA jawaban benar itu benar dan yang lain salah.
+        5. KHUSUS TIU (Matematika/Logika/Analitis): Anda WAJIB menggunakan format LaTeX ketat `$ ... $` untuk angka/rumus inline dan `$$ ... $$` untuk rumus blok terpisah. Apabila menyajikan data berkolom/tabel, WAJIB gunakan sintaks Markdown Table terstruktur.
+        6. JANGAN membuat soal tentang gambar/figural/visual.
+
+        FORMAT OUTPUT (JSON ARRAY VALID berisi {count} objek):
+        [
+            {{
+                "content": "Teks soal lengkap #1...",
+                "option_a": "Teks opsi A...",
+                "option_b": "Teks opsi B...",
+                "option_c": "Teks opsi C...",
+                "option_d": "Teks opsi D...",
+                "option_e": "Teks opsi E...",
+                "score_a": 0,
+                "score_b": 5,
+                "score_c": 0,
+                "score_d": 0,
+                "score_e": 0,
+                "discussion": "Pembahasan lengkap #1..."
+            }},
+            ... (total {count} soal)
+        ]
+        """
+
+        try:
+            response = await self.client.aio.models.generate_content(
+                model=self.model_name,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    thinking_config=types.ThinkingConfig(thinking_level="high")
+                )
+            )
+            result = json.loads(response.text)
+
+            # Handle case where response is a single dict instead of list
+            if isinstance(result, dict):
+                result = [result]
+
+            return result if isinstance(result, list) else []
+        except Exception as e:
+            logger.error(f"Failed to generate batch questions ({segment}/{sub_category} x{count}): {str(e)}")
+            return []
 
 ai_service = AIService()

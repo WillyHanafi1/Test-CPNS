@@ -184,80 +184,275 @@ async def generate_questions_for_subcategory(
     use_few_shot: bool = True,
     start_number: int = 1,
 ) -> list[dict]:
-    """Generate `count` questions for a specific segment/sub_category."""
+    """Generate `count` questions for a specific segment/sub_category.
     
-    questions = []
-    example = FEW_SHOT_EXAMPLES.get(segment, "") if use_few_shot else ""
+    Strategy (HYBRID MODE):
+    - TWK & TKP: Batch mode (1 API call) — great for variety, quality proven.
+    - TIU: Single-call mode (1 API call per question) — focused on math accuracy,
+            with context injection of prior topics to prevent duplicates.
+    """
+    
+    if segment == "TIU":
+        return await _generate_tiu_single_mode(
+            sub_category=sub_category,
+            count=count,
+            difficulty=difficulty,
+            regulation_context=regulation_context,
+            use_few_shot=use_few_shot,
+            start_number=start_number,
+        )
+    else:
+        return await _generate_batch_mode(
+            segment=segment,
+            sub_category=sub_category,
+            count=count,
+            difficulty=difficulty,
+            regulation_context=regulation_context,
+            use_few_shot=use_few_shot,
+            start_number=start_number,
+        )
+
+
+async def _generate_tiu_single_mode(
+    sub_category: str,
+    count: int,
+    difficulty: str,
+    regulation_context: str,
+    use_few_shot: bool = True,
+    start_number: int = 1,
+) -> list[dict]:
+    """Generate TIU questions one-by-one for maximum mathematical accuracy.
+    
+    Each call receives context of previously generated topics to prevent duplicates.
+    """
+    example = FEW_SHOT_EXAMPLES.get("TIU", "") if use_few_shot else ""
+    max_retries = 3
+    
+    valid_questions = []
+    existing_topics = []  # Track topic summaries for anti-duplication
     
     for i in range(count):
         question_num = start_number + i
-        retries = 0
-        max_retries = 3
+        success = False
         
-        while retries < max_retries:
-            print(f"  [GEN] Soal #{question_num} ({segment}/{sub_category}) — attempt {retries + 1}...", end=" ", flush=True)
+        for attempt in range(max_retries):
+            print(f"  [SINGLE] Soal #{question_num} ({sub_category}) — attempt {attempt + 1}...", end=" ", flush=True)
             
             result = await ai_service.generate_full_question(
-                segment=segment,
+                segment="TIU",
                 sub_category=sub_category,
                 difficulty=difficulty,
                 regulation_context=regulation_context,
                 example_question=example,
+                existing_topics=existing_topics if existing_topics else None,
             )
             
             if not result:
-                print("❌ Empty response", flush=True)
-                retries += 1
+                print("❌ Empty", flush=True)
                 await asyncio.sleep(1)
                 continue
-
-            # Handle list response (Gemini sometimes returns [ { ... } ])
-            if isinstance(result, list):
-                if len(result) > 0:
-                    result = result[0]
-                else:
-                    print("❌ Empty list in response", flush=True)
-                    retries += 1
-                    continue
             
-            # Validate
+            if isinstance(result, list):
+                result = result[0] if result else {}
+            
+            is_valid, error_msg = validate_question(result, "TIU")
+            
+            if is_valid:
+                result['number'] = question_num
+                result['segment'] = "TIU"
+                result['sub_category'] = sub_category
+                result['image_url'] = ''
+                valid_questions.append(result)
+                
+                # Add topic summary for next question's anti-duplication context
+                topic_summary = str(result.get('content', ''))[:100]
+                existing_topics.append(topic_summary)
+                
+                print("✅", flush=True)
+                success = True
+                break
+            else:
+                print(f"⚠️ {error_msg}", flush=True)
+                await asyncio.sleep(0.5)
+        
+        if not success:
+            print(f"  [SKIP] Soal #{question_num} gagal setelah {max_retries} percobaan.", flush=True)
+            valid_questions.append({
+                'number': question_num,
+                'segment': "TIU",
+                'sub_category': sub_category,
+                'content': f'[GAGAL GENERATE - TIU/{sub_category}]',
+                'image_url': '',
+                'option_a': 'N/A', 'option_b': 'N/A', 'option_c': 'N/A', 'option_d': 'N/A', 'option_e': 'N/A',
+                'score_a': 0, 'score_b': 0, 'score_c': 0, 'score_d': 0, 'score_e': 0,
+                'discussion': 'Gagal di-generate oleh AI.',
+            })
+    
+    valid_count = len([q for q in valid_questions if '[GAGAL' not in str(q.get('content', ''))])
+    print(f"  [DONE] {sub_category}: {valid_count}/{count} soal berhasil ✅", flush=True)
+    
+    return valid_questions
+
+
+async def _generate_batch_mode(
+    segment: str,
+    sub_category: str,
+    count: int,
+    difficulty: str,
+    regulation_context: str,
+    use_few_shot: bool = True,
+    start_number: int = 1,
+) -> list[dict]:
+    """Generate TWK/TKP questions using batch mode (1 API call per sub-category).
+    
+    Strategy:
+    1. Batch generate all questions in 1 API call (prevents duplicates naturally).
+    2. Validate each question individually.
+    3. For any failed/missing questions, retry individually as fallback.
+    """
+    
+    example = FEW_SHOT_EXAMPLES.get(segment, "") if use_few_shot else ""
+    max_batch_retries = 2
+    
+    # ── Phase 1: Batch Generation ──────────────────────────────────
+    valid_questions = []
+    failed_indices = list(range(count))  # Track which question slots still need to be filled
+    
+    for batch_attempt in range(max_batch_retries):
+        remaining_count = len(failed_indices)
+        if remaining_count == 0:
+            break
+        
+        # Collect topics from already-valid questions to avoid repetition in retries
+        existing_topics = [q['content'][:80] for q in valid_questions] if valid_questions else None
+        
+        print(f"  [BATCH] Generating {remaining_count} soal in 1 API call (attempt {batch_attempt + 1})...", flush=True)
+        
+        batch_results = await ai_service.generate_full_question_batch(
+            segment=segment,
+            sub_category=sub_category,
+            count=remaining_count,
+            difficulty=difficulty,
+            regulation_context=regulation_context,
+            example_question=example,
+            existing_topics=existing_topics,
+        )
+        
+        if not batch_results:
+            print(f"  [BATCH] ❌ Empty response from batch API", flush=True)
+            await asyncio.sleep(2)
+            continue
+        
+        print(f"  [BATCH] Received {len(batch_results)} soal, validating...", flush=True)
+        
+        # Validate each question from the batch
+        newly_valid = []
+        newly_failed = []
+        
+        for idx, result in enumerate(batch_results):
+            if idx >= len(failed_indices):
+                break  # More results than expected
+            
+            slot_index = failed_indices[idx]
+            question_num = start_number + slot_index
+            
+            if not isinstance(result, dict):
+                print(f"    Soal #{question_num}: ❌ Invalid type ({type(result).__name__})", flush=True)
+                newly_failed.append(slot_index)
+                continue
+            
             is_valid, error_msg = validate_question(result, segment)
             
             if is_valid:
                 result['number'] = question_num
                 result['segment'] = segment
                 result['sub_category'] = sub_category
-                result['image_url'] = ''  # No figural
-                questions.append(result)
-                print("✅", flush=True)
-                break
+                result['image_url'] = ''
+                newly_valid.append((slot_index, result))
+                print(f"    Soal #{question_num}: ✅", flush=True)
             else:
-                print(f"⚠️ Validation failed: {error_msg} (Keys: {list(result.keys())})", flush=True)
-                if 'content' not in result:
-                    # Print first 100 chars of result to see what's happening
-                    import json
-                    print(f"      DEBUG: {json.dumps(result)[:200]}...", flush=True)
-                retries += 1
-                await asyncio.sleep(0.5)
+                print(f"    Soal #{question_num}: ⚠️ {error_msg}", flush=True)
+                newly_failed.append(slot_index)
         
-        if retries >= max_retries:
-            print(f"  [SKIP] Soal #{question_num} gagal setelah {max_retries} percobaan.", flush=True)
-            # Insert a placeholder so numbering doesn't break
-            questions.append({
-                'number': question_num,
-                'segment': segment,
-                'sub_category': sub_category,
-                'content': f'[GAGAL GENERATE - {segment}/{sub_category}]',
-                'image_url': '',
-                'option_a': 'N/A', 'option_b': 'N/A', 'option_c': 'N/A', 'option_d': 'N/A', 'option_e': 'N/A',
-                'score_a': 0, 'score_b': 0, 'score_c': 0, 'score_d': 0, 'score_e': 0,
-                'discussion': 'Gagal di-generate oleh AI.',
-            })
+        # Add any slots that didn't get a result at all
+        for idx in range(len(batch_results), len(failed_indices)):
+            newly_failed.append(failed_indices[idx])
         
-        # Cooldown between questions
-        await asyncio.sleep(0.5)
+        # Update tracking
+        for _, q in newly_valid:
+            valid_questions.append(q)
+        failed_indices = newly_failed
+        
+        if failed_indices:
+            print(f"  [BATCH] {len(newly_valid)} valid, {len(failed_indices)} need retry", flush=True)
+            await asyncio.sleep(1)
     
-    return questions
+    # ── Phase 2: Individual Retry Fallback ─────────────────────────
+    if failed_indices:
+        print(f"  [RETRY] {len(failed_indices)} soal gagal batch, mencoba individual...", flush=True)
+        
+        for slot_index in failed_indices:
+            question_num = start_number + slot_index
+            retries = 0
+            max_retries = 2
+            success = False
+            
+            while retries < max_retries:
+                print(f"    [GEN] Soal #{question_num} — individual attempt {retries + 1}...", end=" ", flush=True)
+                
+                result = await ai_service.generate_full_question(
+                    segment=segment,
+                    sub_category=sub_category,
+                    difficulty=difficulty,
+                    regulation_context=regulation_context,
+                    example_question=example,
+                )
+                
+                if not result:
+                    print("❌ Empty", flush=True)
+                    retries += 1
+                    await asyncio.sleep(1)
+                    continue
+                
+                if isinstance(result, list):
+                    result = result[0] if result else {}
+                
+                is_valid, error_msg = validate_question(result, segment)
+                
+                if is_valid:
+                    result['number'] = question_num
+                    result['segment'] = segment
+                    result['sub_category'] = sub_category
+                    result['image_url'] = ''
+                    valid_questions.append(result)
+                    print("✅", flush=True)
+                    success = True
+                    break
+                else:
+                    print(f"⚠️ {error_msg}", flush=True)
+                    retries += 1
+                    await asyncio.sleep(0.5)
+            
+            if not success:
+                print(f"    [SKIP] Soal #{question_num} gagal setelah semua percobaan.", flush=True)
+                valid_questions.append({
+                    'number': question_num,
+                    'segment': segment,
+                    'sub_category': sub_category,
+                    'content': f'[GAGAL GENERATE - {segment}/{sub_category}]',
+                    'image_url': '',
+                    'option_a': 'N/A', 'option_b': 'N/A', 'option_c': 'N/A', 'option_d': 'N/A', 'option_e': 'N/A',
+                    'score_a': 0, 'score_b': 0, 'score_c': 0, 'score_d': 0, 'score_e': 0,
+                    'discussion': 'Gagal di-generate oleh AI.',
+                })
+    
+    # Sort by number to maintain order
+    valid_questions.sort(key=lambda q: q['number'])
+    
+    valid_count = len([q for q in valid_questions if '[GAGAL' not in str(q.get('content', ''))])
+    print(f"  [DONE] {sub_category}: {valid_count}/{count} soal berhasil ✅", flush=True)
+    
+    return valid_questions
 
 
 async def generate_full_package(
@@ -294,12 +489,25 @@ async def generate_full_package(
         sum(min(limit or 999, abs(count)) for count in subs.values()) for subs in distribution.values()
     )
     
+    # Count API calls (hybrid mode: batch for TWK/TKP, single for TIU)
+    total_api_calls = 0
+    for seg_name, subs in distribution.items():
+        if seg_name == "TIU":
+            # TIU: 1 API call per question (single mode)
+            total_api_calls += sum(min(limit or 999, c) for c in subs.values())
+        else:
+            # TWK/TKP: 1 API call per sub-category (batch mode)
+            total_api_calls += len(subs)
+    
     print(f"\n{'='*60}")
-    print(f"🚀 CPNS Question Generator")
+    print(f"🚀 CPNS Question Generator (HYBRID MODE)")
     print(f"{'='*60}")
     print(f"  Difficulty : {difficulty.upper()}")
     print(f"  Segments   : {', '.join(distribution.keys())}")
     print(f"  Total Soal : {total_questions}")
+    print(f"  API Calls  : ~{total_api_calls}")
+    print(f"    TWK/TKP  : Batch (1 call/sub-kategori)")
+    print(f"    TIU      : Single (1 call/soal, + context injection)")
     print(f"  Model      : {ai_service.model_name}")
     print(f"  Few-shot   : {'Yes' if use_few_shot else 'No'}")
     if limit:
