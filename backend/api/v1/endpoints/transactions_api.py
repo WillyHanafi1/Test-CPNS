@@ -378,24 +378,13 @@ async def fulfill_transaction(db: AsyncSession, order_id: str, payment_status: s
     # [REVOCATION LOGIC FIX]
     elif user and payment_status == "failed":
         if transaction.transaction_type == "pro_upgrade":
-            # BUG FIX: Before revoking, check if there's ANOTHER successful pro_upgrade 
-            # currently active. Don't punish the user for a single failed renewal attempt.
-            now = datetime.now(timezone.utc)
-            other_active = await db.scalar(
-                select(func.count(UserTransaction.id)).where(
-                    UserTransaction.user_id == user.id,
-                    UserTransaction.transaction_type == "pro_upgrade",
-                    UserTransaction.payment_status == "success",
-                    UserTransaction.access_expires_at > now,
-                    UserTransaction.id != transaction.id
-                )
-            )
-            
-            if not other_active or other_active == 0:
+            # BUG FIX: Before revoking, check if the user's current PRO status is still active.
+            # Don't punish the user for a single failed renewal attempt if they still have time.
+            if not user.is_pro_active:
                 user.is_pro = False
                 user.pro_expires_at = None
                 logger.info(f"User {user.email} PRO status revoked due to failed transaction.")
             else:
-                logger.info(f"User {user.email} still has valid PRO access from another transaction. Revocation skipped.")
+                logger.info(f"User {user.email} still has valid PRO access. Revocation skipped.")
                 
     await db.commit()
