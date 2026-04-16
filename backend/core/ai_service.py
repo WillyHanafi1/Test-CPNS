@@ -289,29 +289,40 @@ Tutor AI:"""
                 "instruction": "Buat soal dengan konteks SEDERHANA dan UMUM. Buat 1 opsi sebagai pengecoh utama (distractor) yang sedikit mengecoh. Buat 3 opsi lainnya sebagai opsi sederhana yang salah secara fakta/logika, tapi JANGAN dibuat terlalu kentara salah. Opsi sederhana harus tetap terlihat masuk akal secara sekilas. Gunakan bahasa lugas.",
                 "twk_hint": "Gunakan konsep dasar yang sering dibahas di buku PKN SMA/umum.",
                 "tiu_hint": "Gunakan angka kecil (1-100), operasi dasar, pola sederhana, dan hanya 1-2 langkah penyelesaian.",
-                "tkp_hint": "Buat situasi kerja sehari-hari yang jelas. Gradasi pilihan harus mudah dibedakan antara sikap baik dan buruk."
+                "tkp_hint": "Buat situasi kerja sehari-hari yang jelas. Gradasi pilihan harus mudah dibedakan antara sikap baik dan buruk. Fokus pada 1 dimensi TKP saja (misal: Pelayanan Publik)."
             },
             "medium": {
                 "instruction": "Buat soal SETARA level SKD CPNS. Buat 2 opsi pengecoh utama yang SANGAT MIRIP dengan jawaban benar dan terdengar sangat positif/ideal/logis, namun secara substansi keliru berdasarkan konteks soal. 2 opsi lainnya adalah jawaban salah standar yang masuk akal namun lebih mudah dikenali salahnya.",
                 "twk_hint": "Gunakan konteks situasional yang membutuhkan penerapan nilai, bukan sekadar hafalan.",
                 "tiu_hint": "Gunakan angka menengah, operasi campuran, pola bertingkat, dan 2-3 langkah penyelesaian. Sertakan LaTeX ketat untuk rumus.",
-                "tkp_hint": "Buat dilema kerja realistis. Gradasi pilihan harus halus, butuh analisis untuk membedakan skor tertinggi."
+                "tkp_hint": "Buat dilema kerja realistis. Gradasi pilihan harus halus, butuh analisis untuk membedakan skor tertinggi. Libatkan 2 dimensi TKP yang saling bersaing (misal: Pelayanan Publik vs Profesionalisme)."
             },
             "hard": {
                 "instruction": "Buat soal SULIT dengan konteks BERLAPIS. Buat 4 opsi pengecoh di mana KESEMUANYA terdengar sangat positif, ideal, dan sangat masuk akal secara mandiri. Peserta harus benar-benar jeli memahami akar masalah spesifik pada soal untuk bisa membedakan 1 jawaban paling benar di antara 4 pengecoh bersinar tersebut.",
                 "twk_hint": "Gabungkan 2+ konsep (misal: nasionalisme + otonomi daerah + HAM). Gunakan kasus kontemporer yang kontroversial.",
                 "tiu_hint": "Gunakan angka besar/pecahan, operasi bertingkat, pola non-trivial, dan 3-4 langkah penyelesaian. Sertakan jebakan logis. Sertakan LaTeX ketat untuk rumus.",
-                "tkp_hint": "Buat dilema etis yang kompleks di mana SEMUA opsi terlihat saling menguntungkan (win-win) lalu buat kontradiksi halus."
+                "tkp_hint": "Buat dilema etis yang kompleks di mana SEMUA opsi terlihat saling menguntungkan (win-win) lalu buat kontradiksi halus. Libatkan 3+ dimensi TKP yang berkonflik (misal: Pelayanan Publik vs Sosial Budaya vs Jejaring Kerja)."
             },
             "extreme": {
                 "instruction": "Buat soal SANGAT SULIT (HOTS Maksimal). Ke-4 pengecoh BUKAN sekadar positif, melainkan harus mewakili KESALAHAN UMUM (Common Misconception) orang pandai. Pengecoh tersebut mungkin legal/benar di situasi lain, tapi menabrak satu aturan kecil yang tersembunyi/tersirat pada kasus unik di soal.",
                 "twk_hint": "Gunakan kasus hukum tata negara yang ambigu, konflik silang antar-pasal UUD. Pengecoh bersandar pada norma yang salah konteks.",
                 "tiu_hint": "Gunakan kombinatorik tingkat lanjut. 4 Pengecoh adalah angka yang muncul jika peserta salah menjumlahkan di langkah terakhir atau lupa salah satu syarat kecil di narasi. Sertakan LaTeX ketat.",
-                "tkp_hint": "Buat skenario persimpangan di mana 4 opsi terlihat BENAR. Perbedaan hanya pada prosedur administratif mikroskopis atau penjatuhan hirarki kebijakan (loyalitas pimpinan vs hukum negara)."
+                "tkp_hint": "Buat skenario persimpangan di mana 4 opsi terlihat BENAR. Perbedaan hanya pada prosedur administratif mikroskopis atau penjatuhan hirarki kebijakan (loyalitas pimpinan vs hukum negara). Libatkan semua 5 dimensi TKP secara simultan (Pelayanan Publik, Profesionalisme, IT, Jejaring Kerja, Sosial Budaya)."
             }
         }
 
         profile = difficulty_profiles.get(difficulty, difficulty_profiles["medium"])
+
+        bloom_levels = {
+            "easy": "C1-C2 (Mengingat & Memahami)",
+            "medium": "C3-C4 (Menerapkan & Menganalisis)",
+            "hard": "C4-C5 (Menganalisis & Mengevaluasi)",
+            "extreme": "C5-C6 (Mengevaluasi & Mencipta)"
+        }
+        bloom_level = bloom_levels.get(difficulty, bloom_levels["medium"])
+
+        if not regulation_context:
+            regulation_context = "Gunakan pengetahuan umum tentang regulasi CPNS Indonesia: UUD 1945, UU ASN No. 5/2014, Pancasila, UU Bahasa No. 24/2009, Peraturan BKN terkait SKD, dan standar soal CAT BKN yang berlaku saat ini."
 
         segment_hint = ""
         if segment == "TWK":
@@ -336,6 +347,14 @@ Tutor AI:"""
             - Skor 5 = sikap PALING ideal. Skor 1 = sikap PALING tidak ideal.
             - Tentukan sendiri distribusi skor di A-E.
             - Key JSON skor: score_a, score_b, score_c, score_d, score_e.
+
+            DIMENSI PENILAIAN TKP BKN (ke-5 opsi WAJIB merepresentasikan gradasi dari dimensi berikut):
+            1. Pelayanan Publik — orientasi pada kebutuhan masyarakat dan pemangku kepentingan.
+            2. Profesionalisme — kompetensi, keahlian teknis, dan etika kerja ASN.
+            3. Teknologi Informasi — kemampuan adaptasi dan pemanfaatan teknologi dalam birokrasi.
+            4. Jejaring Kerja — kemampuan kolaborasi, koordinasi, dan komunikasi antar pihak.
+            5. Sosial Budaya — kepekaan terhadap keberagaman, kearifan lokal, dan toleransi.
+            Setiap opsi harus mencerminkan TINGKAT KEMATANGAN PROFESIONAL yang berbeda, bukan sekadar "baik" vs "buruk".
             """
 
         example_section = ""
@@ -368,6 +387,7 @@ Tutor AI:"""
         - Segmen: {segment}
         - Sub-Kategori/Materi: {sub_category}
         - Level Kesulitan: {difficulty.upper()}
+        - Level Kognitif (Taksonomi Bloom): {bloom_level}
 
         INSTRUKSI LEVEL:
         {profile["instruction"]}
@@ -382,7 +402,7 @@ Tutor AI:"""
 
         ATURAN OUTPUT:
         1. Soal WAJIB original, tidak boleh menyalin soal yang sudah beredar.
-        2. Teks soal harus PANJANG dan KONTEKSTUAL (minimal 2-3 kalimat situasi, lalu pertanyaan).
+        2. Teks soal harus PANJANG dan KONTEKSTUAL (minimal 2-3 kalimat situasi, lalu pertanyaan). Soal harus mengukur kemampuan di level kognitif {bloom_level}.
         3. Setiap opsi jawaban harus PANJANG dan SETARA (±15% karakter antar opsi). Hindari opsi terlalu pendek.
         4. Pembahasan (discussion) harus JELAS menjelaskan MENGAPA jawaban benar itu benar dan yang lain salah.
         5. KHUSUS TIU (Matematika/Logika/Analitis): Anda WAJIB menggunakan format LaTeX ketat `$ ... $` untuk angka/rumus inline dan `$$ ... $$` untuk rumus blok terpisah. Apabila menyajikan data berkolom/tabel, WAJIB gunakan sintaks Markdown Table terstruktur.
@@ -393,6 +413,12 @@ Tutor AI:"""
         2. DILARANG KERAS menyertakan catatan revisi, self-correction, atau komentar internal ("ini tidak mungkin, mari revisi...") di dalam teks soal maupun pembahasan.
         3. Setiap pengecoh (distractor) harus merupakan angka yang BISA muncul jika peserta salah langkah di titik tertentu — bukan angka acak.
         4. Pembahasan WAJIB membuktikan perhitungan rigor step-by-step hingga jawaban final.
+
+        ATURAN VERIFIKASI AKHIR (MANDATORY — jalankan sebelum menghasilkan JSON):
+        1. Pastikan TEPAT 1 opsi bernilai 5 (untuk TWK/TIU) atau skor 1-5 unik tanpa duplikat (untuk TKP).
+        2. Pastikan ke-5 opsi memiliki panjang karakter SETARA (±15%). DILARANG ada 1 opsi yang jauh lebih pendek/panjang.
+        3. Khusus TIU: Verifikasi angka jawaban benar COCOK PERSIS dengan salah satu opsi, dan ke-4 pengecoh memiliki nilai NUMERIK BERBEDA satu sama lain.
+        4. Pastikan teks soal dan pembahasan BERSIH dari self-correction, catatan revisi, atau komentar debugging.
 
         FORMAT OUTPUT (JSON VALID):
         {{
@@ -449,29 +475,40 @@ Tutor AI:"""
                 "instruction": "Buat soal dengan konteks SEDERHANA dan UMUM. Buat 1 opsi sebagai pengecoh utama (distractor) yang sedikit mengecoh. Buat 3 opsi lainnya sebagai opsi sederhana yang salah secara fakta/logika, tapi JANGAN dibuat terlalu kentara salah. Opsi sederhana harus tetap terlihat masuk akal secara sekilas. Gunakan bahasa lugas.",
                 "twk_hint": "Gunakan konsep dasar yang sering dibahas di buku PKN SMA/umum.",
                 "tiu_hint": "Gunakan angka kecil (1-100), operasi dasar, pola sederhana, dan hanya 1-2 langkah penyelesaian.",
-                "tkp_hint": "Buat situasi kerja sehari-hari yang jelas. Gradasi pilihan harus mudah dibedakan antara sikap baik dan buruk."
+                "tkp_hint": "Buat situasi kerja sehari-hari yang jelas. Gradasi pilihan harus mudah dibedakan antara sikap baik dan buruk. Fokus pada 1 dimensi TKP saja (misal: Pelayanan Publik)."
             },
             "medium": {
                 "instruction": "Buat soal SETARA level SKD CPNS. Buat 2 opsi pengecoh utama yang SANGAT MIRIP dengan jawaban benar dan terdengar sangat positif/ideal/logis, namun secara substansi keliru berdasarkan konteks soal. 2 opsi lainnya adalah jawaban salah standar yang masuk akal namun lebih mudah dikenali salahnya.",
                 "twk_hint": "Gunakan konteks situasional yang membutuhkan penerapan nilai, bukan sekadar hafalan.",
                 "tiu_hint": "Gunakan angka menengah, operasi campuran, pola bertingkat, dan 2-3 langkah penyelesaian. Sertakan LaTeX ketat untuk rumus.",
-                "tkp_hint": "Buat dilema kerja realistis. Gradasi pilihan harus halus, butuh analisis untuk membedakan skor tertinggi."
+                "tkp_hint": "Buat dilema kerja realistis. Gradasi pilihan harus halus, butuh analisis untuk membedakan skor tertinggi. Libatkan 2 dimensi TKP yang saling bersaing (misal: Pelayanan Publik vs Profesionalisme)."
             },
             "hard": {
                 "instruction": "Buat soal SULIT dengan konteks BERLAPIS. Buat 4 opsi pengecoh di mana KESEMUANYA terdengar sangat positif, ideal, dan sangat masuk akal secara mandiri. Peserta harus benar-benar jeli memahami akar masalah spesifik pada soal untuk bisa membedakan 1 jawaban paling benar di antara 4 pengecoh bersinar tersebut.",
                 "twk_hint": "Gabungkan 2+ konsep (misal: nasionalisme + otonomi daerah + HAM). Gunakan kasus kontemporer yang kontroversial.",
                 "tiu_hint": "Gunakan angka besar/pecahan, operasi bertingkat, pola non-trivial, dan 3-4 langkah penyelesaian. Sertakan jebakan logis. Sertakan LaTeX ketat untuk rumus.",
-                "tkp_hint": "Buat dilema etis yang kompleks di mana SEMUA opsi terlihat saling menguntungkan (win-win) lalu buat kontradiksi halus."
+                "tkp_hint": "Buat dilema etis yang kompleks di mana SEMUA opsi terlihat saling menguntungkan (win-win) lalu buat kontradiksi halus. Libatkan 3+ dimensi TKP yang berkonflik (misal: Pelayanan Publik vs Sosial Budaya vs Jejaring Kerja)."
             },
             "extreme": {
                 "instruction": "Buat soal SANGAT SULIT (HOTS Maksimal). Ke-4 pengecoh BUKAN sekadar positif, melainkan harus mewakili KESALAHAN UMUM (Common Misconception) orang pandai. Pengecoh tersebut mungkin legal/benar di situasi lain, tapi menabrak satu aturan kecil yang tersembunyi/tersirat pada kasus unik di soal.",
                 "twk_hint": "Gunakan kasus hukum tata negara yang ambigu, konflik silang antar-pasal UUD. Pengecoh bersandar pada norma yang salah konteks.",
                 "tiu_hint": "Gunakan kombinatorik tingkat lanjut. 4 Pengecoh adalah angka yang muncul jika peserta salah menjumlahkan di langkah terakhir atau lupa salah satu syarat kecil di narasi. Sertakan LaTeX ketat.",
-                "tkp_hint": "Buat skenario persimpangan di mana 4 opsi terlihat BENAR. Perbedaan hanya pada prosedur administratif mikroskopis atau penjatuhan hirarki kebijakan (loyalitas pimpinan vs hukum negara)."
+                "tkp_hint": "Buat skenario persimpangan di mana 4 opsi terlihat BENAR. Perbedaan hanya pada prosedur administratif mikroskopis atau penjatuhan hirarki kebijakan (loyalitas pimpinan vs hukum negara). Libatkan semua 5 dimensi TKP secara simultan (Pelayanan Publik, Profesionalisme, IT, Jejaring Kerja, Sosial Budaya)."
             }
         }
 
         profile = difficulty_profiles.get(difficulty, difficulty_profiles["medium"])
+
+        bloom_levels = {
+            "easy": "C1-C2 (Mengingat & Memahami)",
+            "medium": "C3-C4 (Menerapkan & Menganalisis)",
+            "hard": "C4-C5 (Menganalisis & Mengevaluasi)",
+            "extreme": "C5-C6 (Mengevaluasi & Mencipta)"
+        }
+        bloom_level = bloom_levels.get(difficulty, bloom_levels["medium"])
+
+        if not regulation_context:
+            regulation_context = "Gunakan pengetahuan umum tentang regulasi CPNS Indonesia: UUD 1945, UU ASN No. 5/2014, Pancasila, UU Bahasa No. 24/2009, Peraturan BKN terkait SKD, dan standar soal CAT BKN yang berlaku saat ini."
 
         segment_hint = ""
         if segment == "TWK":
@@ -496,6 +533,14 @@ Tutor AI:"""
             - Skor 5 = sikap PALING ideal. Skor 1 = sikap PALING tidak ideal.
             - Tentukan sendiri distribusi skor di A-E (variasikan antar soal!).
             - Key JSON skor: score_a, score_b, score_c, score_d, score_e.
+
+            DIMENSI PENILAIAN TKP BKN (ke-5 opsi WAJIB merepresentasikan gradasi dari dimensi berikut):
+            1. Pelayanan Publik — orientasi pada kebutuhan masyarakat dan pemangku kepentingan.
+            2. Profesionalisme — kompetensi, keahlian teknis, dan etika kerja ASN.
+            3. Teknologi Informasi — kemampuan adaptasi dan pemanfaatan teknologi dalam birokrasi.
+            4. Jejaring Kerja — kemampuan kolaborasi, koordinasi, dan komunikasi antar pihak.
+            5. Sosial Budaya — kepekaan terhadap keberagaman, kearifan lokal, dan toleransi.
+            Setiap opsi harus mencerminkan TINGKAT KEMATANGAN PROFESIONAL yang berbeda, bukan sekadar "baik" vs "buruk".
             """
 
         example_section = ""
@@ -528,6 +573,7 @@ Tutor AI:"""
         - Segmen: {segment}
         - Sub-Kategori/Materi: {sub_category}
         - Level Kesulitan: {difficulty.upper()}
+        - Level Kognitif (Taksonomi Bloom): {bloom_level}
         - Jumlah Soal: {count}
 
         INSTRUKSI LEVEL:
@@ -545,12 +591,18 @@ Tutor AI:"""
         1. Setiap soal WAJIB memiliki KONTEKS/SKENARIO/SUDUT PANDANG yang BERBEDA TOTAL.
         2. DILARANG KERAS mengulang tema, situasi, atau pola kalimat yang mirip antar soal.
         3. Variasikan: setting (kantor/lapangan/rapat/digital), aktor (atasan/rekan/masyarakat), dan konflik.
-        4. Sebar posisi jawaban benar secara acak (jangan semua di opsi yang sama).
+        4. DISTRIBUSI POSISI JAWABAN: Dari {count} soal, MAKSIMAL 2 soal boleh memiliki jawaban benar (skor 5) di posisi opsi yang sama. Idealnya tersebar merata di A-E.
         5. Pastikan SETIAP soal berkualitas tinggi — jangan menurunkan kualitas di soal terakhir.
+
+        ATURAN VERIFIKASI AKHIR (MANDATORY — jalankan sebelum menghasilkan JSON):
+        1. Pastikan TEPAT 1 opsi bernilai 5 (untuk TWK/TIU) atau skor 1-5 unik tanpa duplikat (untuk TKP) pada SETIAP soal.
+        2. Pastikan ke-5 opsi pada SETIAP soal memiliki panjang karakter SETARA (±15%).
+        3. Pastikan distribusi posisi jawaban benar TERSEBAR MERATA di antara A-E pada seluruh batch.
+        4. Pastikan teks soal dan pembahasan BERSIH dari self-correction, catatan revisi, atau komentar debugging.
 
         ATURAN OUTPUT:
         1. Soal WAJIB original, tidak boleh menyalin soal yang sudah beredar.
-        2. Teks soal harus PANJANG dan KONTEKSTUAL (minimal 2-3 kalimat situasi, lalu pertanyaan).
+        2. Teks soal harus PANJANG dan KONTEKSTUAL (minimal 2-3 kalimat situasi, lalu pertanyaan). Soal harus mengukur kemampuan di level kognitif {bloom_level}.
         3. Setiap opsi jawaban harus PANJANG dan SETARA (±15% karakter antar opsi). Hindari opsi terlalu pendek.
         4. Pembahasan (discussion) harus JELAS menjelaskan MENGAPA jawaban benar itu benar dan yang lain salah.
         5. KHUSUS TIU (Matematika/Logika/Analitis): Anda WAJIB menggunakan format LaTeX ketat `$ ... $` untuk angka/rumus inline dan `$$ ... $$` untuk rumus blok terpisah. Apabila menyajikan data berkolom/tabel, WAJIB gunakan sintaks Markdown Table terstruktur.
