@@ -25,6 +25,7 @@ router = APIRouter(prefix="/transactions", tags=["transactions"])
 async def create_pro_upgrade_transaction(
     request: Request,
     response: Response,
+    callback_url: Optional[str] = None,
     db: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_user)
 ):
@@ -75,7 +76,8 @@ async def create_pro_upgrade_transaction(
             order_id=order_id,
             amount=settings.PRO_PRICE,
             item_details=item_details,
-            customer_details=customer_details
+            customer_details=customer_details,
+            callback_url=callback_url
         )
         
         new_transaction.payment_url = snap_response['redirect_url']
@@ -157,7 +159,8 @@ async def create_donation_transaction(
             order_id=order_id,
             amount=payload.amount,
             item_details=item_details,
-            customer_details=customer_details
+            customer_details=customer_details,
+            callback_url=payload.callback_url
         )
         
         new_transaction.payment_url = snap_response['redirect_url']

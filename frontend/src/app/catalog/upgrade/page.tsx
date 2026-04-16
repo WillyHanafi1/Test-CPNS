@@ -53,7 +53,10 @@ export default function UpgradeProPage() {
 
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/v1/transactions/upgrade-pro`, {
+      const currentPath = window.location.pathname;
+      const callbackUrl = `${window.location.origin}/payment/success?return_to=${encodeURIComponent(currentPath)}`;
+      
+      const res = await fetch(`${API_URL}/api/v1/transactions/upgrade-pro?callback_url=${encodeURIComponent(callbackUrl)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

@@ -53,7 +53,7 @@ class DokuService:
         
         return f"HMACSHA256={signature_base64}"
 
-    def create_transaction(self, order_id: str, amount: int, item_details: list, customer_details: dict) -> dict:
+    def create_transaction(self, order_id: str, amount: int, item_details: list, customer_details: dict, callback_url: str = None) -> dict:
         """
         Creates a DOKU Checkout Payment Link.
         Returns:
@@ -80,7 +80,7 @@ class DokuService:
                 "invoice_number": order_id,
                 "amount": int(amount),
                 "line_items": line_items,
-                "callback_url": f"{settings.FRONTEND_URL}/payment/success", 
+                "callback_url": callback_url or f"{settings.FRONTEND_URL}/payment/success", 
             },
             "payment": {
                 "payment_due_date": 60 # 60 minutes

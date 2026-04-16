@@ -52,13 +52,17 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
     try {
+      const currentPath = window.location.pathname;
+      const callbackUrl = `${window.location.origin}/payment/success?return_to=${encodeURIComponent(currentPath)}`;
+
       const response = await fetch(`${API_URL}/api/v1/transactions/donate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount,
           message,
-          is_anonymous: isAnonymous
+          is_anonymous: isAnonymous,
+          callback_url: callbackUrl
         }),
         credentials: 'include'
       });

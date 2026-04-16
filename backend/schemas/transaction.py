@@ -7,6 +7,7 @@ class DonationRequest(BaseModel):
     amount: int
     message: Optional[str] = None
     is_anonymous: bool = False
+    callback_url: Optional[str] = None
 
 class DonationResponse(BaseModel):
     token: str

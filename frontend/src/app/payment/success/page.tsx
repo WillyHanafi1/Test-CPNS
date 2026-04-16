@@ -1,14 +1,17 @@
 "use client";
 
-import React, { useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { CheckCircle2, Home, History, Download } from 'lucide-react';
+import React, { useEffect, useRef, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { CheckCircle2, Home, History, Download, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import gsap from 'gsap';
 
-export default function PaymentSuccessPage() {
+function SuccessContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnTo = searchParams.get('return_to');
+  
   const containerRef = useRef<HTMLDivElement>(null);
   const iconRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -81,10 +84,18 @@ export default function PaymentSuccessPage() {
 
             <div className="space-y-3">
               <Button 
-                onClick={() => router.push('/dashboard')}
+                onClick={() => router.push(returnTo || '/dashboard')}
                 className="action-btn w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-6 transition-all duration-300"
               >
-                <Home className="mr-2 h-5 w-5" /> Kembali ke Dashboard
+                {returnTo ? (
+                  <>
+                    <ArrowLeft className="mr-2 h-5 w-5" /> Kembali ke Halaman Sebelumnya
+                  </>
+                ) : (
+                  <>
+                    <Home className="mr-2 h-5 w-5" /> Kembali ke Dashboard
+                  </>
+                )}
               </Button>
               
               <div className="grid grid-cols-2 gap-3">
@@ -116,5 +127,13 @@ export default function PaymentSuccessPage() {
         Punya kendala? <span className="text-indigo-400 hover:underline cursor-pointer">Hubungi Support</span>
       </p>
     </div>
+  );
+}
+
+export default function PaymentSuccessPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">Loading...</div>}>
+      <SuccessContent />
+    </Suspense>
   );
 }
