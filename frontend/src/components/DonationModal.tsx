@@ -69,26 +69,11 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
 
       const data = await response.json();
       
-      // Midtrans Snap Integration
-      if ((window as any).snap) {
-        (window as any).snap.pay(data.token, {
-          onSuccess: (result: any) => {
-            toast.success('Terima kasih atas dukungannya!');
-            onClose();
-          },
-          onPending: (result: any) => {
-            toast.success('Menunggu pembayaran...');
-            onClose();
-          },
-          onError: (result: any) => {
-            toast.error('Pembayaran gagal');
-          },
-          onClose: () => {
-            toast('Pembayaran dibatalkan', { icon: 'ℹ️' });
-          }
-        });
-      } else {
+      // DOKU Checkout Redirect
+      if (data.redirect_url) {
         window.location.href = data.redirect_url;
+      } else {
+        toast.error('Gagal memuat link pembayaran');
       }
     } catch (err: any) {
       toast.error(err.message || 'Terjadi kesalahan sistem');
@@ -184,7 +169,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
           </Button>
 
           <p className="text-[10px] text-center text-slate-500">
-            Pembayaran akan diproses secara aman melalui Midtrans.
+            Pembayaran akan diproses secara aman melalui DOKU.
           </p>
         </CardContent>
       </Card>

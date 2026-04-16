@@ -41,6 +41,9 @@ AGENT.md
 GEMINI.md
 LESSON_LEARNED.md
 
+# Documentation
+docs/doku/
+
 # Utility Scripts
 audit_tiu_consistency.py
 finalize_csv_format.py

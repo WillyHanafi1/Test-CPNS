@@ -184,7 +184,7 @@ class UserTransaction(Base):
     order_id: Mapped[Optional[str]] = mapped_column(String(100), unique=True, index=True, nullable=True)
     payment_status: Mapped[str] = mapped_column(String(20), default="pending", index=True)  # pending, success, failed
     amount: Mapped[int] = mapped_column(Integer)
-    snap_token: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # For Midtrans
+    payment_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # For DOKU Checkout Link
     message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # For donation message
     is_anonymous: Mapped[bool] = mapped_column(Boolean, default=False)
     access_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -6,7 +6,6 @@ import 'katex/dist/katex.min.css';
 import { AuthProvider } from "@/context/AuthContext";
 import { Toaster } from "react-hot-toast";
 import { GoogleOAuthProvider } from "@react-oauth/google";
-import Script from "next/script";
 import GlobalChatBubble from "@/components/GlobalChatBubble";
 
 const geistSans = Geist({
@@ -41,13 +40,6 @@ export default function RootLayout({
             {children}
             <GlobalChatBubble />
             <Toaster />
-            <Script 
-              src={process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === 'true' 
-                ? 'https://app.midtrans.com/snap/snap.js' 
-                : 'https://app.sandbox.midtrans.com/snap/snap.js'} 
-              data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
-              strategy="beforeInteractive"
-            />
           </AuthProvider>
         </GoogleOAuthProvider>
       </body>

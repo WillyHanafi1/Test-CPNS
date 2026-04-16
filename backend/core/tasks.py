@@ -9,6 +9,8 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.pool import NullPool
 import redis.asyncio as aioredis
+import socket
+
 
 from backend.core.celery_app import celery_app
 from backend.models.models import ExamSession, Question, Answer, Package, User
@@ -49,7 +51,10 @@ async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: s
     logger_scoring.info(f"Starting scoring for session {session_id_str}")
 
     # Create a new engine per task — required for Celery workers (NullPool = no connection sharing)
-    engine = create_async_engine(settings.DATABASE_URL, echo=False, poolclass=NullPool)
+    engine = create_async_engine(
+        settings.DATABASE_URL, echo=False, poolclass=NullPool,
+        connect_args={"statement_cache_size": 0},  # Required: Supabase PgBouncer doesn't support prepared statements
+    )
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
     try:
@@ -204,7 +209,7 @@ async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: s
             "status": "success"
         }
 
-    except (OperationalError, ConnectionError):
+    except (OperationalError, OSError):
         # Explicitly raise for Celery autoretry_for
         raise
 
@@ -221,7 +226,7 @@ async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: s
 
 @celery_app.task(
     name="backend.core.tasks.calculate_exam_score",
-    autoretry_for=(OperationalError, ConnectionError),
+    autoretry_for=(OperationalError, OSError),
     max_retries=3,
     default_retry_delay=10,
 )
@@ -234,7 +239,10 @@ def calculate_exam_score(session_id: str, user_id: str, user_email: str):
 # ====================================================================
 
 async def async_auto_finish_expired():
-    engine = create_async_engine(settings.DATABASE_URL, echo=False, poolclass=NullPool)
+    engine = create_async_engine(
+        settings.DATABASE_URL, echo=False, poolclass=NullPool,
+        connect_args={"statement_cache_size": 0},  # Required: Supabase PgBouncer doesn't support prepared statements
+    )
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
     grace_period = timedelta(minutes=5)
@@ -290,7 +298,7 @@ async def async_auto_finish_expired():
             "total_found": len(expired_sessions),
         }
 
-    except (OperationalError, ConnectionError):
+    except (OperationalError, OSError):
         # Explicitly raise for Celery autoretry_for
         raise
 
@@ -315,7 +323,7 @@ async def _mark_session_expired(session_factory, session_id: uuid.UUID):
 
 @celery_app.task(
     name="backend.core.tasks.auto_finish_expired_sessions",
-    autoretry_for=(OperationalError, ConnectionError),
+    autoretry_for=(OperationalError, OSError),
     max_retries=3,
     default_retry_delay=60,
 )
@@ -329,7 +337,10 @@ def auto_finish_expired_sessions():
 
 async def async_generate_ai_analysis(session_id_str: str, stats: dict, history: list = None):
     logger_ai.info(f"Starting AI analysis for session {session_id_str}")
-    engine = create_async_engine(settings.DATABASE_URL, echo=False, poolclass=NullPool)
+    engine = create_async_engine(
+        settings.DATABASE_URL, echo=False, poolclass=NullPool,
+        connect_args={"statement_cache_size": 0},  # Required: Supabase PgBouncer doesn't support prepared statements
+    )
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
     try:
@@ -378,7 +389,7 @@ async def async_generate_ai_analysis(session_id_str: str, stats: dict, history: 
                 await db.commit()
                 logger_ai.info(f"AI analysis saved for session {session_id_str}")
 
-    except (OperationalError, ConnectionError):
+    except (OperationalError, OSError):
         # Explicitly raise for Celery autoretry_for
         raise
 
@@ -397,7 +408,7 @@ async def async_generate_ai_analysis(session_id_str: str, stats: dict, history: 
 
 @celery_app.task(
     name="backend.core.tasks.generate_ai_analysis",
-    autoretry_for=(OperationalError, ConnectionError),
+    autoretry_for=(OperationalError, OSError),
     max_retries=3,
     default_retry_delay=10,
 )
@@ -411,7 +422,10 @@ def generate_ai_analysis_task(session_id: str, stats: dict, history: list = None
 async def async_repair_question_bias(question_id_str: str):
     """Regenerates distractors for a specific question to remove length bias."""
     logger_ai.info(f"Starting AI bias repair for question {question_id_str}")
-    engine = create_async_engine(settings.DATABASE_URL, echo=False, poolclass=NullPool)
+    engine = create_async_engine(
+        settings.DATABASE_URL, echo=False, poolclass=NullPool,
+        connect_args={"statement_cache_size": 0},  # Required: Supabase PgBouncer doesn't support prepared statements
+    )
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
     try:
@@ -460,7 +474,7 @@ async def async_repair_question_bias(question_id_str: str):
 
 @celery_app.task(
     name="backend.core.tasks.repair_question_bias",
-    autoretry_for=(OperationalError, ConnectionError),
+    autoretry_for=(OperationalError, OSError),
     max_retries=2,
     default_retry_delay=5,
 )

@@ -49,10 +49,10 @@ class Settings(BaseSettings):
     MAIL_STARTTLS: bool = os.getenv("MAIL_STARTTLS", "True").lower() == "true"
     MAIL_SSL_TLS: bool = os.getenv("MAIL_SSL_TLS", "False").lower() == "true"
     
-    # Midtrans
-    MIDTRANS_SERVER_KEY: str = os.getenv("MIDTRANS_SERVER_KEY", "")
-    MIDTRANS_CLIENT_KEY: str = os.getenv("MIDTRANS_CLIENT_KEY", "")
-    MIDTRANS_IS_PRODUCTION: bool = os.getenv("MIDTRANS_IS_PRODUCTION", "False").lower() == "true"
+    # DOKU
+    DOKU_CLIENT_ID: str = os.getenv("DOKU_CLIENT_ID", "")
+    DOKU_SECRET_KEY: str = os.getenv("DOKU_SECRET_KEY", "")
+    DOKU_ENVIRONMENT: str = os.getenv("DOKU_ENVIRONMENT", "sandbox")
     
     # Google Gemini AI
     GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")

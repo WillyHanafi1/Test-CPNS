@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 from backend.db.session import get_async_session
 from backend.models.models import User, UserTransaction, Package, UserProfile
 from backend.api.v1.endpoints.auth import get_current_user
-from backend.core.midtrans import midtrans_service
+from backend.core.doku_service import doku_service
 from backend.config import settings
 from backend.schemas.transaction import DonationRequest, DonationResponse, SupporterResponse, TopSupporter, DonationStats
 from backend.core.rate_limiter import limiter
@@ -71,14 +71,14 @@ async def create_pro_upgrade_transaction(
     }
     
     try:
-        snap_response = midtrans_service.create_transaction(
+        snap_response = doku_service.create_transaction(
             order_id=order_id,
             amount=settings.PRO_PRICE,
             item_details=item_details,
             customer_details=customer_details
         )
         
-        new_transaction.snap_token = snap_response['token']
+        new_transaction.payment_url = snap_response['redirect_url']
         await db.commit()
         
         return {
@@ -88,8 +88,8 @@ async def create_pro_upgrade_transaction(
         }
     except Exception as e:
         await db.rollback()
-        # [SECURITY] Log full error internally, return generic message to prevent leaking Midtrans server key
-        logger.error(f"Midtrans create transaction error for {order_id}: {str(e)}", exc_info=True)
+        # [SECURITY] Log full error internally
+        logger.error(f"DOKU create transaction error for {order_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Gagal membuat transaksi pembayaran. Silakan coba lagi.")
 
 @router.get("/my-transactions")
@@ -153,14 +153,14 @@ async def create_donation_transaction(
     }
     
     try:
-        snap_response = midtrans_service.create_transaction(
+        snap_response = doku_service.create_transaction(
             order_id=order_id,
             amount=payload.amount,
             item_details=item_details,
             customer_details=customer_details
         )
         
-        new_transaction.snap_token = snap_response['token']
+        new_transaction.payment_url = snap_response['redirect_url']
         await db.commit()
         
         return {
@@ -170,8 +170,8 @@ async def create_donation_transaction(
         }
     except Exception as e:
         await db.rollback()
-        # [SECURITY] Log full error internally, return generic message to prevent leaking Midtrans server key
-        logger.error(f"Midtrans create donation error for {order_id}: {str(e)}", exc_info=True)
+        # [SECURITY] Log full error internally
+        logger.error(f"DOKU create donation error for {order_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Gagal membuat transaksi donasi. Silakan coba lagi.")
 
 @router.get("/donations/wall-of-fame", response_model=List[SupporterResponse])
@@ -300,51 +300,42 @@ async def get_donation_stats(
 
 @router.post("/webhook")
 @limiter.limit("30/minute")
-async def midtrans_webhook(
+async def doku_webhook(
     request: Request,
     response: Response,
     db: AsyncSession = Depends(get_async_session)
 ):
     """
-    Handle notification from Midtrans.
+    Handle notification and webhook from DOKU.
     """
-    data = await request.json()
-    
-    # Signature Key Verification
-    order_id = data.get("order_id")
-    status_code = data.get("status_code")
-    gross_amount = data.get("gross_amount")
-    signature_key_received = data.get("signature_key")
-    
-    payload = f"{order_id}{status_code}{gross_amount}{settings.MIDTRANS_SERVER_KEY}"
-    expected_signature = hashlib.sha512(payload.encode()).hexdigest()
-    
-    if signature_key_received != expected_signature:
-        logger.error(f"Invalid Midtrans Signature! Order: {order_id}")
-        raise HTTPException(status_code=401, detail="Invalid signature key")
+    body_bytes = await request.body()
+    headers = dict(request.headers)
     
     try:
-        status_response = midtrans_service.verify_notification(data)
+        status_response = doku_service.verify_notification(headers, body_bytes)
         order_id = status_response.get('order_id')
         transaction_status = status_response.get('transaction_status')
-        fraud_status = status_response.get('fraud_status')
         
+        if not order_id:
+            logger.error("No order_id found in DOKU webhook body.")
+            raise HTTPException(status_code=400, detail="Invalid body")
+
         target_status = "pending"
-        if transaction_status in ['capture', 'settlement']:
-            if transaction_status == 'capture':
-                if fraud_status == 'accept':
-                    target_status = "success"
-            else:
-                target_status = "success"
-        elif transaction_status in ['cancel', 'deny', 'expire']:
+        # Jokul Checkout status values: SUCCESS, FAILED
+        if transaction_status in ['success']:
+            target_status = "success"
+        elif transaction_status in ['failed', 'expired']:
             target_status = "failed"
             
         await fulfill_transaction(db, order_id, target_status)
         return {"status": "ok"}
         
+    except ValueError as ve:
+        logger.error(f"DOKU Webhook signature mismatch or missing headers: {str(ve)}")
+        raise HTTPException(status_code=401, detail=str(ve))
     except Exception as e:
-        logger.error(f"Webhook processing error for order {order_id}: {str(e)}", exc_info=True)
-        return {"status": "error", "message": "Internal processing error"}
+        logger.error(f"Webhook processing error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal processing error")
 
 async def fulfill_transaction(db: AsyncSession, order_id: str, payment_status: str):
     # [SECURITY] Row-level lock to prevent race conditions from duplicate Midtrans webhooks

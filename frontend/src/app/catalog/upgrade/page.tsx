@@ -61,24 +61,8 @@ export default function UpgradeProPage() {
       if (!res.ok) throw new Error('Gagal membuat transaksi');
       const data = await res.json();
       
-      if (typeof window !== 'undefined' && (window as any).snap) {
-        (window as any).snap.pay(data.token, {
-          onSuccess: function(result: any) {
-            toast.success('Pembayaran Berhasil! Sedang memverifikasi akun Anda...');
-            setIsVerifying(true);
-          },
-          onPending: function(result: any) {
-            toast.success('Pembayaran Menunggu. Selesaikan proses di aplikasi Anda.');
-            setLoading(false);
-          },
-          onError: function(result: any) {
-            toast.error('Pembayaran Gagal. Silakan coba lagi.');
-            setLoading(false);
-          },
-          onClose: function() {
-            setLoading(false);
-          }
-        });
+      if (data.redirect_url) {
+        window.location.href = data.redirect_url;
       } else {
         toast.error('Layanan pembayaran belum siap. Mohon tunggu sebentar atau refresh halaman.');
         setLoading(false);
@@ -202,7 +186,7 @@ export default function UpgradeProPage() {
               )}
               <div className="flex items-center justify-center gap-2 text-xs text-slate-600 font-medium">
                 <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                {isVerifying ? 'Jangan tutup halaman ini' : 'Pembayaran Aman via Midtrans'}
+                {isVerifying ? 'Jangan tutup halaman ini' : 'Pembayaran Aman via DOKU'}
               </div>
             </CardFooter>
           </Card>
