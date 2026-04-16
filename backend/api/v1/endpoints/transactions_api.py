@@ -30,7 +30,7 @@ async def create_pro_upgrade_transaction(
 ):
     """
     Create a transaction for upgrading to a PRO account.
-    Returns the Midtrans snap_token.
+    Returns the DOKU redirect_url.
     """
     order_id = f"PRO-{current_user.id.hex[:8]}-{uuid.uuid4().hex[:6]}"
     
@@ -320,13 +320,19 @@ async def doku_webhook(
             logger.error("No order_id found in DOKU webhook body.")
             raise HTTPException(status_code=400, detail="Invalid body")
 
-        target_status = "pending"
+        target_status = "failed"
         # Jokul Checkout status values: SUCCESS, FAILED
-        if transaction_status in ['success']:
+        ts_lower = str(transaction_status).lower() if transaction_status else ""
+        
+        if ts_lower == 'success':
             target_status = "success"
-        elif transaction_status in ['failed', 'expired']:
+        elif ts_lower in ['failed', 'expired', 'canceled']:
             target_status = "failed"
+        else:
+            target_status = "pending"
             
+        logger.info(f"DOKU Webhook received for Order: {order_id}, DOKU Status: {transaction_status}, Internal Status: {target_status}")
+        
         await fulfill_transaction(db, order_id, target_status)
         return {"status": "ok"}
         
@@ -338,7 +344,7 @@ async def doku_webhook(
         raise HTTPException(status_code=500, detail="Internal processing error")
 
 async def fulfill_transaction(db: AsyncSession, order_id: str, payment_status: str):
-    # [SECURITY] Row-level lock to prevent race conditions from duplicate Midtrans webhooks
+    # [SECURITY] Row-level lock to prevent race conditions from duplicate DOKU webhooks
     result = await db.execute(
         select(UserTransaction)
         .where(UserTransaction.order_id == order_id)
@@ -350,9 +356,11 @@ async def fulfill_transaction(db: AsyncSession, order_id: str, payment_status: s
         return
         
     if transaction.payment_status in ("success", "failed"):
+        logger.info(f"Transaction {order_id} already has final status: {transaction.payment_status}. Skipping fulfillment.")
         return
         
     transaction.payment_status = payment_status
+    logger.info(f"Transaction {order_id} updated to status: {payment_status}")
     
     user_result = await db.execute(select(User).where(User.id == transaction.user_id))
     user = user_result.scalar_one_or_none()
