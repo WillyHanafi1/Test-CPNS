@@ -11,7 +11,9 @@ backend/.env
 # Node.js
 frontend/node_modules/
 frontend/.next/
-frontend/out/
+frontend/out/# DOKU Library & External Docs
+lib/
+docs/doku_docs/
 
 # IDEs
 .vscode/

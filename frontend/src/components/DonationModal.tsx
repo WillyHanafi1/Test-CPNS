@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import Script from 'next/script';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -69,9 +70,14 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
 
       const data = await response.json();
       
-      // DOKU Checkout Redirect
+      // DOKU Checkout Overlay (Popup Mode)
       if (data.redirect_url) {
-        window.location.href = data.redirect_url;
+        if (typeof (window as any).loadJokulCheckout === 'function') {
+          (window as any).loadJokulCheckout(data.redirect_url);
+        } else {
+          // Fallback to redirect if script not loaded
+          window.location.href = data.redirect_url;
+        }
       } else {
         toast.error('Gagal memuat link pembayaran');
       }
@@ -173,6 +179,16 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
           </p>
         </CardContent>
       </Card>
+
+      {/* DOKU Checkout JS Library */}
+      <Script 
+        src={
+          process.env.NEXT_PUBLIC_DOKU_ENVIRONMENT === 'production'
+            ? "https://jokul.doku.com/jokul-checkout-js/v1/jokul-checkout-1.0.0.js"
+            : "https://sandbox.doku.com/jokul-checkout-js/v1/jokul-checkout-1.0.0.js"
+        }
+        strategy="lazyOnload"
+      />
     </div>
   );
 }

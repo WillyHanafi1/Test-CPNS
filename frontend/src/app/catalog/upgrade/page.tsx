@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import Script from 'next/script';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -62,7 +63,13 @@ export default function UpgradeProPage() {
       const data = await res.json();
       
       if (data.redirect_url) {
-        window.location.href = data.redirect_url;
+        // Use DOKU Checkout Overlay (Popup Mode)
+        if (typeof (window as any).loadJokulCheckout === 'function') {
+          (window as any).loadJokulCheckout(data.redirect_url);
+        } else {
+          // Fallback to direct redirect
+          window.location.href = data.redirect_url;
+        }
       } else {
         toast.error('Layanan pembayaran belum siap. Mohon tunggu sebentar atau refresh halaman.');
         setLoading(false);
@@ -206,6 +213,16 @@ export default function UpgradeProPage() {
            ))}
         </div>
       </div>
+
+      {/* DOKU Checkout JS Library */}
+      <Script 
+        src={
+          process.env.NEXT_PUBLIC_DOKU_ENVIRONMENT === 'production'
+            ? "https://jokul.doku.com/jokul-checkout-js/v1/jokul-checkout-1.0.0.js"
+            : "https://sandbox.doku.com/jokul-checkout-js/v1/jokul-checkout-1.0.0.js"
+        }
+        strategy="lazyOnload"
+      />
     </div>
   );
 }
