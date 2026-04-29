@@ -5,12 +5,25 @@ on:
     branches: [ main ]
 
 jobs:
-  deploy:
+  test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
 
+      - name: Cek Syntax Backend
+        run: |
+          python -m py_compile backend/main.py
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
       - name: Deploy to DigitalOcean via SSH
         uses: appleboy/ssh-action@master
         with:
@@ -20,17 +33,13 @@ jobs:
           script: |
             cd /var/www/test-cpns
             
-            # Memaksa server mengikuti kode terbaru dari GitHub
             git fetch origin main
             git reset --hard origin/main
             
-            # Build ulang dengan argumen variabel environment
-            # Build ulang dan nyalakan aplikasi
-            # docker-compose akan otomatis membaca file .env di server
-            docker compose up -d --build --remove-orphans
-
-            # Menjalankan migrasi database agar tabel baru (Donation, dll) tercipta
-            docker compose exec -T backend alembic -c backend/alembic.ini upgrade head
+            docker compose build
             
-            # Bersihkan sampah image agar hardisk Droplet tidak penuh
+            docker compose run --rm backend alembic -c backend/alembic.ini upgrade head
+            
+            docker compose up -d --remove-orphans
+            
             docker image prune -f
