@@ -8,12 +8,12 @@ Sebelum diaudit, soal harus digenerate terlebih dahulu menggunakan script genera
 
 **Cara Generate Soal:**
 ```bash
-python scripts/generate_questions.py
+python scripts/generate_questions.py --difficulty hard --output data/csv/Hard3.csv
 ```
 Script ini akan:
-1. Meminta input untuk Prefix File Output (misal: `TryoutNasional_1`).
-2. Menghasilkan soal-soal TWK, TIU, dan TKP secara paralel.
-3. Menyimpan hasilnya dalam folder `data/csv/` dengan nama `TryoutNasional_1.csv`.
+1. Menentukan tingkat kesulitan soal melalui opsi `--difficulty` (bisa: `easy`, `medium`, `hard`, `extreme`).
+2. Menghasilkan soal-soal TWK, TIU, dan TKP secara paralel sesuai distribusi silabus BKN.
+3. Menyimpan hasilnya dalam folder dan nama file yang ditentukan pada opsi `--output`.
 
 *Catatan: Selalu pastikan `GOOGLE_API_KEY` aktif di `.env` sebelum menjalankan generator.*
 
