@@ -1,10 +1,25 @@
-# Panduan Penggunaan Pipeline Quality Audit CPNS
+# Panduan Pipeline: Generate & Quality Audit Soal CPNS
 
-Dokumen ini menjelaskan cara menggunakan dan memahami cara kerja sistem **Two-Pass Hybrid Quality Assurance Pipeline** yang dirancang untuk memastikan soal-soal CPNS hasil *generate* AI memiliki kualitas tinggi, akurat, dan tidak memiliki cacat logika sebelum masuk ke *database* utama.
+Dokumen ini menjelaskan alur kerja (*workflow*) lengkap mulai dari tahap pembuatan (generate) soal CPNS menggunakan AI, hingga tahap **Two-Pass Hybrid Quality Assurance Pipeline** untuk mengaudit dan memperbaiki soal secara otomatis sebelum masuk ke *database* utama.
 
-## 1. Konsep Utama: Two-Pass Hybrid QA
+## 1. Tahap Pertama: Generate Soal (Pembuatan)
 
-Pipeline ini dirancang untuk mencegah *self-reinforcement bias* (di mana AI merasa selalu benar terhadap buatannya sendiri) dengan memisahkan tugas audit menjadi dua agen berbeda:
+Sebelum diaudit, soal harus digenerate terlebih dahulu menggunakan script generator. Script ini membaca profil kesulitan dan jumlah soal yang diinginkan dari konfigurasi.
+
+**Cara Generate Soal:**
+```bash
+python scripts/generate_questions.py
+```
+Script ini akan:
+1. Meminta input untuk Prefix File Output (misal: `TryoutNasional_1`).
+2. Menghasilkan soal-soal TWK, TIU, dan TKP secara paralel.
+3. Menyimpan hasilnya dalam folder `data/csv/` dengan nama `TryoutNasional_1.csv`.
+
+*Catatan: Selalu pastikan `GOOGLE_API_KEY` aktif di `.env` sebelum menjalankan generator.*
+
+## 2. Konsep Utama Audit: Two-Pass Hybrid QA
+
+Setelah file CSV terbentuk (misal `Hard3.csv`), file tersebut belum tentu sempurna. Pipeline audit ini dirancang untuk mencegah *self-reinforcement bias* (di mana AI merasa selalu benar terhadap buatannya sendiri) dengan memisahkan tugas audit menjadi dua agen berbeda:
 
 1.  **Pass 1: AI Judge (Auditor)**
     *   Tugas: Mengkritik dan mencari kesalahan.
@@ -21,7 +36,7 @@ Pipeline ini dirancang untuk mencegah *self-reinforcement bias* (di mana AI mera
     *   Cara Kerja: Menerima soal yang cacat beserta daftar kritik dari Judge. AI Fixer akan meregenerasi narasi soal, teks opsi, atau teks pembahasan.
     *   **Aturan Emas:** AI Fixer **DILARANG KERAS** mengubah bobot nilai (`score_a` sampai `score_e`). Hanya redaksi teks yang boleh diubah untuk mencocokkan logika dengan skor yang sudah ditetapkan.
 
-## 2. Cara Menggunakan `quality_audit.py`
+## 3. Cara Menggunakan `quality_audit.py`
 
 Script utama berada di `scripts/quality_audit.py`.
 
@@ -40,7 +55,7 @@ python scripts/quality_audit.py data/csv/NamaFile.csv --fix
 *   `--threshold <angka>`: Mengatur batas nilai minimal. Default: `4.0`. Semakin tinggi angka ini, semakin ketat auditnya.
 *   `--model <nama_model>`: Memilih model AI yang digunakan. Default: `gemini-3.1-pro-preview` (Direkomendasikan karena *reasoning* yang kuat).
 
-## 3. Fitur Keamanan dan Stabilitas (Rate Limiting)
+## 4. Fitur Keamanan dan Stabilitas (Rate Limiting)
 
 Saat memperbaiki puluhan soal secara paralel, API Gemini sering kali mengembalikan error `429 Resource Exhausted`. Untuk mencegah sistem *crash*, pipeline ini dilengkapi dengan perlindungan 3 lapis:
 
@@ -53,7 +68,7 @@ Saat memperbaiki puluhan soal secara paralel, API Gemini sering kali mengembalik
     *   Alih-alih mengirim 50 perbaikan soal secara bersamaan, sistem akan memecahnya menjadi "Gelombang" (Wave).
     *   Setiap Wave berisi 10 soal. Setelah 10 soal selesai, sistem akan *cooldown* selama 15 detik sebelum melanjutkan ke Wave berikutnya.
 
-## 4. Pola Kesalahan yang Sering Diperbaiki (Common Fixes)
+## 5. Pola Kesalahan yang Sering Diperbaiki (Common Fixes)
 
 Sistem ini sangat efektif dalam memperbaiki pola kesalahan berikut:
 *   **Ketidaksesuaian Opsi Pembahasan (Mismatch):** Pembahasan menyebut "Jawaban yang benar adalah A", namun `score_a` = 0 dan `score_d` = 5.
@@ -61,7 +76,7 @@ Sistem ini sangat efektif dalam memperbaiki pola kesalahan berikut:
 *   **TIU Verbal Bernomor:** Soal Analogi atau Silogisme yang mengandung angka (diharamkan dalam spesifikasi BKN murni verbal).
 *   **Stem Soal TWK Terlalu Panjang:** Memangkas narasi sejarah yang melebihi 100 kata agar ramah layar ujian CAT.
 
-## 5. Output dan Laporan
+## 6. Output dan Laporan
 
 Setelah selesai, script akan menghasilkan **2 file baru**:
 1.  `data/csv/NamaFile_audit_report.json`: Laporan lengkap alasan setiap soal di-flag beserta skor rinci dari AI Judge. Berguna untuk analisis manual.
