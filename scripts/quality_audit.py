@@ -25,7 +25,7 @@ import os
 import sys
 import re
 import time
-# traceback removed — retry loops handle errors inline
+
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -449,7 +449,10 @@ async def run_audit(
         flag_count = 0
         
         for eval_item in evaluations:
-            nomor = eval_item.get('nomor', 0)
+            try:
+                nomor = int(eval_item.get('nomor', 0))
+            except (ValueError, TypeError):
+                nomor = 0
             status = eval_item.get('status', 'PASS')
             try:
                 rata_rata = float(eval_item.get('rata_rata', 5.0))
@@ -496,7 +499,13 @@ async def run_audit(
         dims = ['konsistensi', 'akurasi', 'pengecoh', 'kejelasan', 'bloom', 'format_cat']
         print(f"\n  Rata-rata per Dimensi:")
         for dim in dims:
-            vals = [e.get('scores', {}).get(dim, 0) for e in all_evaluations if e.get('scores')]
+            raw_vals = [e.get('scores', {}).get(dim, 0) for e in all_evaluations if e.get('scores')]
+            vals = []
+            for v in raw_vals:
+                try:
+                    vals.append(float(v))
+                except (ValueError, TypeError):
+                    vals.append(0.0)
             avg = sum(vals) / len(vals) if vals else 0
             bar = "█" * int(avg) + "░" * (5 - int(avg))
             emoji = "✅" if avg >= 4.0 else "⚠️" if avg >= 3.0 else "❌"

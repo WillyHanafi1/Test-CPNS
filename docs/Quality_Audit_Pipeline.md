@@ -52,8 +52,10 @@ python scripts/quality_audit.py data/csv/NamaFile.csv --fix
 ```
 
 ### Opsi Lanjutan
-*   `--threshold <angka>`: Mengatur batas nilai minimal. Default: `4.0`. Semakin tinggi angka ini, semakin ketat auditnya.
-*   `--model <nama_model>`: Memilih model AI yang digunakan. Default: `gemini-3.1-pro-preview` (Direkomendasikan karena *reasoning* yang kuat).
+*   `--threshold <angka>` / `-t`: Mengatur batas nilai minimal. Default: `4.0`. Semakin tinggi angka ini, semakin ketat auditnya.
+*   `--max-retries <angka>` / `-r`: Maksimal percobaan perbaikan per soal. Default: `3`.
+*   `--segment <TWK|TIU|TKP>` / `-s`: Hanya audit segmen tertentu (opsional, default: semua).
+*   `--output <path>` / `-o`: Path output CSV custom. Default: `{input}_Validated.csv`.
 
 ## 4. Fitur Keamanan dan Stabilitas (Rate Limiting)
 
