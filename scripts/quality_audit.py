@@ -206,6 +206,18 @@ PERINGATAN: Jangan ubah skor. Hanya teks konten yang boleh berubah.
 # PASS 1: AI JUDGE (SCREENING)
 # ==============================================================================
 
+def _extract_json(text: str) -> str:
+    """Extract JSON string from markdown code blocks if present."""
+    text = text.strip()
+    if text.startswith("```json"):
+        text = re.sub(r"^```json\s*", "", text)
+        text = re.sub(r"\s*```$", "", text)
+    elif text.startswith("```"):
+        text = re.sub(r"^```\s*", "", text)
+        text = re.sub(r"\s*```$", "", text)
+    return text
+
+
 def _format_question_for_judge(row: pd.Series) -> str:
     """Format a single question row for the Judge prompt."""
     scores_str = ", ".join(f"{o.upper()}={row.get(f'score_{o}', 0)}" for o in 'abcde')
@@ -245,32 +257,46 @@ async def judge_batch(
     
     print(f"  [JUDGE] Mengirim {len(seg_df)} soal {segment} ke AI Judge...", flush=True)
     
-    try:
-        response = await ai_service.client.aio.models.generate_content(
-            model=ai_service.model_name,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                thinking_config=types.ThinkingConfig(thinking_level="high")
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            await rate_limiter.acquire()
+            response = await ai_service.client.aio.models.generate_content(
+                model=ai_service.model_name,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    thinking_config=types.ThinkingConfig(thinking_level="high")
+                )
             )
-        )
-        
-        result = json.loads(response.text, strict=False)
-        
-        if isinstance(result, dict):
-            result = [result]
-        
-        if not isinstance(result, list):
-            print(f"  [JUDGE] ⚠️ Unexpected response type: {type(result)}", flush=True)
-            return []
-        
-        print(f"  [JUDGE] ✅ Received {len(result)} evaluations for {segment}", flush=True)
-        return result
-        
-    except Exception as e:
-        print(f"  [JUDGE] ❌ Error: {e}", flush=True)
-        traceback.print_exc()
-        return []
+            
+            clean_json = _extract_json(response.text)
+            result = json.loads(clean_json, strict=False)
+            
+            if isinstance(result, dict):
+                result = [result]
+            
+            if not isinstance(result, list):
+                print(f"  [JUDGE] ⚠️ Unexpected response type: {type(result)}", flush=True)
+                continue
+            
+            print(f"  [JUDGE] ✅ Received {len(result)} evaluations for {segment}", flush=True)
+            return result
+            
+        except ClientError as e:
+            if '429' in str(e) or 'RESOURCE_EXHAUSTED' in str(e):
+                backoff = 35 + (attempt * 10)
+                print(f"  [JUDGE] ⏳ Rate limited, waiting {backoff}s (attempt {attempt+1}/{max_retries})...", flush=True)
+                await asyncio.sleep(backoff)
+            else:
+                print(f"  [JUDGE] ❌ Error pada attempt {attempt+1}: {e}", flush=True)
+                await asyncio.sleep(5)
+        except Exception as e:
+            print(f"  [JUDGE] ❌ Error pada attempt {attempt+1}: {e}", flush=True)
+            await asyncio.sleep(5)
+            
+    print(f"  [JUDGE] ❌ Gagal mendapatkan evaluasi untuk {segment} setelah {max_retries} percobaan.", flush=True)
+    return []
 
 
 # ==============================================================================
@@ -323,7 +349,8 @@ async def fix_question(
                 )
             )
             
-            result = json.loads(response.text, strict=False)
+            clean_json = _extract_json(response.text)
+            result = json.loads(clean_json, strict=False)
             
             if not isinstance(result, dict):
                 print(f"    [FIX] ⚠️ Unexpected type: {type(result)}", flush=True)
