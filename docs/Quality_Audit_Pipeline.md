@@ -80,4 +80,4 @@ Sistem ini sangat efektif dalam memperbaiki pola kesalahan berikut:
 
 Setelah selesai, script akan menghasilkan **2 file baru**:
 1.  `data/csv/NamaFile_audit_report.json`: Laporan lengkap alasan setiap soal di-flag beserta skor rinci dari AI Judge. Berguna untuk analisis manual.
-2.  `data/csv/NamaFile_Fixed.csv`: Berkas CSV final yang sudah dibersihkan dan siap di-*import* ke dalam database Supabase. Menggunakan *suffix* `_Fixed`.
+2.  `data/csv/NamaFile_Validated.csv`: Berkas CSV final yang sudah dibersihkan dan siap di-*import* ke dalam database Supabase. Menggunakan *suffix* `_Validated`.

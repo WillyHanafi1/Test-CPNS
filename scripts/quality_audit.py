@@ -25,7 +25,7 @@ import os
 import sys
 import re
 import time
-import traceback
+# traceback removed — retry loops handle errors inline
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -400,7 +400,7 @@ async def run_audit(
     input_path: str,
     threshold: float = 4.0,
     auto_fix: bool = False,
-    max_retries: int = 2,
+    max_retries: int = 3,
     segment_filter: str = None,
     output_path: str = None,
 ):
@@ -451,7 +451,10 @@ async def run_audit(
         for eval_item in evaluations:
             nomor = eval_item.get('nomor', 0)
             status = eval_item.get('status', 'PASS')
-            rata_rata = eval_item.get('rata_rata', 5.0)
+            try:
+                rata_rata = float(eval_item.get('rata_rata', 5.0))
+            except (ValueError, TypeError):
+                rata_rata = 5.0
             issues = eval_item.get('issues', [])
             scores = eval_item.get('scores', {})
             
@@ -502,6 +505,7 @@ async def run_audit(
     # ── PASS 2: FIX (optional) ──────────────────────────────────────
     fixes_applied = 0
     fixes_failed = 0
+    _counter_lock = asyncio.Lock()  # Protect shared counters in concurrent tasks
     
     if auto_fix and flagged_questions:
         print(f"\n{'='*60}")
@@ -532,10 +536,12 @@ async def run_audit(
                 
                 fixes_str = ", ".join(fixed.get('fixes_applied', [])[:2])
                 print(f"✅ [{fixes_str}]", flush=True)
-                fixes_applied += 1
+                async with _counter_lock:
+                    fixes_applied += 1
             else:
                 print(f"❌ Gagal setelah {max_retries} retry", flush=True)
-                fixes_failed += 1
+                async with _counter_lock:
+                    fixes_failed += 1
         
         # Process in waves with cooldown between waves
         for wave_idx in range(total_waves):
@@ -671,8 +677,8 @@ Examples:
     parser.add_argument(
         '--max-retries', '-r',
         type=int,
-        default=2,
-        help='Maksimal percobaan perbaikan per soal (default: 2)'
+        default=3,
+        help='Maksimal percobaan perbaikan per soal (default: 3)'
     )
     parser.add_argument(
         '--segment', '-s',
