@@ -125,3 +125,9 @@ Berdasarkan troubleshooting render gambar dan sinkronisasi database pada Maret 2
     - `ExamSession` (berdasarkan `Package`)
     - `Question` (berdasarkan `Package`)
 3. **Standard Question Count**: Pastikan setiap paket latihan SKD memiliki total **110 soal** sesuai standar BKN (TWK, TIU, TKP) untuk menjaga konsistensi analitik.
+
+### G. Automated Question Quality Audit (Standard Operating Procedure)
+Berdasarkan implementasi pipeline QA pada April 2026:
+1. **Two-Pass Hybrid QA**: Jangan biarkan AI generator memvalidasi dirinya sendiri (*self-reinforcement bias*). Gunakan `scripts/quality_audit.py` untuk menjalankan Pass 1 (Judge) dan Pass 2 (Fixer) secara terpisah.
+2. **Zero-Score Tampering**: Saat AI Fixer melakukan perbaikan narasi/pembahasan pada soal yang *flagged*, sistem dilarang keras mengubah bobot `score` pada opsi jawaban untuk menjaga integritas distribusi soal.
+3. **API Rate Limiting Protection**: Eksekusi perbaikan massal wajib menggunakan arsitektur *Wave Processing* dengan *Token Bucket Rate Limiter* (maks 20 RPM) dan *Exponential Backoff* pada error 429 untuk mencegah *resource exhausted*. Detail eksekusi ada di `docs/Quality_Audit_Pipeline.md`.
