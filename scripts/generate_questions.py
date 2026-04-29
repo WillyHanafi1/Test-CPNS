@@ -19,6 +19,8 @@ import pandas as pd
 import os
 import sys
 import random
+import re
+import traceback
 from datetime import datetime
 from dotenv import load_dotenv
 from collections import OrderedDict
@@ -111,8 +113,11 @@ def validate_question(data: dict, segment: str) -> tuple[bool, str]:
             if not str(data[key]).strip():
                 return False, f"Empty value for: {key}"
 
-    # 2. Score validation
-    scores = [int(data[f'score_{o}']) for o in 'abcde']
+    # 2. Score validation (with defensive casting)
+    try:
+        scores = [int(float(data.get(f'score_{o}', 0) or 0)) for o in 'abcde']
+    except (ValueError, TypeError) as e:
+        return False, f"Score parsing error: {e} (raw: {[data.get(f'score_{o}') for o in 'abcde']})"
     
     if segment in ('TWK', 'TIU'):
         # Exactly one score = 5, rest = 0
@@ -186,31 +191,22 @@ async def generate_questions_for_subcategory(
 ) -> list[dict]:
     """Generate `count` questions for a specific segment/sub_category.
     
-    Strategy (HYBRID MODE):
-    - TWK & TKP: Batch mode (1 API call) — great for variety, quality proven.
-    - TIU: Single-call mode (1 API call per question) — focused on math accuracy,
-            with context injection of prior topics to prevent duplicates.
+    Strategy (ALL-BATCH MODE):
+    - ALL segments (TWK, TIU, TKP): Batch mode (1 API call per sub-category).
+    - Batch mode naturally prevents duplicates (AI sees all questions at once).
+    - Math accuracy for TIU is ensured by thinking=high + post-validation.
+    - Failed questions get individual retry fallback automatically.
     """
     
-    if segment == "TIU":
-        return await _generate_tiu_single_mode(
-            sub_category=sub_category,
-            count=count,
-            difficulty=difficulty,
-            regulation_context=regulation_context,
-            use_few_shot=use_few_shot,
-            start_number=start_number,
-        )
-    else:
-        return await _generate_batch_mode(
-            segment=segment,
-            sub_category=sub_category,
-            count=count,
-            difficulty=difficulty,
-            regulation_context=regulation_context,
-            use_few_shot=use_few_shot,
-            start_number=start_number,
-        )
+    return await _generate_batch_mode(
+        segment=segment,
+        sub_category=sub_category,
+        count=count,
+        difficulty=difficulty,
+        regulation_context=regulation_context,
+        use_few_shot=use_few_shot,
+        start_number=start_number,
+    )
 
 
 async def _generate_tiu_single_mode(
@@ -472,6 +468,16 @@ async def generate_full_package(
         print("⚠️ kepmenpan_rb_321_2024.md tidak ditemukan di root. Menggunakan konteks minimal.", flush=True)
         regulation_context = "Regulasi SKD CPNS berdasarkan Kepmenpan RB 321/2024. Segmen: TWK (30), TIU (35), TKP (45)."
     
+    # Load UUD 1945 context for TWK enrichment
+    uud_path = os.path.join(os.path.dirname(__file__), '..', 'docs', 'uud_1945_ringkas.md')
+    uud_context = ""
+    try:
+        with open(uud_path, 'r', encoding='utf-8') as f:
+            uud_context = f.read()
+        print("📜 UUD 1945 context loaded — akan diinjeksikan ke prompt TWK.", flush=True)
+    except FileNotFoundError:
+        print("⚠️ docs/uud_1945_ringkas.md tidak ditemukan. TWK tanpa konteks UUD.", flush=True)
+    
     all_questions = []
     current_number = 1
     
@@ -489,52 +495,92 @@ async def generate_full_package(
         sum(min(limit or 999, abs(count)) for count in subs.values()) for subs in distribution.values()
     )
     
-    # Count API calls (hybrid mode: batch for TWK/TKP, single for TIU)
-    total_api_calls = 0
-    for seg_name, subs in distribution.items():
-        if seg_name == "TIU":
-            # TIU: 1 API call per question (single mode)
-            total_api_calls += sum(min(limit or 999, c) for c in subs.values())
-        else:
-            # TWK/TKP: 1 API call per sub-category (batch mode)
-            total_api_calls += len(subs)
+    # Count API calls (all-batch mode: 1 call per sub-category for all segments)
+    total_api_calls = sum(len(subs) for subs in distribution.values())
     
     print(f"\n{'='*60}")
-    print(f"🚀 CPNS Question Generator (HYBRID MODE)")
+    print(f"🚀 CPNS Question Generator (ALL-BATCH MODE)")
     print(f"{'='*60}")
     print(f"  Difficulty : {difficulty.upper()}")
     print(f"  Segments   : {', '.join(distribution.keys())}")
     print(f"  Total Soal : {total_questions}")
-    print(f"  API Calls  : ~{total_api_calls}")
-    print(f"    TWK/TKP  : Batch (1 call/sub-kategori)")
-    print(f"    TIU      : Single (1 call/soal, + context injection)")
+    print(f"  API Calls  : {total_api_calls} (1 batch per sub-kategori)")
+    print(f"  Concurrency: Sem=10 (max 10 API calls bersamaan)")
     print(f"  Model      : {ai_service.model_name}")
     print(f"  Few-shot   : {'Yes' if use_few_shot else 'No'}")
     if limit:
         print(f"  Limit      : {limit} soal/sub-kategori")
     print(f"{'='*60}\n")
     
+    tasks_info = []
+    
     for segment, subcategories in distribution.items():
         segment_total = sum(min(limit or 999, c) for c in subcategories.values())
-        print(f"\n[SEGMENT] {segment} — {segment_total} soal")
+        print(f"\n[ANTREAN SEGMENT] {segment} — {segment_total} soal")
         print(f"{'-'*40}")
         
         for sub_cat, count in subcategories.items():
             actual_count = min(limit or 999, count)
-            print(f"\n  📝 {sub_cat} ({actual_count} soal)")
+            print(f"  📝 Antrean: {sub_cat} ({actual_count} soal, mulai dari #{current_number})")
             
-            questions = await generate_questions_for_subcategory(
-                segment=segment,
-                sub_category=sub_cat,
-                count=actual_count,
-                difficulty=difficulty,
-                regulation_context=regulation_context,
-                use_few_shot=use_few_shot,
-                start_number=current_number,
-            )
-            
-            all_questions.extend(questions)
+            tasks_info.append({
+                'segment': segment,
+                'sub_cat': sub_cat,
+                'count': actual_count,
+                'start_number': current_number
+            })
             current_number += actual_count
+            
+    total_tasks = len(tasks_info)
+    print(f"\n{'='*60}")
+    print(f"🔄 MEMULAI PEMROSESAN PARALEL ({total_tasks} sub-kategori, Max 10 bersamaan)...")
+    print(f"{'='*60}\n")
+    
+    sem = asyncio.Semaphore(10)
+    completed_counter = {'count': 0}  # Mutable container for closure access
+    
+    async def _process_task(t):
+        async with sem:
+            # Jeda acak (jitter) 0.5 - 2.5 detik untuk menghindari rate limit anti-spam
+            await asyncio.sleep(random.uniform(0.5, 2.5))
+            try:
+                # Enrich TWK regulation context with UUD 1945 for deeper constitutional references
+                effective_context = regulation_context
+                if t['segment'] == 'TWK' and uud_context:
+                    effective_context = regulation_context + "\n\n--- REFERENSI KONSTITUSI (UUD 1945) ---\n" + uud_context
+                
+                result = await generate_questions_for_subcategory(
+                    segment=t['segment'],
+                    sub_category=t['sub_cat'],
+                    count=t['count'],
+                    difficulty=difficulty,
+                    regulation_context=effective_context,
+                    use_few_shot=use_few_shot,
+                    start_number=t['start_number'],
+                )
+                completed_counter['count'] += 1
+                print(f"\n  📊 Progress: [{completed_counter['count']}/{total_tasks}] sub-kategori selesai", flush=True)
+                return result
+            except Exception as e:
+                completed_counter['count'] += 1
+                print(f"\n  ❌ FATAL ERROR di {t['segment']}/{t['sub_cat']}: {e}", flush=True)
+                traceback.print_exc()
+                # Return placeholder questions so we don't lose the entire batch
+                return [{
+                    'number': t['start_number'] + i,
+                    'segment': t['segment'],
+                    'sub_category': t['sub_cat'],
+                    'content': f'[GAGAL GENERATE - {t["segment"]}/{t["sub_cat"]}] Error: {str(e)[:100]}',
+                    'image_url': '',
+                    'option_a': 'N/A', 'option_b': 'N/A', 'option_c': 'N/A', 'option_d': 'N/A', 'option_e': 'N/A',
+                    'score_a': 0, 'score_b': 0, 'score_c': 0, 'score_d': 0, 'score_e': 0,
+                    'discussion': f'Gagal di-generate: {str(e)[:200]}',
+                } for i in range(t['count'])]
+
+    results = await asyncio.gather(*[_process_task(t) for t in tasks_info])
+    
+    for res in results:
+        all_questions.extend(res)
     
     # Build DataFrame with exact CSV format matching admin_import.py expectations
     rows = []
@@ -564,12 +610,144 @@ async def generate_full_package(
         })
     
     df = pd.DataFrame(rows)
+    
+    # Ensure final ordering is correct after parallel gather
+    df.sort_values('number', inplace=True)
+    df.reset_index(drop=True, inplace=True)
+    
     return df
 
 
 # ==============================================================================
 # POST-PROCESSING
 # ==============================================================================
+
+def _remap_discussion_letters(discussion: str, old_to_new: dict) -> str:
+    """Remap option letter references (A-E) in discussion text after option shuffle.
+    
+    Uses placeholder-based simultaneous substitution to prevent double-replacement.
+    Example: If A→C and C→A, sequential replacement would fail, but placeholders handle it correctly.
+    
+    Args:
+        discussion: The discussion text containing letter references like "Jawaban B bernilai 5"
+        old_to_new: Mapping of old position → new position, e.g. {'a':'d', 'b':'c', ...}
+    """
+    if not discussion:
+        return discussion
+    
+    # Skip if no position actually changed
+    if all(old == new for old, new in old_to_new.items()):
+        return discussion
+    
+    upper_map = {k.upper(): v.upper() for k, v in old_to_new.items()}
+    lower_map = {k.lower(): v.lower() for k, v in old_to_new.items()}
+    
+    # Robust regex for CPNS discussion format, matching options inside text
+    pattern = re.compile(
+        r'(\b(?:[Jj]awaban|[Oo]psi|[Pp]ilihan|[Kk]unci)\s+)([A-Ea-e])\b'
+        r'|(\()([A-E])(\))'
+        r'|(^|\n|\.\s+|\s+)([A-E])([.)\-]\s)'
+        r'|(,\s*|\bdan\s+|\batau\s+)([A-E])\b(?=\s*(?:salah|benar|bernilai|merupakan|adalah|,|\.|$))'
+    )
+    
+    def _replacer(match):
+        if match.group(2): # Group 1-2: "Opsi A"
+            letter = match.group(2)
+            mapped = upper_map.get(letter) if letter.isupper() else lower_map.get(letter)
+            return match.group(1) + (mapped or letter)
+        if match.group(4): # Group 3-5: "(A)"
+            return match.group(3) + upper_map.get(match.group(4), match.group(4)) + match.group(5)
+        if match.group(7): # Group 6-8: "A. "
+            return match.group(6) + upper_map.get(match.group(7), match.group(7)) + match.group(8)
+        if match.group(10): # Group 9-10: ", B" or " dan C"
+            return match.group(9) + upper_map.get(match.group(10), match.group(10))
+        return match.group(0)
+    
+    return pattern.sub(_replacer, discussion)
+
+
+def _balanced_shuffle_positions(df: pd.DataFrame, seg_mask: pd.Series) -> int:
+    """Balanced Shuffle — Gold-standard answer-position redistribution.
+    
+    Method (used by ETS, College Board, BKN):
+    1. Assign target positions via round-robin: A→B→C→D→E→A→B→...
+       (shuffled first so the pattern isn't predictable across batches)
+    2. For each question, perform a full Fisher-Yates shuffle of all 5 options,
+       then place the correct answer at the assigned target position.
+    
+    This guarantees mathematically perfect (or near-perfect) distribution.
+    Content and scores stay paired — only the column order changes.
+    Returns the number of rows that were shuffled.
+    """
+    positions = list('abcde')
+    seg_indices = df[seg_mask].index.tolist()
+    
+    if len(seg_indices) < 2:
+        return 0
+    
+    # Step 1: Build round-robin target sequence (shuffled start)
+    # e.g., for 30 questions: [c, a, e, b, d, c, a, e, b, d, ...] (randomized cycle)
+    cycle = list('abcde')
+    random.shuffle(cycle)  # Randomize cycle start so it's not always A,B,C,D,E
+    targets = [cycle[i % 5] for i in range(len(seg_indices))]
+    # Note: Do NOT shuffle targets again — the round-robin guarantees perfect distribution.
+    # The cycle itself is already randomized, and Fisher-Yates per-question handles unpredictability.
+    
+    shuffle_count = 0
+    
+    for i, idx in enumerate(seg_indices):
+        row = df.loc[idx]
+        target_pos = targets[i]
+        
+        # Read current options + scores as paired tuples
+        options_data = []
+        for o in positions:
+            options_data.append({
+                'option': row.get(f'option_{o}', ''),
+                'score': row.get(f'score_{o}', 0),
+                'image': row.get(f'option_image_{o}', ''),
+            })
+        
+        # Find which index has the highest score (correct answer)
+        scores = [int(float(d['score'] or 0)) for d in options_data]
+        correct_idx = scores.index(max(scores))
+        
+        # Step 2: Fisher-Yates shuffle all options
+        shuffled = list(range(5))
+        random.shuffle(shuffled)
+        
+        # Step 3: Ensure correct answer lands at target position
+        target_slot = positions.index(target_pos)
+        
+        # Find where correct_idx ended up after shuffle
+        current_slot = shuffled.index(correct_idx)
+        
+        # Swap so correct answer is at target_slot
+        shuffled[current_slot], shuffled[target_slot] = shuffled[target_slot], shuffled[current_slot]
+        
+        # Step 4: Build position mapping (old_letter → new_letter) for discussion fix
+        position_map = {}
+        for new_slot, old_slot in enumerate(shuffled):
+            old_letter = positions[old_slot]
+            new_letter = positions[new_slot]
+            position_map[old_letter] = new_letter
+        
+        # Step 5: Write back shuffled options to DataFrame
+        for new_slot, old_slot in enumerate(shuffled):
+            col_pos = positions[new_slot]
+            df.at[idx, f'option_{col_pos}'] = options_data[old_slot]['option']
+            df.at[idx, f'score_{col_pos}'] = options_data[old_slot]['score']
+            if f'option_image_{col_pos}' in df.columns:
+                df.at[idx, f'option_image_{col_pos}'] = options_data[old_slot]['image']
+        
+        # Step 6: Remap letter references in discussion text
+        old_discussion = str(df.at[idx, 'discussion'])
+        df.at[idx, 'discussion'] = _remap_discussion_letters(old_discussion, position_map)
+        
+        shuffle_count += 1
+    
+    return shuffle_count
+
 
 def post_process(df: pd.DataFrame) -> pd.DataFrame:
     """Run post-processing checks on the generated DataFrame."""
@@ -598,7 +776,10 @@ def post_process(df: pd.DataFrame) -> pd.DataFrame:
     # 3. Score integrity
     score_issues = 0
     for _, row in df.iterrows():
-        scores = [int(row[f'score_{o}']) for o in 'abcde']
+        # Skip placeholder rows from failed generation
+        if '[GAGAL' in str(row.get('content', '')):
+            continue
+        scores = [int(float(row[f'score_{o}'])) for o in 'abcde']
         segment = row['segment']
         
         if segment in ('TWK', 'TIU'):
@@ -619,12 +800,12 @@ def post_process(df: pd.DataFrame) -> pd.DataFrame:
         if row['segment'] in ('TWK', 'TIU') and '[GAGAL' not in str(row['content']):
             correct_opt = None
             for o in 'abcde':
-                if int(row[f'score_{o}']) == 5:
+                if int(float(row.get(f'score_{o}', 0) or 0)) == 5:
                     correct_opt = o
                     break
             if correct_opt:
-                correct_len = len(str(row[f'option_{correct_opt}']))
-                wrong_lens = [len(str(row[f'option_{o}'])) for o in 'abcde' if o != correct_opt]
+                correct_len = len(str(row.get(f'option_{correct_opt}', '')))
+                wrong_lens = [len(str(row.get(f'option_{o}', ''))) for o in 'abcde' if o != correct_opt]
                 avg_wrong = sum(wrong_lens) / len(wrong_lens) if wrong_lens else 1
                 ratio = correct_len / avg_wrong if avg_wrong > 0 else 0
                 if ratio > 1.2:
@@ -643,6 +824,42 @@ def post_process(df: pd.DataFrame) -> pd.DataFrame:
             print(f"     - Soal #{d[0]} vs #{d[1]} (similarity: {d[2]:.2f})")
     else:
         print(f"  ✅ Tidak ada duplikat terdeteksi.")
+    
+    # 6. Balanced Shuffle — answer-position redistribution (Layer 6)
+    # Always runs: shuffles all options per question with round-robin target assignment
+    print(f"\n  📍 Balanced Shuffle — Distribusi posisi jawaban benar:")
+    
+    for segment in ['TWK', 'TIU', 'TKP']:
+        seg_mask = (df['segment'] == segment) & (~df['content'].str.contains('GAGAL GENERATE', na=False))
+        seg_df = df[seg_mask]
+        if len(seg_df) == 0:
+            continue
+        
+        # Count BEFORE
+        def _count_positions(dataframe, mask):
+            counts = {'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0}
+            for _, row in dataframe[mask].iterrows():
+                scores = {o: int(float(row.get(f'score_{o}', 0) or 0)) for o in 'abcde'}
+                best = max(scores, key=scores.get)
+                counts[best.upper()] += 1
+            return counts
+        
+        before = _count_positions(df, seg_mask)
+        total = sum(before.values())
+        before_str = ' | '.join(f"{p}={before[p]}" for p in 'ABCDE')
+        print(f"     {segment} ({total} soal) SEBELUM : {before_str}")
+        
+        # Run balanced shuffle
+        shuffled = _balanced_shuffle_positions(df, seg_mask)
+        
+        # Count AFTER
+        after = _count_positions(df, seg_mask)
+        after_parts = []
+        for p in 'ABCDE':
+            pct = (after[p] / total * 100) if total > 0 else 0
+            after_parts.append(f"{p}={after[p]}({pct:.0f}%)")
+        print(f"     {segment} ({total} soal) SESUDAH : {' | '.join(after_parts)} ✅")
+        print(f"       🔀 {shuffled} soal di-shuffle (Balanced Round-Robin)")
     
     print(f"\n{'='*60}\n")
     return df

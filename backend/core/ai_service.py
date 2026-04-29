@@ -18,6 +18,48 @@ class AIAnalysisResult(BaseModel):
     motivation: str
 
 class AIService:
+    # Sub-categories that are VERBAL (not numeric) in TIU segment
+    TIU_VERBAL_SUBCATS = {"Analogi", "Silogisme", "Analitis"}
+    
+    # Class-level constants for difficulty profiles (DRY — used by both single & batch generation)
+    DIFFICULTY_PROFILES = {
+        "easy": {
+            "instruction": "Buat soal dengan konteks SEDERHANA dan UMUM. Buat 1 opsi sebagai pengecoh utama (distractor) yang sedikit mengecoh. Buat 3 opsi lainnya sebagai opsi sederhana yang salah secara fakta/logika, tapi JANGAN dibuat terlalu kentara salah. Opsi sederhana harus tetap terlihat masuk akal secara sekilas. Gunakan bahasa lugas.",
+            "twk_hint": "Gunakan konsep dasar yang sering dibahas di buku PKN SMA/umum.",
+            "tiu_hint": "Gunakan angka kecil (1-100), operasi dasar, pola sederhana, dan hanya 1-2 langkah penyelesaian.",
+            "tiu_verbal_hint": "Buat soal VERBAL murni. SANGAT PENTING: DILARANG KERAS menggunakan angka (0-9), operasi matematika, perhitungan, usia, kecepatan, harga, atau ukuran kuantitas dalam narasi maupun opsi. Jika mengandung angka, soal dianggap GAGAL. Untuk Analogi: padanan kata umum (sinonim, antonim, bagian-keseluruhan). Untuk Silogisme: 2 premis sederhana dengan kesimpulan logis langsung tanpa variabel kuantitatif. Untuk Analitis: teks pendek 2-3 kalimat dengan 1 kesimpulan yang murni kualitatif.",
+            "tkp_hint": "Buat situasi kerja sehari-hari yang jelas. Gradasi pilihan harus mudah dibedakan antara sikap baik dan buruk. Fokus pada 1 dimensi TKP saja (misal: Pelayanan Publik)."
+        },
+        "medium": {
+            "instruction": "Buat soal SETARA level SKD CPNS. Buat 2 opsi pengecoh utama yang SANGAT MIRIP dengan jawaban benar dan terdengar sangat positif/ideal/logis, namun secara substansi keliru berdasarkan konteks soal. 2 opsi lainnya adalah jawaban salah standar yang masuk akal namun lebih mudah dikenali salahnya.",
+            "twk_hint": "Gunakan konteks situasional yang membutuhkan penerapan nilai, bukan sekadar hafalan.",
+            "tiu_hint": "Gunakan angka menengah, operasi campuran, pola bertingkat, dan 2-3 langkah penyelesaian. Sertakan LaTeX ketat untuk rumus.",
+            "tiu_verbal_hint": "Buat soal VERBAL murni. SANGAT PENTING: DILARANG KERAS menggunakan angka (0-9), operasi matematika, perhitungan, usia, kecepatan, harga, atau ukuran kuantitas dalam narasi maupun opsi. Jika mengandung angka, soal dianggap GAGAL. Untuk Analogi: padanan kata NON-TRIVIAL (kausal, fungsional, hierarkis). Contoh: 'DOKTER : STETOSKOP = ... : ...'. Untuk Silogisme: 2-3 premis dengan pengecoh pelanggaran silogisme kualitatif (undistributed middle). Untuk Analitis: teks 3-5 kalimat berisi fakta kualitatif untuk dianalisis.",
+            "tkp_hint": "Buat dilema kerja realistis. Gradasi pilihan harus halus, butuh analisis untuk membedakan skor tertinggi. Libatkan 2 dimensi TKP yang saling bersaing (misal: Pelayanan Publik vs Profesionalisme)."
+        },
+        "hard": {
+            "instruction": "Buat soal SULIT dengan konteks BERLAPIS. Buat 4 opsi pengecoh di mana KESEMUANYA terdengar sangat positif, ideal, dan sangat masuk akal secara mandiri. Peserta harus benar-benar jeli memahami akar masalah spesifik pada soal untuk bisa membedakan 1 jawaban paling benar di antara 4 pengecoh bersinar tersebut.",
+            "twk_hint": "Gabungkan 2+ konsep (misal: nasionalisme + otonomi daerah + HAM). Gunakan kasus kontemporer yang kontroversial.",
+            "tiu_hint": "Gunakan angka besar/pecahan, operasi bertingkat, pola non-trivial, dan 3-4 langkah penyelesaian. Sertakan jebakan logis. Sertakan LaTeX ketat untuk rumus.",
+            "tiu_verbal_hint": "Buat soal VERBAL murni. SANGAT PENTING: DILARANG KERAS menggunakan angka (0-9), variabel kuantitatif, usia, tahun, jarak, nilai uang, persentase, atau perbandingan matematika dalam narasi maupun opsi jawaban. Jika ada unsur matematika, soal GAGAL. Untuk Analogi: padanan relasi ABSTRAK/multi-dimensi. Untuk Silogisme: 3 premis kualitatif dengan negasi ganda tanpa angka. Untuk Analitis: paragraf padat 5-7 kalimat tentang urutan/posisi non-angka (seperti posisi tempat duduk, struktur organisasi).",
+            "tkp_hint": "Buat dilema etis yang kompleks di mana SEMUA opsi terlihat saling menguntungkan (win-win) lalu buat kontradiksi halus. Libatkan 3+ dimensi TKP yang berkonflik (misal: Pelayanan Publik vs Sosial Budaya vs Jejaring Kerja)."
+        },
+        "extreme": {
+            "instruction": "Buat soal SANGAT SULIT (HOTS Maksimal). Ke-4 pengecoh BUKAN sekadar positif, melainkan harus mewakili KESALAHAN UMUM (Common Misconception) orang pandai. Pengecoh tersebut mungkin legal/benar di situasi lain, tapi menabrak satu aturan kecil yang tersembunyi/tersirat pada kasus unik di soal.",
+            "twk_hint": "Gunakan kasus hukum tata negara yang ambigu, konflik silang antar-pasal UUD. Pengecoh bersandar pada norma yang salah konteks.",
+            "tiu_hint": "Gunakan kombinatorik tingkat lanjut. 4 Pengecoh adalah angka yang muncul jika peserta salah menjumlahkan di langkah terakhir atau lupa salah satu syarat kecil di narasi. Sertakan LaTeX ketat.",
+            "tiu_verbal_hint": "Buat soal VERBAL murni. SANGAT PENTING: ABSOLUT DILARANG menggunakan angka (0-9), simbol matematika, tanggal, tahun, umur, ukuran, berat, uang, rasio, dll. Jika sistem mendeteksi ada angka, generasi GAGAL total. Untuk Analogi: padanan relasi SANGAT ABSTRAK (etimologis, epistemologis). Untuk Silogisme: 4+ premis logis murni (tanpa menyebut kuantitas). Untuk Analitis: paragraf 8-10 kalimat berisi struktur hirarki logika, alur kejadian, atau matriks syarat kualitatif murni tanpa melibatkan penomoran sama sekali.",
+            "tkp_hint": "Buat skenario persimpangan di mana 4 opsi terlihat BENAR. Perbedaan hanya pada prosedur administratif mikroskopis atau penjatuhan hirarki kebijakan (loyalitas pimpinan vs hukum negara). Libatkan semua 5 dimensi TKP secara simultan (Pelayanan Publik, Profesionalisme, IT, Jejaring Kerja, Sosial Budaya)."
+        }
+    }
+
+    BLOOM_LEVELS = {
+        "easy": "C1-C2 (Mengingat & Memahami)",
+        "medium": "C3-C4 (Menerapkan & Menganalisis)",
+        "hard": "C4-C5 (Menganalisis & Mengevaluasi)",
+        "extreme": "C5-C6 (Mengevaluasi & Mencipta)"
+    }
+
     def __init__(self):
         if not settings.GOOGLE_API_KEY:
             logger.warning("GOOGLE_API_KEY not set. AI Analysis will be disabled.")
@@ -26,7 +68,7 @@ class AIService:
         
         # Initialize the newer GenAI SDK client
         self.client = genai.Client(api_key=settings.GOOGLE_API_KEY)
-        self.model_name = 'gemini-3-flash-preview'
+        self.model_name = 'gemini-3.1-pro-preview'
 
     async def generate_balanced_options(self, question: str, correct_answer: str, discussion: str, segment: str, custom_prompt: str = "") -> Dict[str, str]:
         """
@@ -88,7 +130,7 @@ class AIService:
         Each item in `questions` must have:
           - question_text, correct_answer, discussion, segment
         """
-        if not self.model:
+        if not self.client:
             return [{} for _ in questions]
 
         async def _process_single(q: dict) -> Dict[str, str]:
@@ -284,42 +326,8 @@ Tutor AI:"""
         if not self.client:
             return {}
 
-        difficulty_profiles = {
-            "easy": {
-                "instruction": "Buat soal dengan konteks SEDERHANA dan UMUM. Buat 1 opsi sebagai pengecoh utama (distractor) yang sedikit mengecoh. Buat 3 opsi lainnya sebagai opsi sederhana yang salah secara fakta/logika, tapi JANGAN dibuat terlalu kentara salah. Opsi sederhana harus tetap terlihat masuk akal secara sekilas. Gunakan bahasa lugas.",
-                "twk_hint": "Gunakan konsep dasar yang sering dibahas di buku PKN SMA/umum.",
-                "tiu_hint": "Gunakan angka kecil (1-100), operasi dasar, pola sederhana, dan hanya 1-2 langkah penyelesaian.",
-                "tkp_hint": "Buat situasi kerja sehari-hari yang jelas. Gradasi pilihan harus mudah dibedakan antara sikap baik dan buruk. Fokus pada 1 dimensi TKP saja (misal: Pelayanan Publik)."
-            },
-            "medium": {
-                "instruction": "Buat soal SETARA level SKD CPNS. Buat 2 opsi pengecoh utama yang SANGAT MIRIP dengan jawaban benar dan terdengar sangat positif/ideal/logis, namun secara substansi keliru berdasarkan konteks soal. 2 opsi lainnya adalah jawaban salah standar yang masuk akal namun lebih mudah dikenali salahnya.",
-                "twk_hint": "Gunakan konteks situasional yang membutuhkan penerapan nilai, bukan sekadar hafalan.",
-                "tiu_hint": "Gunakan angka menengah, operasi campuran, pola bertingkat, dan 2-3 langkah penyelesaian. Sertakan LaTeX ketat untuk rumus.",
-                "tkp_hint": "Buat dilema kerja realistis. Gradasi pilihan harus halus, butuh analisis untuk membedakan skor tertinggi. Libatkan 2 dimensi TKP yang saling bersaing (misal: Pelayanan Publik vs Profesionalisme)."
-            },
-            "hard": {
-                "instruction": "Buat soal SULIT dengan konteks BERLAPIS. Buat 4 opsi pengecoh di mana KESEMUANYA terdengar sangat positif, ideal, dan sangat masuk akal secara mandiri. Peserta harus benar-benar jeli memahami akar masalah spesifik pada soal untuk bisa membedakan 1 jawaban paling benar di antara 4 pengecoh bersinar tersebut.",
-                "twk_hint": "Gabungkan 2+ konsep (misal: nasionalisme + otonomi daerah + HAM). Gunakan kasus kontemporer yang kontroversial.",
-                "tiu_hint": "Gunakan angka besar/pecahan, operasi bertingkat, pola non-trivial, dan 3-4 langkah penyelesaian. Sertakan jebakan logis. Sertakan LaTeX ketat untuk rumus.",
-                "tkp_hint": "Buat dilema etis yang kompleks di mana SEMUA opsi terlihat saling menguntungkan (win-win) lalu buat kontradiksi halus. Libatkan 3+ dimensi TKP yang berkonflik (misal: Pelayanan Publik vs Sosial Budaya vs Jejaring Kerja)."
-            },
-            "extreme": {
-                "instruction": "Buat soal SANGAT SULIT (HOTS Maksimal). Ke-4 pengecoh BUKAN sekadar positif, melainkan harus mewakili KESALAHAN UMUM (Common Misconception) orang pandai. Pengecoh tersebut mungkin legal/benar di situasi lain, tapi menabrak satu aturan kecil yang tersembunyi/tersirat pada kasus unik di soal.",
-                "twk_hint": "Gunakan kasus hukum tata negara yang ambigu, konflik silang antar-pasal UUD. Pengecoh bersandar pada norma yang salah konteks.",
-                "tiu_hint": "Gunakan kombinatorik tingkat lanjut. 4 Pengecoh adalah angka yang muncul jika peserta salah menjumlahkan di langkah terakhir atau lupa salah satu syarat kecil di narasi. Sertakan LaTeX ketat.",
-                "tkp_hint": "Buat skenario persimpangan di mana 4 opsi terlihat BENAR. Perbedaan hanya pada prosedur administratif mikroskopis atau penjatuhan hirarki kebijakan (loyalitas pimpinan vs hukum negara). Libatkan semua 5 dimensi TKP secara simultan (Pelayanan Publik, Profesionalisme, IT, Jejaring Kerja, Sosial Budaya)."
-            }
-        }
-
-        profile = difficulty_profiles.get(difficulty, difficulty_profiles["medium"])
-
-        bloom_levels = {
-            "easy": "C1-C2 (Mengingat & Memahami)",
-            "medium": "C3-C4 (Menerapkan & Menganalisis)",
-            "hard": "C4-C5 (Menganalisis & Mengevaluasi)",
-            "extreme": "C5-C6 (Mengevaluasi & Mencipta)"
-        }
-        bloom_level = bloom_levels.get(difficulty, bloom_levels["medium"])
+        profile = self.DIFFICULTY_PROFILES.get(difficulty, self.DIFFICULTY_PROFILES["medium"])
+        bloom_level = self.BLOOM_LEVELS.get(difficulty, self.BLOOM_LEVELS["medium"])
 
         if not regulation_context:
             regulation_context = "Gunakan pengetahuan umum tentang regulasi CPNS Indonesia: UUD 1945, UU ASN No. 5/2014, Pancasila, UU Bahasa No. 24/2009, Peraturan BKN terkait SKD, dan standar soal CAT BKN yang berlaku saat ini."
@@ -328,7 +336,11 @@ Tutor AI:"""
         if segment == "TWK":
             segment_hint = profile["twk_hint"]
         elif segment == "TIU":
-            segment_hint = profile["tiu_hint"]
+            # Use verbal hint for Analogi/Silogisme/Analitis, numeric hint for the rest
+            if sub_category in self.TIU_VERBAL_SUBCATS:
+                segment_hint = profile["tiu_verbal_hint"]
+            else:
+                segment_hint = profile["tiu_hint"]
         elif segment == "TKP":
             segment_hint = profile["tkp_hint"]
 
@@ -470,42 +482,8 @@ Tutor AI:"""
         if not self.client:
             return []
 
-        difficulty_profiles = {
-            "easy": {
-                "instruction": "Buat soal dengan konteks SEDERHANA dan UMUM. Buat 1 opsi sebagai pengecoh utama (distractor) yang sedikit mengecoh. Buat 3 opsi lainnya sebagai opsi sederhana yang salah secara fakta/logika, tapi JANGAN dibuat terlalu kentara salah. Opsi sederhana harus tetap terlihat masuk akal secara sekilas. Gunakan bahasa lugas.",
-                "twk_hint": "Gunakan konsep dasar yang sering dibahas di buku PKN SMA/umum.",
-                "tiu_hint": "Gunakan angka kecil (1-100), operasi dasar, pola sederhana, dan hanya 1-2 langkah penyelesaian.",
-                "tkp_hint": "Buat situasi kerja sehari-hari yang jelas. Gradasi pilihan harus mudah dibedakan antara sikap baik dan buruk. Fokus pada 1 dimensi TKP saja (misal: Pelayanan Publik)."
-            },
-            "medium": {
-                "instruction": "Buat soal SETARA level SKD CPNS. Buat 2 opsi pengecoh utama yang SANGAT MIRIP dengan jawaban benar dan terdengar sangat positif/ideal/logis, namun secara substansi keliru berdasarkan konteks soal. 2 opsi lainnya adalah jawaban salah standar yang masuk akal namun lebih mudah dikenali salahnya.",
-                "twk_hint": "Gunakan konteks situasional yang membutuhkan penerapan nilai, bukan sekadar hafalan.",
-                "tiu_hint": "Gunakan angka menengah, operasi campuran, pola bertingkat, dan 2-3 langkah penyelesaian. Sertakan LaTeX ketat untuk rumus.",
-                "tkp_hint": "Buat dilema kerja realistis. Gradasi pilihan harus halus, butuh analisis untuk membedakan skor tertinggi. Libatkan 2 dimensi TKP yang saling bersaing (misal: Pelayanan Publik vs Profesionalisme)."
-            },
-            "hard": {
-                "instruction": "Buat soal SULIT dengan konteks BERLAPIS. Buat 4 opsi pengecoh di mana KESEMUANYA terdengar sangat positif, ideal, dan sangat masuk akal secara mandiri. Peserta harus benar-benar jeli memahami akar masalah spesifik pada soal untuk bisa membedakan 1 jawaban paling benar di antara 4 pengecoh bersinar tersebut.",
-                "twk_hint": "Gabungkan 2+ konsep (misal: nasionalisme + otonomi daerah + HAM). Gunakan kasus kontemporer yang kontroversial.",
-                "tiu_hint": "Gunakan angka besar/pecahan, operasi bertingkat, pola non-trivial, dan 3-4 langkah penyelesaian. Sertakan jebakan logis. Sertakan LaTeX ketat untuk rumus.",
-                "tkp_hint": "Buat dilema etis yang kompleks di mana SEMUA opsi terlihat saling menguntungkan (win-win) lalu buat kontradiksi halus. Libatkan 3+ dimensi TKP yang berkonflik (misal: Pelayanan Publik vs Sosial Budaya vs Jejaring Kerja)."
-            },
-            "extreme": {
-                "instruction": "Buat soal SANGAT SULIT (HOTS Maksimal). Ke-4 pengecoh BUKAN sekadar positif, melainkan harus mewakili KESALAHAN UMUM (Common Misconception) orang pandai. Pengecoh tersebut mungkin legal/benar di situasi lain, tapi menabrak satu aturan kecil yang tersembunyi/tersirat pada kasus unik di soal.",
-                "twk_hint": "Gunakan kasus hukum tata negara yang ambigu, konflik silang antar-pasal UUD. Pengecoh bersandar pada norma yang salah konteks.",
-                "tiu_hint": "Gunakan kombinatorik tingkat lanjut. 4 Pengecoh adalah angka yang muncul jika peserta salah menjumlahkan di langkah terakhir atau lupa salah satu syarat kecil di narasi. Sertakan LaTeX ketat.",
-                "tkp_hint": "Buat skenario persimpangan di mana 4 opsi terlihat BENAR. Perbedaan hanya pada prosedur administratif mikroskopis atau penjatuhan hirarki kebijakan (loyalitas pimpinan vs hukum negara). Libatkan semua 5 dimensi TKP secara simultan (Pelayanan Publik, Profesionalisme, IT, Jejaring Kerja, Sosial Budaya)."
-            }
-        }
-
-        profile = difficulty_profiles.get(difficulty, difficulty_profiles["medium"])
-
-        bloom_levels = {
-            "easy": "C1-C2 (Mengingat & Memahami)",
-            "medium": "C3-C4 (Menerapkan & Menganalisis)",
-            "hard": "C4-C5 (Menganalisis & Mengevaluasi)",
-            "extreme": "C5-C6 (Mengevaluasi & Mencipta)"
-        }
-        bloom_level = bloom_levels.get(difficulty, bloom_levels["medium"])
+        profile = self.DIFFICULTY_PROFILES.get(difficulty, self.DIFFICULTY_PROFILES["medium"])
+        bloom_level = self.BLOOM_LEVELS.get(difficulty, self.BLOOM_LEVELS["medium"])
 
         if not regulation_context:
             regulation_context = "Gunakan pengetahuan umum tentang regulasi CPNS Indonesia: UUD 1945, UU ASN No. 5/2014, Pancasila, UU Bahasa No. 24/2009, Peraturan BKN terkait SKD, dan standar soal CAT BKN yang berlaku saat ini."
@@ -514,7 +492,11 @@ Tutor AI:"""
         if segment == "TWK":
             segment_hint = profile["twk_hint"]
         elif segment == "TIU":
-            segment_hint = profile["tiu_hint"]
+            # Use verbal hint for Analogi/Silogisme/Analitis, numeric hint for the rest
+            if sub_category in self.TIU_VERBAL_SUBCATS:
+                segment_hint = profile["tiu_verbal_hint"]
+            else:
+                segment_hint = profile["tiu_hint"]
         elif segment == "TKP":
             segment_hint = profile["tkp_hint"]
 
