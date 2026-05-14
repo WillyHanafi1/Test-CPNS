@@ -365,7 +365,7 @@ async def fulfill_transaction(db: AsyncSession, order_id: str, payment_status: s
     transaction.payment_status = payment_status
     logger.info(f"Transaction {order_id} updated to status: {payment_status}")
     
-    user_result = await db.execute(select(User).where(User.id == transaction.user_id))
+    user_result = await db.execute(select(User).where(User.id == transaction.user_id).with_for_update())
     user = user_result.scalar_one_or_none()
     
     if user and payment_status == "success":
@@ -376,28 +376,5 @@ async def fulfill_transaction(db: AsyncSession, order_id: str, payment_status: s
                 user.pro_expires_at = user.pro_expires_at + timedelta(days=365)
             else:
                 user.pro_expires_at = now + timedelta(days=365)
-            
-    # [REVOCATION LOGIC FIX]
-    elif user and payment_status == "failed":
-        if transaction.transaction_type == "pro_upgrade":
-            # BUG FIX: Before revoking, check if there's ANOTHER successful pro_upgrade 
-            # currently active. Don't punish the user for a single failed renewal attempt.
-            now = datetime.now(timezone.utc)
-            other_active = await db.scalar(
-                select(func.count(UserTransaction.id)).where(
-                    UserTransaction.user_id == user.id,
-                    UserTransaction.transaction_type == "pro_upgrade",
-                    UserTransaction.payment_status == "success",
-                    UserTransaction.access_expires_at > now,
-                    UserTransaction.id != transaction.id
-                )
-            )
-            
-            if not other_active or other_active == 0:
-                user.is_pro = False
-                user.pro_expires_at = None
-                logger.info(f"User {user.email} PRO status revoked due to failed transaction.")
-            else:
-                logger.info(f"User {user.email} still has valid PRO access from another transaction. Revocation skipped.")
                 
     await db.commit()

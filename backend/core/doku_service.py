@@ -168,7 +168,7 @@ class DokuService:
         
         signature_calculated = f"HMACSHA256={base64.b64encode(signature_hmac).decode('utf-8')}"
         
-        if signature_received != signature_calculated:
+        if not hmac.compare_digest(signature_received.encode('utf-8'), signature_calculated.encode('utf-8')):
             logger.error("DOKU Signature Mismatch!")
             logger.debug(f"Calculated StringToSign:\n{string_to_sign}")
             logger.debug(f"Received Signature: {signature_received}")

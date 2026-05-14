@@ -79,7 +79,7 @@ Berdasarkan analisis mendalam pada core backend:
     - Gunakan fitur `is_pro_active` pada model `User` to validate access fitur premium secara *real-time*.
 3. **AI Integration (Gemini)**:
     - Selalu sertakan konteks (*question content*, *user answer*, *discussion*) menggunakan **Sintaks XML `<context_soal>`** dalam prompt AI Chat Mentor for giving accurate contextual answers.
-    - Model yang diverifikasi aktif dan didukung untuk environment ini adalah `gemini-3-flash-preview`.
+    - Model yang diverifikasi aktif dan didukung untuk environment ini adalah `gemini-3.1-pro-preview` dengan **High Thinking** (`thinking_level="high"`).
     - Batasi penggunaan fitur AI hanya untuk pengguna dengan status `is_pro_active`.
 4. **Topic Mastery Analytics**:
     - Agregasikan data jawaban berdasarkan `sub_category`.
