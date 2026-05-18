@@ -188,6 +188,7 @@ async def generate_questions_for_subcategory(
     regulation_context: str,
     use_few_shot: bool = True,
     start_number: int = 1,
+    target_keys: list[str] = None,
 ) -> list[dict]:
     """Generate `count` questions for a specific segment/sub_category.
     
@@ -196,6 +197,7 @@ async def generate_questions_for_subcategory(
     - Batch mode naturally prevents duplicates (AI sees all questions at once).
     - Math accuracy for TIU is ensured by thinking=high + post-validation.
     - Failed questions get individual retry fallback automatically.
+    - target_keys: Pre-assigned answer key positions from Python's random.shuffle().
     """
     
     return await _generate_batch_mode(
@@ -206,6 +208,7 @@ async def generate_questions_for_subcategory(
         regulation_context=regulation_context,
         use_few_shot=use_few_shot,
         start_number=start_number,
+        target_keys=target_keys,
     )
 
 
@@ -216,10 +219,12 @@ async def _generate_tiu_single_mode(
     regulation_context: str,
     use_few_shot: bool = True,
     start_number: int = 1,
+    target_keys: list[str] = None,
 ) -> list[dict]:
     """Generate TIU questions one-by-one for maximum mathematical accuracy.
     
     Each call receives context of previously generated topics to prevent duplicates.
+    target_keys: Pre-assigned answer key positions (one per question).
     """
     example = FEW_SHOT_EXAMPLES.get("TIU", "") if use_few_shot else ""
     max_retries = 3
@@ -229,10 +234,11 @@ async def _generate_tiu_single_mode(
     
     for i in range(count):
         question_num = start_number + i
+        current_target_key = target_keys[i] if target_keys and i < len(target_keys) else None
         success = False
         
         for attempt in range(max_retries):
-            print(f"  [SINGLE] Soal #{question_num} ({sub_category}) — attempt {attempt + 1}...", end=" ", flush=True)
+            print(f"  [SINGLE] Soal #{question_num} ({sub_category}) [key={current_target_key or '?'}] — attempt {attempt + 1}...", end=" ", flush=True)
             
             result = await ai_service.generate_full_question(
                 segment="TIU",
@@ -241,6 +247,7 @@ async def _generate_tiu_single_mode(
                 regulation_context=regulation_context,
                 example_question=example,
                 existing_topics=existing_topics if existing_topics else None,
+                target_key=current_target_key,
             )
             
             if not result:
@@ -298,13 +305,15 @@ async def _generate_batch_mode(
     regulation_context: str,
     use_few_shot: bool = True,
     start_number: int = 1,
+    target_keys: list[str] = None,
 ) -> list[dict]:
-    """Generate TWK/TKP questions using batch mode (1 API call per sub-category).
+    """Generate questions using batch mode (1 API call per sub-category).
     
     Strategy:
     1. Batch generate all questions in 1 API call (prevents duplicates naturally).
     2. Validate each question individually.
     3. For any failed/missing questions, retry individually as fallback.
+    target_keys: Pre-assigned answer key positions (one per question).
     """
     
     example = FEW_SHOT_EXAMPLES.get(segment, "") if use_few_shot else ""
@@ -322,6 +331,11 @@ async def _generate_batch_mode(
         # Collect topics from already-valid questions to avoid repetition in retries
         existing_topics = [q['content'][:80] for q in valid_questions] if valid_questions else None
         
+        # Build target keys for this batch attempt (only for failed slots)
+        batch_target_keys = None
+        if target_keys:
+            batch_target_keys = [target_keys[idx] for idx in failed_indices]
+        
         print(f"  [BATCH] Generating {remaining_count} soal in 1 API call (attempt {batch_attempt + 1})...", flush=True)
         
         batch_results = await ai_service.generate_full_question_batch(
@@ -332,6 +346,7 @@ async def _generate_batch_mode(
             regulation_context=regulation_context,
             example_question=example,
             existing_topics=existing_topics,
+            target_keys=batch_target_keys,
         )
         
         if not batch_results:
@@ -396,12 +411,16 @@ async def _generate_batch_mode(
             while retries < max_retries:
                 print(f"    [GEN] Soal #{question_num} — individual attempt {retries + 1}...", end=" ", flush=True)
                 
+                # Use the pre-assigned target key for this specific slot
+                fallback_target_key = target_keys[slot_index] if target_keys and slot_index < len(target_keys) else None
+                
                 result = await ai_service.generate_full_question(
                     segment=segment,
                     sub_category=sub_category,
                     difficulty=difficulty,
                     regulation_context=regulation_context,
                     example_question=example,
+                    target_key=fallback_target_key,
                 )
                 
                 if not result:
@@ -495,15 +514,30 @@ async def generate_full_package(
         sum(min(limit or 999, abs(count)) for count in subs.values()) for subs in distribution.values()
     )
     
+    # ── Pre-assigned Answer Key Seeding ─────────────────────────────
+    # Generate a perfectly balanced, non-cyclical key sequence using Python's PRNG.
+    # Each letter A-E appears exactly total_questions/5 times (±1 for remainders).
+    base_count, remainder = divmod(total_questions, 5)
+    global_keys = []
+    for i, letter in enumerate('abcde'):
+        global_keys.extend([letter] * (base_count + (1 if i < remainder else 0)))
+    random.shuffle(global_keys)  # True randomness — no cyclical patterns
+    
+    print(f"\n🔑 Pre-assigned Key Seeding: {len(global_keys)} kunci di-generate.")
+    from collections import Counter
+    key_dist = Counter(k.upper() for k in global_keys)
+    print(f"   Distribusi: {dict(sorted(key_dist.items()))}")
+    
     # Count API calls (all-batch mode: 1 call per sub-category for all segments)
     total_api_calls = sum(len(subs) for subs in distribution.values())
     
     print(f"\n{'='*60}")
-    print(f"🚀 CPNS Question Generator (ALL-BATCH MODE)")
+    print(f"🚀 CPNS Question Generator (ALL-BATCH + KEY SEEDING)")
     print(f"{'='*60}")
     print(f"  Difficulty : {difficulty.upper()}")
     print(f"  Segments   : {', '.join(distribution.keys())}")
     print(f"  Total Soal : {total_questions}")
+    print(f"  Key Seeding: ✅ Balanced ({dict(sorted(key_dist.items()))})")
     print(f"  API Calls  : {total_api_calls} (1 batch per sub-kategori)")
     print(f"  Concurrency: Sem=10 (max 10 API calls bersamaan)")
     print(f"  Model      : {ai_service.model_name}")
@@ -513,21 +547,35 @@ async def generate_full_package(
     print(f"{'='*60}\n")
     
     tasks_info = []
+    key_cursor = 0  # Tracks position in global_keys list
     
     for segment, subcategories in distribution.items():
+        # Enforce standard SKD numbering
+        if segment == "TWK" and current_number < 1:
+            current_number = 1
+        elif segment == "TIU" and current_number < 31:
+            current_number = 31
+        elif segment == "TKP" and current_number < 66:
+            current_number = 66
+            
         segment_total = sum(min(limit or 999, c) for c in subcategories.values())
-        print(f"\n[ANTREAN SEGMENT] {segment} — {segment_total} soal")
+        print(f"\n[ANTREAN SEGMENT] {segment} — {segment_total} soal (Mulai dari #{current_number})")
         print(f"{'-'*40}")
         
         for sub_cat, count in subcategories.items():
             actual_count = min(limit or 999, count)
-            print(f"  📝 Antrean: {sub_cat} ({actual_count} soal, mulai dari #{current_number})")
+            # Slice pre-assigned keys for this sub-category batch
+            task_keys = global_keys[key_cursor:key_cursor + actual_count]
+            key_cursor += actual_count
+            
+            print(f"  📝 Antrean: {sub_cat} ({actual_count} soal, mulai dari #{current_number}, keys={[k.upper() for k in task_keys]})")
             
             tasks_info.append({
                 'segment': segment,
                 'sub_cat': sub_cat,
                 'count': actual_count,
-                'start_number': current_number
+                'start_number': current_number,
+                'target_keys': task_keys,
             })
             current_number += actual_count
             
@@ -557,6 +605,7 @@ async def generate_full_package(
                     regulation_context=effective_context,
                     use_few_shot=use_few_shot,
                     start_number=t['start_number'],
+                    target_keys=t.get('target_keys'),
                 )
                 completed_counter['count'] += 1
                 print(f"\n  📊 Progress: [{completed_counter['count']}/{total_tasks}] sub-kategori selesai", flush=True)

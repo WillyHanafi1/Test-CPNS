@@ -2,8 +2,6 @@ import os
 import sys
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
 
 from alembic import context
 
@@ -21,7 +19,6 @@ if config.config_file_name is not None:
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backend.db.session import Base
-from backend.models import models
 from backend.config import settings
 
 target_metadata = Base.metadata

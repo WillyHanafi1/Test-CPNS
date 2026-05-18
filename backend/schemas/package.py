@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 import uuid
 from datetime import datetime
@@ -20,8 +20,7 @@ class Option(OptionBase):
     id: uuid.UUID
     question_id: uuid.UUID
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class QuestionBase(BaseModel):
     content: str
@@ -39,8 +38,7 @@ class Question(QuestionBase):
     package_id: uuid.UUID
     options: List[Option]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class PackageBase(BaseModel):
     title: str
@@ -60,8 +58,7 @@ class Package(PackageBase):
     id: uuid.UUID
     user_status: Optional[str] = None  # ongoing, finished, or None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class PackageWithQuestions(Package):
     questions: List[Question] = []
@@ -77,8 +74,7 @@ class OptionPublic(BaseModel):
     content: str
     image_url: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class QuestionPublic(BaseModel):
     id: uuid.UUID
@@ -88,8 +84,7 @@ class QuestionPublic(BaseModel):
     number: int
     options: List[OptionPublic]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class PackagePublic(BaseModel):
     id: uuid.UUID
@@ -105,5 +100,4 @@ class PackagePublic(BaseModel):
 
     user_status: Optional[str] = None  # ongoing, finished, or None
  
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

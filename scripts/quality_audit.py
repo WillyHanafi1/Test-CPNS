@@ -90,11 +90,15 @@ Tugasmu adalah MENGAUDIT kualitas soal-soal berikut secara KRITIS dan KETAT.
 
 Untuk SETIAP soal, evaluasi berdasarkan 6 dimensi (skor 1-5 per dimensi):
 
-### D1: Konsistensi Pembahasan-Skor
-- Cek apakah SETIAP huruf opsi (A/B/C/D/E) yang disebut di pembahasan COCOK dengan data skor.
+### D1: Konsistensi Pembahasan-Skor (DIMENSI PALING KRITIS)
+Lakukan 4 langkah verifikasi WAJIB:
+1. IDENTIFIKASI opsi dengan skor tertinggi dari data skor (misal: jika score_b=5, maka jawaban benar adalah B).
+2. TEMUKAN klaim jawaban benar di pembahasan (cari frasa "Jawaban yang benar adalah X" atau "Opsi X adalah jawaban paling tepat").
+3. CROSS-CHECK: Apakah huruf X di langkah 2 COCOK dengan huruf di langkah 1? Jika TIDAK COCOK → Skor 1 (FLAG WAJIB).
+4. SCAN SELURUH pembahasan: Apakah ada kontradiksi internal? Misal: "Jawaban benar adalah E" di awal, lalu "Pilihan E dan C salah" di akhir. Jika ada → Skor 1 (FLAG WAJIB).
 - Cek apakah ada DUPLIKASI huruf (misal: "Opsi D dan D").
-- Cek apakah pembahasan menyebut opsi dengan skor tertinggi sebagai jawaban benar.
-- Skor 1 = ada mismatch fatal. Skor 5 = 100% konsisten.
+- Cek apakah SETIAP huruf opsi (A/B/C/D/E) yang disebut di pembahasan merujuk pada konten opsi yang benar.
+- Skor 1 = ada mismatch antara skor dan pembahasan. Skor 5 = 100% konsisten dan terverifikasi.
 
 ### D2: Akurasi Faktual
 - Apakah fakta/data/pasal/UU yang disebut di soal BENAR?
@@ -180,8 +184,12 @@ INSTRUKSI PERBAIKAN:
 3. SANGAT PENTING — SKOR TIDAK BOLEH BERUBAH:
    score_a={score_a}, score_b={score_b}, score_c={score_c}, score_d={score_d}, score_e={score_e}
    Kamu hanya boleh mengubah TEKS soal, TEKS opsi, dan TEKS pembahasan.
-4. PASTIKAN pembahasan menyebut huruf opsi yang KONSISTEN dengan skor.
-   Opsi dengan skor tertinggi HARUS disebut sebagai jawaban paling tepat.
+4. VERIFIKASI KONSISTENSI PEMBAHASAN (WAJIB):
+   a. Identifikasi opsi dengan skor tertinggi (itulah jawaban benar).
+   b. Pembahasan HARUS menyebut huruf opsi tersebut sebagai "jawaban yang benar/paling tepat".
+   c. DILARANG ada kontradiksi internal (misal: menyebut E benar di awal, lalu E salah di akhir).
+   d. Setiap huruf opsi (A-E) yang disebut di pembahasan harus merujuk pada konten opsi yang tepat.
+   e. CROSS-CHECK FINAL: Baca ulang pembahasan dari awal sampai akhir. Pastikan TIDAK ADA huruf yang salah rujuk.
 5. Jika stem terlalu panjang, PANGKAS tanpa mengurangi substansi.
 6. HINDARI double negasi ambigu. Gunakan kalimat positif yang jelas.
 7. Pastikan SETIAP pengecoh berbeda dan plausibel.
@@ -198,7 +206,10 @@ FORMAT OUTPUT (JSON VALID):
     "fixes_applied": ["perbaikan 1", "perbaikan 2"]
 }}
 
-PERINGATAN: Jangan ubah skor. Hanya teks konten yang boleh berubah.
+PERINGATAN KRITIS:
+- Jangan ubah skor. Hanya teks konten yang boleh berubah.
+- Jangan pernah menyebut huruf opsi yang TIDAK SESUAI dengan skor tertinggi sebagai jawaban benar.
+- Jika skor tertinggi ada di opsi C (score_c=5), maka pembahasan WAJIB menyebut C sebagai jawaban benar, BUKAN huruf lain.
 """
 
 
@@ -238,11 +249,12 @@ Pembahasan: {row.get('discussion', '')}
 async def judge_batch(
     df: pd.DataFrame,
     segment: str,
+    sub_category: str,
     threshold: float = 4.0,
 ) -> list[dict]:
-    """Pass 1: Send all questions of a segment to AI Judge for screening."""
+    """Pass 1: Send all questions of a sub_category to AI Judge for screening."""
     
-    seg_df = df[df['segment'] == segment].copy()
+    seg_df = df[(df['segment'] == segment) & (df['sub_category'] == sub_category)].copy()
     if seg_df.empty:
         return []
     
@@ -252,10 +264,10 @@ async def judge_batch(
         questions_text += _format_question_for_judge(row)
     
     prompt = JUDGE_SYSTEM_PROMPT.format(threshold=threshold)
-    prompt += f"\n\nBerikut {len(seg_df)} soal segment {segment} yang harus di-audit:\n"
+    prompt += f"\n\nBerikut {len(seg_df)} soal segment {segment} - {sub_category} yang harus di-audit:\n"
     prompt += questions_text
     
-    print(f"  [JUDGE] Mengirim {len(seg_df)} soal {segment} ke AI Judge...", flush=True)
+    print(f"  [JUDGE] Mengirim {len(seg_df)} soal {segment} - {sub_category} ke AI Judge...", flush=True)
     
     max_retries = 3
     for attempt in range(max_retries):
@@ -280,7 +292,7 @@ async def judge_batch(
                 print(f"  [JUDGE] ⚠️ Unexpected response type: {type(result)}", flush=True)
                 continue
             
-            print(f"  [JUDGE] ✅ Received {len(result)} evaluations for {segment}", flush=True)
+            print(f"  [JUDGE] ✅ Received {len(result)} evaluations for {segment} - {sub_category}", flush=True)
             return result
             
         except ClientError as e:
@@ -433,21 +445,40 @@ async def run_audit(
     all_evaluations = []
     flagged_questions = []  # (row_index, row_data, issues)
     
+    tasks = []
+    task_metadata = []
+    
     for segment in segments:
-        print(f"\n📋 PASS 1: Evaluating {segment}...", flush=True)
-        print(f"{'-'*40}", flush=True)
-        
-        evaluations = await judge_batch(df, segment, threshold)
-        
-        if not evaluations:
-            print(f"  ⚠️ No evaluations received for {segment}", flush=True)
+        seg_df = df[df['segment'] == segment]
+        if seg_df.empty:
             continue
+            
+        sub_categories = seg_df['sub_category'].unique()
+        for sub_cat in sub_categories:
+            tasks.append(judge_batch(df, segment, sub_cat, threshold))
+            task_metadata.append((segment, sub_cat))
+            
+    print(f"\n📋 PASS 1: Evaluating {len(tasks)} sub-categories in parallel...", flush=True)
+    print(f"{'-'*40}", flush=True)
+    
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    # Process evaluations and aggregate stats per segment
+    pass_counts = {seg: 0 for seg in segments}
+    flag_counts = {seg: 0 for seg in segments}
+    
+    for (segment, sub_cat), evaluations in zip(task_metadata, results):
+        if isinstance(evaluations, Exception):
+            print(f"  ⚠️ Error evaluating {segment} - {sub_cat}: {evaluations}", flush=True)
+            continue
+            
+        if not evaluations:
+            print(f"  ⚠️ No evaluations received for {segment} - {sub_cat}", flush=True)
+            continue
+            
+        seg_df = df[df['segment'] == segment]
         
         # Process evaluations
-        seg_df = df[df['segment'] == segment]
-        pass_count = 0
-        flag_count = 0
-        
         for eval_item in evaluations:
             try:
                 nomor = int(eval_item.get('nomor', 0))
@@ -465,7 +496,7 @@ async def run_audit(
             all_evaluations.append(eval_item)
             
             if status == 'FLAG':
-                flag_count += 1
+                flag_counts[segment] += 1
                 # Find the matching row in the DataFrame
                 matching = seg_df[seg_df['number'] == nomor]
                 if not matching.empty:
@@ -474,13 +505,15 @@ async def run_audit(
                     
                     # Print flag details
                     scores_str = ", ".join(f"{k}={v}" for k, v in scores.items())
-                    print(f"  🔴 Soal #{nomor}: rata={rata_rata:.1f} [{scores_str}]", flush=True)
+                    print(f"  🔴 Soal #{nomor} ({sub_cat}): rata={rata_rata:.1f} [{scores_str}]", flush=True)
                     for iss in issues[:2]:
                         print(f"      → {iss[:100]}", flush=True)
             else:
-                pass_count += 1
-        
-        print(f"\n  📊 {segment}: {pass_count} PASS, {flag_count} FLAG", flush=True)
+                pass_counts[segment] += 1
+
+    for segment in segments:
+        if pass_counts[segment] > 0 or flag_counts[segment] > 0:
+            print(f"\n  📊 {segment}: {pass_counts[segment]} PASS, {flag_counts[segment]} FLAG", flush=True)
     
     # ── REPORT ─────────────────────────────────────────────────────
     total_pass = sum(1 for e in all_evaluations if e.get('status') == 'PASS')
@@ -576,22 +609,33 @@ async def run_audit(
         print(f"🔄 PASS 3: Re-judging {fixes_applied} fixed questions...")
         print(f"{'='*60}\n")
         
-        # Re-evaluate only fixed segments
-        fixed_segments = set()
+        # Re-evaluate only fixed sub-categories
+        fixed_sub_cats = set()
         for row_idx, row, _ in flagged_questions:
-            fixed_segments.add(row['segment'])
+            fixed_sub_cats.add((row['segment'], row.get('sub_category', '')))
+        
+        re_tasks = []
+        re_task_meta = []
+        for segment, sub_cat in fixed_sub_cats:
+            re_tasks.append(judge_batch(df, segment, sub_cat, threshold))
+            re_task_meta.append((segment, sub_cat))
+        
+        re_results = await asyncio.gather(*re_tasks, return_exceptions=True)
         
         re_pass = 0
         re_flag = 0
         
-        for segment in fixed_segments:
-            await rate_limiter.acquire()  # Respect RPM before re-judge
-            re_evaluations = await judge_batch(df, segment, threshold)
+        for (segment, sub_cat), re_evaluations in zip(re_task_meta, re_results):
+            if isinstance(re_evaluations, Exception):
+                print(f"  ⚠️ Re-judge error for {segment} - {sub_cat}: {re_evaluations}", flush=True)
+                continue
+            if not re_evaluations:
+                continue
             for eval_item in re_evaluations:
                 if eval_item.get('status') == 'FLAG':
                     re_flag += 1
                     nomor = eval_item.get('nomor', '?')
-                    print(f"  ⚠️ Soal #{nomor} masih FLAG setelah fix — perlu review manual", flush=True)
+                    print(f"  ⚠️ Soal #{nomor} ({sub_cat}) masih FLAG setelah fix — perlu review manual", flush=True)
                 else:
                     re_pass += 1
         

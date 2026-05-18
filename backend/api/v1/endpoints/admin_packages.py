@@ -5,7 +5,7 @@ from sqlalchemy.orm import selectinload
 import uuid
 from typing import List, Optional
 from pydantic import BaseModel, ConfigDict
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 
 from backend.db.session import get_async_session
 from backend.models.models import Package, Question, User, QuestionOption, ExamSession, Answer

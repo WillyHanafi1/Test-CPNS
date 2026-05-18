@@ -5,7 +5,7 @@ import logging
 from typing import Dict, Any
 
 from backend.db.session import get_async_session
-from backend.models.models import User, Question, ExamSession, Package
+from backend.models.models import User, Question, ExamSession
 from backend.core.redis_service import redis_service
 
 router = APIRouter(prefix="/public", tags=["public"])

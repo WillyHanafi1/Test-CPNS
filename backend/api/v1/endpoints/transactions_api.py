@@ -1,14 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
-import hashlib
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc, distinct
 import uuid
-from typing import List, Optional, Dict
+from typing import List, Optional
 from datetime import datetime, timedelta, timezone
 
 from backend.db.session import get_async_session
-from backend.models.models import User, UserTransaction, Package, UserProfile
+from backend.models.models import User, UserTransaction, UserProfile
 from backend.api.v1.endpoints.auth import get_current_user
 from backend.core.doku_service import doku_service
 from backend.config import settings

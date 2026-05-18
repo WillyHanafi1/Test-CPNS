@@ -1,5 +1,5 @@
 import pytest
-from backend.core.rate_limiter import _is_ip_trusted, TRUSTED_PROXIES
+from backend.core.rate_limiter import _is_ip_trusted
 
 @pytest.mark.parametrize(
     "ip_address_str, expected",

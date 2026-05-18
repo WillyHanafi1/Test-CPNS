@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Body, Request
+from fastapi import APIRouter, Depends, HTTPException, Body, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -10,7 +10,7 @@ import logging
 logger = logging.getLogger("backend.api.v1.endpoints.chat")
 
 from backend.db.session import get_async_session
-from backend.models.models import User, ChatSession, ChatMessage, ExamSession, Question, Answer
+from backend.models.models import User, ChatSession, ChatMessage, Question, Answer
 from backend.api.v1.endpoints.auth import get_current_user
 from backend.core.ai_service import ai_service
 from backend.core.rate_limiter import limiter

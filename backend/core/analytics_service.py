@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, case
-from backend.models.models import Answer, Question, ExamSession, User
+from backend.models.models import Answer, Question, ExamSession
 from typing import List, Dict, Any
 import uuid
 

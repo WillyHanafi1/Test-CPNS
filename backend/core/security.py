@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Any, Union
+from typing import Union
 from jose import jwt
 import bcrypt
 from backend.config import settings

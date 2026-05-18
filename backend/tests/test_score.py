@@ -4,8 +4,6 @@ from backend.db.session import async_session_maker
 from sqlalchemy import select
 from backend.models.models import ExamSession, User
 import uuid
-import sys
-from backend.core.redis_service import redis_service
 
 async def main():
     try:
@@ -28,7 +26,7 @@ async def main():
                     print("SCORING RESULT:", res)
                     with open("error.log", "w") as f:
                         f.write(f"SUCCESS: {res}")
-                except Exception as e:
+                except Exception:
                     import traceback
                     with open("error.log", "w") as f:
                         f.write(traceback.format_exc())
@@ -42,7 +40,7 @@ async def main():
 if __name__ == "__main__":
     try:
         asyncio.run(main())
-    except Exception as e:
+    except Exception:
         import traceback
         with open("error.log", "w") as f:
             f.write("OUTER EXCEPTION: " + traceback.format_exc())

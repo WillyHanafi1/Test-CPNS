@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Dict, Any
 
 from backend.core.rate_limiter import limiter
 from backend.core.redis_service import redis_service

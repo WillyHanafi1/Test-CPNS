@@ -131,3 +131,20 @@ Berdasarkan implementasi pipeline QA pada April 2026:
 1. **Two-Pass Hybrid QA**: Jangan biarkan AI generator memvalidasi dirinya sendiri (*self-reinforcement bias*). Gunakan `scripts/quality_audit.py` untuk menjalankan Pass 1 (Judge) dan Pass 2 (Fixer) secara terpisah.
 2. **Zero-Score Tampering**: Saat AI Fixer melakukan perbaikan narasi/pembahasan pada soal yang *flagged*, sistem dilarang keras mengubah bobot `score` pada opsi jawaban untuk menjaga integritas distribusi soal.
 3. **API Rate Limiting Protection**: Eksekusi perbaikan massal wajib menggunakan arsitektur *Wave Processing* dengan *Token Bucket Rate Limiter* (maks 20 RPM) dan *Exponential Backoff* pada error 429 untuk mencegah *resource exhausted*. Detail eksekusi ada di `docs/Quality_Audit_Pipeline.md`.
+4. **D1 Konsistensi Pembahasan-Skor**: Dimensi audit paling kritis. Judge WAJIB melakukan 4-langkah verifikasi: (1) identifikasi skor tertinggi, (2) temukan klaim jawaban di pembahasan, (3) cross-check huruf, (4) scan kontradiksi internal. Mismatch = FLAG otomatis.
+
+### H. Pre-assigned Answer Key Seeding (Standard Operating Procedure — RECOMMENDED)
+Berdasarkan optimalisasi pipeline anti-cyclical pattern pada Mei 2026:
+1. **Urutan Pipeline Wajib**: **Generate (dengan Key Seeding)** → Audit/Fix → Selesai. Tidak perlu lagi menjalankan `shuffle_answers.py` karena posisi kunci sudah ditentukan sejak awal oleh Python.
+2. **Mekanisme Key Seeding**: `scripts/generate_questions.py` membuat daftar huruf A-E yang dibagi rata secara eksak (masing-masing ≈20%), lalu diacak menggunakan `random.shuffle()` di Python. Daftar ini dikirim sebagai instruksi wajib ke dalam prompt AI (`ai_service.py`), sehingga AI menyusun opsi dan pembahasan yang 100% konsisten secara native.
+3. **Keunggulan vs Shuffle Post-Processing**: (1) Tidak ada risiko *edge-case* regex pada pembahasan bahasa Indonesia, (2) Distribusi kunci dijamin matematis sempurna, (3) Tidak ada pola siklus karena Python PRNG bukan probabilitas LLM.
+4. **Fallback pada Retry**: Jika soal gagal validasi dan di-generate ulang secara individual, `target_key` asli untuk slot tersebut tetap dipertahankan agar distribusi global tidak terganggu.
+
+### I. Answer Shuffler Pipeline (LEGACY — Hanya untuk Data Lama)
+Berdasarkan implementasi anti-cyclical pattern pada Mei 2026:
+1. **Urutan Pipeline Wajib**: Generate → Audit/Fix → **Shuffle** → Validate. Jangan pernah shuffle sebelum audit, karena audit memerlukan posisi opsi original.
+2. **Discussion Remapping (Two-Pass Placeholder)**: `scripts/shuffle_answers.py` menggunakan teknik *placeholder* dua tahap untuk menghindari tabrakan saat remap (misal: A→C dan C→A tidak saling menimpa). Semua 52+ pola referensi opsi di pembahasan (termasuk frasa multi-kata seperti "Jawaban yang benar adalah X") di-remap secara otomatis.
+3. **Post-Shuffle Validation**: Script memiliki 3 lapisan validasi: (1) Score Integrity — memastikan skor tidak berubah, (2) Discussion Consistency — memastikan pembahasan menyebut opsi dengan skor tertinggi sebagai jawaban benar, (3) Cycle Detection — memastikan tidak ada pola berulang di kunci jawaban.
+4. **Excluded Categories**: Sub-kategori figural (Analogi Gambar, Serial Gambar, Ketidaksamaan Gambar) dikecualikan dari shuffle karena opsi berbasis gambar.
+5. **Balanced Distribution**: Script melakukan hingga 500 percobaan shuffle untuk menemukan distribusi kunci jawaban yang seimbang (A-E merata) tanpa pola siklus di setiap segmen (TWK, TIU, TKP).
+

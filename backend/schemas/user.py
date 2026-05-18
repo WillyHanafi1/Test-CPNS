@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, model_validator
+from pydantic import BaseModel, EmailStr, model_validator, ConfigDict
 from typing import Optional
 import uuid
 from datetime import datetime
@@ -35,16 +35,14 @@ class User(UserBase):
             return data_dict
         return data
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class UserProfile(BaseModel):
     full_name: str
     phone_number: Optional[str] = None
     target_instansi: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class UserWithProfile(User):
     profile: Optional[UserProfile] = None

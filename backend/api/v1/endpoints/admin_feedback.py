@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 import uuid
-from typing import List, Optional
+from typing import Optional
 from backend.db.session import get_async_session
 from backend.models.models import User, Feedback
 from backend.api.v1.endpoints.auth import get_current_admin

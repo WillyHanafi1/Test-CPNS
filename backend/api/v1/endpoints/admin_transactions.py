@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 import uuid
 from typing import List, Optional, Literal
@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 import logging
 
 from backend.db.session import get_async_session
-from backend.models.models import UserTransaction, User, Package
+from backend.models.models import UserTransaction, User
 from backend.api.v1.endpoints.auth import get_current_admin
 from backend.api.v1.endpoints.transactions_api import fulfill_transaction
 from backend.core.utils import sanitize_search

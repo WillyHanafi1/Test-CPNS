@@ -43,6 +43,11 @@ AGENT.md
 GEMINI.md
 LESSON_LEARNED.md
 
+# Google Cloud Service Account Credentials (JANGAN commit!)
+backend/service_account.json
+*service_account*.json
+
+
 # Documentation
 docs/doku/
 

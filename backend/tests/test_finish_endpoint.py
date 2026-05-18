@@ -1,5 +1,3 @@
-import asyncio
-import os
 import requests
 
 def test_finish():

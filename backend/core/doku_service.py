@@ -44,7 +44,7 @@ class DokuService:
         signature_base64 = base64.b64encode(signature_hmac).decode('utf-8')
         
         # Enhanced Logging (Masked)
-        logger.debug(f"--- DOKU Signature Debug ---")
+        logger.debug("--- DOKU Signature Debug ---")
         logger.debug(f"Target Path: {target_path}")
         logger.debug(f"Digest: {digest}")
         # Log string to sign but replace actual credentials for security

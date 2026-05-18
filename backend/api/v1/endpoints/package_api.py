@@ -1,18 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List, Optional
 import uuid
 
 from backend.db.session import get_async_session
-from backend.models.models import Package, Question, QuestionOption, User
+from backend.models.models import Package, User
 from backend.schemas.package import (
-    Package as PackageSchema, PackageCreate,
-    Question as QuestionSchema, QuestionCreate, PackageWithQuestions,
-    PackagePublic  # Safe schema for public catalog detail — NO score/discussion
+    Package as PackageSchema, PackagePublic  # Safe schema for public catalog detail — NO score/discussion
 )
 from backend.core.redis_service import redis_service
-from sqlalchemy.orm import selectinload
 from backend.api.v1.endpoints.auth import get_current_user, get_optional_user
 from backend.core.utils import sanitize_search
 from datetime import datetime, timezone

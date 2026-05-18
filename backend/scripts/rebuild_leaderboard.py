@@ -8,7 +8,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from backend.db.session import async_session_maker
-from backend.models.models import ExamSession, Package, User
+from backend.models.models import ExamSession
 from backend.core.redis_service import redis_service
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload

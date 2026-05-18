@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.pool import NullPool
 import redis.asyncio as aioredis
-import socket
 
 
 from backend.core.celery_app import celery_app

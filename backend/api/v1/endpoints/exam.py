@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 
 from backend.db.session import get_async_session
-from backend.models.models import Package, Question, ExamSession, User, Answer, QuestionOption
+from backend.models.models import Package, Question, ExamSession, User, Answer
 from backend.api.v1.endpoints.auth import get_current_user
 from backend.core.redis_service import redis_service
 from backend.schemas.exam import ExamSessionListItem
@@ -339,9 +339,13 @@ async def finish_exam(
     # Even if the client still has time remaining, we honor the server's end_time.
     # This prevents client-side clock manipulation.
     now_utc = datetime.now(timezone.utc)
-    if session.end_time and now_utc > session.end_time:
-        # Time already expired — force-close regardless of client state
-        logger.info(f"Session {session_id} force-closed due to server-side time expiry")
+    if session.end_time:
+        end_time = session.end_time
+        if end_time.tzinfo is None:
+            end_time = end_time.replace(tzinfo=timezone.utc)
+        if now_utc > end_time:
+            # Time already expired — force-close regardless of client state
+            logger.info(f"Session {session_id} force-closed due to server-side time expiry")
 
     # PREVENT DEADLOCK: Commit the 'processing' status and release the FOR UPDATE lock
     # BEFORE we execute calculate_exam_score or async_run_scoring

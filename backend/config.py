@@ -1,6 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import model_validator
-from typing import Optional, List
 import os
 import warnings
 
@@ -54,8 +53,10 @@ class Settings(BaseSettings):
     DOKU_SECRET_KEY: str = os.getenv("DOKU_SECRET_KEY", "")
     DOKU_ENVIRONMENT: str = os.getenv("DOKU_ENVIRONMENT", "sandbox")
     
-    # Google Gemini AI
-    GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
+    # Vertex AI
+    VERTEX_PROJECT_ID: str = os.getenv("VERTEX_PROJECT_ID", "")
+    VERTEX_LOCATION: str = os.getenv("VERTEX_LOCATION", "us-central1")
+    VERTEX_MODEL_NAME: str = os.getenv("VERTEX_MODEL_NAME", "gemini-2.5-pro-preview-05-06")
 
     # Logging
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")

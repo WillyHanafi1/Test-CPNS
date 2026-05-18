@@ -28,16 +28,12 @@ os.environ.setdefault("CORS_ORIGINS", "http://localhost:3000")
 # Now safe to import backend modules
 # ====================================================================
 
-import asyncio
 import uuid
 from typing import AsyncGenerator
-from datetime import datetime, timezone, timedelta
 
-import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from sqlalchemy.orm import DeclarativeBase
 
 # Import Base and models AFTER env is set
 from backend.db.session import Base, get_async_session
@@ -108,15 +104,6 @@ class MockRedisService:
 
     async def hget(self, name: str, key: str):
         return self._hashes.get(name, {}).get(key)
-
-    async def eval(self, script: str, numkeys: int, *keys_and_args):
-        """Mock lua eval script just for simple rate limiting tests."""
-        if 'INCR' in script and 'EXPIRE' in script:
-            # We assume the first arg after numkeys is the key
-            key = keys_and_args[0]
-            val = await self.incr(key)
-            return val
-        return None
 
     # --- Sorted Sets ---
     async def zadd(self, name: str, mapping: dict, gt: bool = False):

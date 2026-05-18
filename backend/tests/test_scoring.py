@@ -8,7 +8,6 @@ They validate BKN scoring rules:
   - Passing Grade: TWK ≥ 65, TIU ≥ 80, TKP ≥ 166
 """
 
-import pytest
 
 
 class TestScoringRules:

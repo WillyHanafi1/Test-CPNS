@@ -2,8 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, cast, Date, case
 from datetime import datetime, timedelta, timezone
-import uuid
-from typing import List, Optional, Dict
+from typing import List, Dict
 from pydantic import BaseModel
 
 from backend.db.session import get_async_session

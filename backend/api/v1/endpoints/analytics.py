@@ -1,13 +1,12 @@
 import re
-import uuid
 import logging
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, case
+from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
 from backend.db.session import get_async_session
-from backend.models.models import ExamSession, Package, User
+from backend.models.models import ExamSession, User
 from backend.api.v1.endpoints.auth import get_current_user
 from backend.core.redis_service import redis_service
 

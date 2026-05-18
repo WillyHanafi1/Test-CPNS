@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import pandas as pd
 import io
 import uuid
-from typing import List, Dict
+from typing import List
 from backend.db.session import get_async_session
 from backend.models.models import Question, QuestionOption, Package, User, Answer, ExamSession, ChatSession, ChatMessage
 from backend.api.v1.endpoints.auth import get_current_admin

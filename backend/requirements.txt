@@ -79,6 +79,7 @@ websockets==16.0
 fastapi-mail==1.4.1
 google-auth==2.49.1
 google-genai==1.69.0
+google-cloud-aiplatform>=1.60.0
 requests==2.32.3
 pandas==2.2.3
 openpyxl==3.1.5
@@ -87,3 +88,5 @@ slowapi==0.1.9
 pytest==8.3.5
 pytest-asyncio==0.25.3
 aiosqlite==0.21.0
+pytest-cov==7.1.0
+ruff==0.15.13

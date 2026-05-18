@@ -7,7 +7,7 @@ from backend.config import settings
 from backend.core.knowledge_service import knowledge_service
 
 from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
+from typing import List, Dict, Any
 
 logger = logging.getLogger("backend.core.ai_service")
 
@@ -61,14 +61,30 @@ class AIService:
     }
 
     def __init__(self):
-        if not settings.GOOGLE_API_KEY:
-            logger.warning("GOOGLE_API_KEY not set. AI Analysis will be disabled.")
+        if not settings.VERTEX_PROJECT_ID:
+            logger.warning(
+                "VERTEX_PROJECT_ID not set. AI Analysis will be disabled. "
+                "Set VERTEX_PROJECT_ID and GOOGLE_APPLICATION_CREDENTIALS in .env."
+            )
             self.client = None
             return
-        
-        # Initialize the newer GenAI SDK client
-        self.client = genai.Client(api_key=settings.GOOGLE_API_KEY)
-        self.model_name = 'gemini-3.1-pro-preview'
+
+        try:
+            # Uses Application Default Credentials (ADC) — reads from
+            # GOOGLE_APPLICATION_CREDENTIALS env var pointing to service_account.json
+            self.client = genai.Client(
+                vertexai=True,
+                project=settings.VERTEX_PROJECT_ID,
+                location=settings.VERTEX_LOCATION,
+            )
+            self.model_name = settings.VERTEX_MODEL_NAME
+            logger.info(
+                f"Vertex AI client initialized — project={settings.VERTEX_PROJECT_ID}, "
+                f"location={settings.VERTEX_LOCATION}, model={self.model_name}"
+            )
+        except Exception as e:
+            logger.error(f"Failed to initialize Vertex AI client: {e}")
+            self.client = None
 
     async def generate_balanced_options(self, question: str, correct_answer: str, discussion: str, segment: str, custom_prompt: str = "") -> Dict[str, str]:
         """
@@ -318,6 +334,7 @@ Tutor AI:"""
         example_question: str = "",
         custom_prompt: str = "",
         existing_topics: list[str] = None,
+        target_key: str = None,
     ) -> Dict[str, Any]:
         """
         Generate a complete CPNS question from scratch with options, scores, and discussion.
@@ -346,18 +363,26 @@ Tutor AI:"""
 
         scoring_instruction = ""
         if segment in ("TWK", "TIU"):
-            scoring_instruction = """
+            if target_key:
+                key_directive = f"- Jawaban benar (skor 5) WAJIB diletakkan di opsi **{target_key.upper()}**. Susun narasi pembahasan agar secara eksplisit menyebut opsi {target_key.upper()} sebagai jawaban yang benar."
+            else:
+                key_directive = "- Tentukan sendiri posisi jawaban benar (acak di A-E)."
+            scoring_instruction = f"""
             ATURAN SKOR (TWK/TIU):
             - Tepat 1 opsi bernilai 5 (jawaban benar), 4 opsi lainnya bernilai 0.
-            - Tentukan sendiri posisi jawaban benar (acak di A-E).
+            {key_directive}
             - Key JSON skor: score_a, score_b, score_c, score_d, score_e.
             """
         else:  # TKP
-            scoring_instruction = """
+            if target_key:
+                key_directive = f"- Skor tertinggi (5) WAJIB diletakkan di opsi **{target_key.upper()}**. Susun narasi pembahasan agar secara eksplisit menyebut opsi {target_key.upper()} sebagai sikap paling ideal."
+            else:
+                key_directive = "- Tentukan sendiri distribusi skor di A-E."
+            scoring_instruction = f"""
             ATURAN SKOR (TKP):
             - TIDAK ADA jawaban salah. Semua 5 opsi memiliki skor 1, 2, 3, 4, atau 5 (masing-masing UNIK, tidak boleh ada duplikat skor).
             - Skor 5 = sikap PALING ideal. Skor 1 = sikap PALING tidak ideal.
-            - Tentukan sendiri distribusi skor di A-E.
+            {key_directive}
             - Key JSON skor: score_a, score_b, score_c, score_d, score_e.
 
             DIMENSI PENILAIAN TKP BKN (ke-5 opsi WAJIB merepresentasikan gradasi dari dimensi berikut):
@@ -366,7 +391,7 @@ Tutor AI:"""
             3. Teknologi Informasi — kemampuan adaptasi dan pemanfaatan teknologi dalam birokrasi.
             4. Jejaring Kerja — kemampuan kolaborasi, koordinasi, dan komunikasi antar pihak.
             5. Sosial Budaya — kepekaan terhadap keberagaman, kearifan lokal, dan toleransi.
-            Setiap opsi harus mencerminkan TINGKAT KEMATANGAN PROFESIONAL yang berbeda, bukan sekadar "baik" vs "buruk".
+            Setiap opsi harus mencerminkan TINGKAT KEMATANGAN PROFESIONAL yang berbeda, bukan sekadar \"baik\" vs \"buruk\".
             """
 
         example_section = ""
@@ -473,6 +498,7 @@ Tutor AI:"""
         example_question: str = "",
         custom_prompt: str = "",
         existing_topics: list[str] = None,
+        target_keys: list[str] = None,
     ) -> List[Dict[str, Any]]:
         """
         Generate multiple CPNS questions for a sub-category in a SINGLE API call.
@@ -502,18 +528,34 @@ Tutor AI:"""
 
         scoring_instruction = ""
         if segment in ("TWK", "TIU"):
-            scoring_instruction = """
+            if target_keys:
+                key_lines = "\n".join(f"            - Soal {i+1}: Jawaban benar (skor 5) WAJIB di opsi **{k.upper()}**" for i, k in enumerate(target_keys[:count]))
+                key_directive = f"""ATURAN POSISI KUNCI JAWABAN (WAJIB DIPATUHI — TIDAK BOLEH DIUBAH):
+            Berikut posisi opsi jawaban benar (skor 5) untuk setiap soal yang SUDAH DITENTUKAN oleh sistem:
+{key_lines}
+            Kamu DILARANG KERAS mengubah posisi ini. Susun narasi pembahasan setiap soal agar secara eksplisit konsisten dengan posisi kunci di atas."""
+            else:
+                key_directive = "- Tentukan sendiri posisi jawaban benar (acak di A-E, variasikan antar soal!)."
+            scoring_instruction = f"""
             ATURAN SKOR (TWK/TIU):
             - Tepat 1 opsi bernilai 5 (jawaban benar), 4 opsi lainnya bernilai 0.
-            - Tentukan sendiri posisi jawaban benar (acak di A-E, variasikan antar soal!).
+            {key_directive}
             - Key JSON skor: score_a, score_b, score_c, score_d, score_e.
             """
         else:  # TKP
-            scoring_instruction = """
+            if target_keys:
+                key_lines = "\n".join(f"            - Soal {i+1}: Skor tertinggi (5) WAJIB di opsi **{k.upper()}**" for i, k in enumerate(target_keys[:count]))
+                key_directive = f"""ATURAN POSISI SKOR TERTINGGI (WAJIB DIPATUHI — TIDAK BOLEH DIUBAH):
+            Berikut posisi opsi skor tertinggi (5) untuk setiap soal yang SUDAH DITENTUKAN oleh sistem:
+{key_lines}
+            Kamu DILARANG KERAS mengubah posisi ini. Susun narasi pembahasan setiap soal agar secara eksplisit konsisten dengan posisi kunci di atas."""
+            else:
+                key_directive = "- Tentukan sendiri distribusi skor di A-E (variasikan antar soal!)."
+            scoring_instruction = f"""
             ATURAN SKOR (TKP):
             - TIDAK ADA jawaban salah. Semua 5 opsi memiliki skor 1, 2, 3, 4, atau 5 (masing-masing UNIK, tidak boleh ada duplikat skor).
             - Skor 5 = sikap PALING ideal. Skor 1 = sikap PALING tidak ideal.
-            - Tentukan sendiri distribusi skor di A-E (variasikan antar soal!).
+            {key_directive}
             - Key JSON skor: score_a, score_b, score_c, score_d, score_e.
 
             DIMENSI PENILAIAN TKP BKN (ke-5 opsi WAJIB merepresentasikan gradasi dari dimensi berikut):
@@ -522,7 +564,7 @@ Tutor AI:"""
             3. Teknologi Informasi — kemampuan adaptasi dan pemanfaatan teknologi dalam birokrasi.
             4. Jejaring Kerja — kemampuan kolaborasi, koordinasi, dan komunikasi antar pihak.
             5. Sosial Budaya — kepekaan terhadap keberagaman, kearifan lokal, dan toleransi.
-            Setiap opsi harus mencerminkan TINGKAT KEMATANGAN PROFESIONAL yang berbeda, bukan sekadar "baik" vs "buruk".
+            Setiap opsi harus mencerminkan TINGKAT KEMATANGAN PROFESIONAL yang berbeda, bukan sekadar \"baik\" vs \"buruk\".
             """
 
         example_section = ""
@@ -573,13 +615,13 @@ Tutor AI:"""
         1. Setiap soal WAJIB memiliki KONTEKS/SKENARIO/SUDUT PANDANG yang BERBEDA TOTAL.
         2. DILARANG KERAS mengulang tema, situasi, atau pola kalimat yang mirip antar soal.
         3. Variasikan: setting (kantor/lapangan/rapat/digital), aktor (atasan/rekan/masyarakat), dan konflik.
-        4. DISTRIBUSI POSISI JAWABAN: Dari {count} soal, MAKSIMAL 2 soal boleh memiliki jawaban benar (skor 5) di posisi opsi yang sama. Idealnya tersebar merata di A-E.
+        4. POSISI KUNCI JAWABAN: Patuhi posisi kunci jawaban yang sudah ditentukan pada ATURAN SKOR di atas.
         5. Pastikan SETIAP soal berkualitas tinggi — jangan menurunkan kualitas di soal terakhir.
 
         ATURAN VERIFIKASI AKHIR (MANDATORY — jalankan sebelum menghasilkan JSON):
         1. Pastikan TEPAT 1 opsi bernilai 5 (untuk TWK/TIU) atau skor 1-5 unik tanpa duplikat (untuk TKP) pada SETIAP soal.
         2. Pastikan ke-5 opsi pada SETIAP soal memiliki panjang karakter SETARA (±15%).
-        3. Pastikan distribusi posisi jawaban benar TERSEBAR MERATA di antara A-E pada seluruh batch.
+        3. Pastikan posisi jawaban benar SESUAI PERSIS dengan aturan posisi kunci yang ditentukan di atas.
         4. Pastikan teks soal dan pembahasan BERSIH dari self-correction, catatan revisi, atau komentar debugging.
 
         ATURAN OUTPUT:

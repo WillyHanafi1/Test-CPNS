@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Request, BackgroundTasks, Body
-from typing import Optional, List
+from typing import Optional
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from datetime import timedelta, datetime, timezone
+from datetime import timedelta
 import uuid
 from pydantic import BaseModel, EmailStr
 from google.oauth2 import id_token

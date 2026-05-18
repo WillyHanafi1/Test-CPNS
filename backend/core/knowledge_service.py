@@ -1,6 +1,5 @@
 import os
 import logging
-from typing import List, Optional
 
 logger = logging.getLogger("backend.core.knowledge_service")
 

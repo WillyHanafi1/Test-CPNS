@@ -8,9 +8,6 @@ Tests the webhook signature logic to ensure:
 """
 
 import hashlib
-import pytest
-from httpx import AsyncClient
-from unittest.mock import patch, MagicMock
 
 
 # Midtrans signature formula:

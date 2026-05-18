@@ -10,10 +10,11 @@ async def test_generate_analysis_exception_fallback():
     """
     service = AIService()
 
-    # Mock the model so it doesn't return early due to missing API key
-    service.model = MagicMock()
+    from unittest.mock import AsyncMock
+    # Mock the client so it doesn't return early due to missing API key
+    service.client = MagicMock()
     # Force generate_content to raise an exception
-    service.model.generate_content.side_effect = Exception("Simulated API Error")
+    service.client.aio.models.generate_content = AsyncMock(side_effect=Exception("Simulated API Error"))
 
     # Dummy stats required by generate_analysis
     stats = {
@@ -35,4 +36,4 @@ async def test_generate_analysis_exception_fallback():
     }
 
     assert result == expected_fallback
-    service.model.generate_content.assert_called_once()
+    service.client.aio.models.generate_content.assert_called_once()
