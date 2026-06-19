@@ -77,6 +77,15 @@ class MockRedisService:
     async def get(self, key: str):
         return self._store.get(key)
 
+    async def eval(self, script: str, numkeys: int, *keys_and_args):
+        # Very rudimentary mock for eval since it's just doing rate limits
+        key = keys_and_args[0]
+        # Treat as an increment for rate limiting testing
+        current = self._store.get(key, 0)
+        current = int(current) + 1
+        self._store[key] = current
+        return current
+
     async def set(self, key: str, value: str, ex: int = None):
         self._store[key] = value
 
