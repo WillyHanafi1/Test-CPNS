@@ -91,6 +91,16 @@ class MockRedisService:
             self._store.pop(key, None)
             self._hashes.pop(key, None)
 
+    async def eval(self, script: str, numkeys: int, *keys_and_args):
+        # Extremely simplified eval to support autosave tests
+        # Assume it's INCR + EXPIRE logic
+        if len(keys_and_args) >= 2:
+            key = keys_and_args[0]
+            val = int(self._store.get(key, 0)) + 1
+            self._store[key] = str(val)
+            return val
+        return 1
+
     async def exists(self, key: str) -> bool:
         return key in self._store or key in self._hashes
 
