@@ -31,7 +31,8 @@ from backend.core.security import (
 from backend.config import settings as app_settings
 from backend.core.email import send_reset_password_email
 from backend.core.rate_limiter import limiter
-from jose import JWTError, jwt
+import jwt
+from jwt import InvalidTokenError as JWTError
 
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr

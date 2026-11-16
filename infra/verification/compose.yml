@@ -1,0 +1,111 @@
+# Disposable integration environment. No ports, credentials, or production volumes.
+name: ujian-verify
+x-test-backend: &backend
+  image: ujian-backend:${RELEASE_TAG:-prepared}
+  environment:
+    DATABASE_URL: postgresql+asyncpg://ujian_verify:verification-only@postgres:5432/ujian_verify
+    REDIS_URL: redis://redis:6379/0
+    SECRET_KEY: verification-only-key-never-use-in-production-123456
+    ENV: production
+    FRONTEND_URL: https://tocpns.my.id
+    CORS_ORIGINS: https://tocpns.my.id
+    LOG_LEVEL: WARNING
+  read_only: true
+  tmpfs: ['/tmp:size=64m,mode=1777']
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  mem_limit: 512m
+  networks: [application]
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: ${POSTGRES_TEST_IMAGE:?Pinned PostgreSQL test image is required}
+    environment:
+      POSTGRES_DB: ujian_verify
+      POSTGRES_USER: ujian_verify
+      POSTGRES_PASSWORD: verification-only
+    tmpfs: ['/var/lib/postgresql/data:size=128m,mode=0700']
+    networks: [application]
+    mem_limit: 256m
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U ujian_verify -d ujian_verify]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  redis:
+    image: ${REDIS_IMAGE:?Pinned Redis image is required}
+    networks: [application]
+    mem_limit: 128m
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+  backend:
+    <<: *backend
+    volumes:
+      - ./smoke.py:/checks/smoke.py:ro
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8001/health',timeout=5)"]
+      interval: 5s
+      timeout: 8s
+      retries: 15
+  worker:
+    <<: *backend
+    command: [celery, -A, backend.core.celery_app.celery_app, worker, --loglevel=WARNING, --concurrency=1]
+    mem_limit: 384m
+  beat:
+    <<: *backend
+    command: [celery, -A, backend.core.celery_app.celery_app, beat, --loglevel=WARNING, --schedule=/tmp/celerybeat-schedule, --pidfile=/tmp/celerybeat.pid]
+    mem_limit: 192m
+  frontend:
+    image: ujian-frontend:${RELEASE_TAG:-prepared}
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+      - /app/.next/cache:uid=1001,gid=1001,size=32m
+    networks: [application]
+    mem_limit: 256m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 8s
+      retries: 15
+  gateway:
+    image: ujian-gateway:${RELEASE_TAG:-prepared}
+    read_only: true
+    tmpfs: ['/tmp:size=32m,mode=1777']
+    networks:
+      application:
+        ipv4_address: 172.30.42.2
+      edge:
+        ipv4_address: 172.30.43.2
+    mem_limit: 64m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8080/healthz]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+networks:
+  application:
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.30.42.0/24
+          ip_range: 172.30.42.128/25
+  edge:
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.30.43.0/24
+          ip_range: 172.30.43.128/25

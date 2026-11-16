@@ -3,6 +3,7 @@ name: Deploy CPNS Proyek
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   test:
@@ -22,24 +23,25 @@ jobs:
 
   deploy:
     needs: test
+    # Enable after the new server secrets and production environment are ready.
+    if: ${{ github.event_name == 'workflow_dispatch' && vars.DEPLOY_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy to DigitalOcean via SSH
-        uses: appleboy/ssh-action@master
+      - name: Deploy Ujian via SSH
+        uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || '9130' }}
+          command_timeout: 20m
           script: |
-            cd /var/www/test-cpns
+            set -eu
+            cd /home/rusunawa/@docker/Ujian
             
-            git fetch origin main
-            git reset --hard origin/main
+            git pull --ff-only origin main
             
-            docker compose build
-            
-            docker compose run --rm backend alembic -c backend/alembic.ini upgrade head
-            
-            docker compose up -d --remove-orphans
-            
-            docker image prune -f
+            # The runner must have a route to the private SSH host.
+            # Start refuses schema drift and never silently migrates a shared DB.
+            sudo -n bash scripts/ops/deploy-ujian.sh build
+            sudo -n bash scripts/ops/deploy-ujian.sh start

@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily Ujian Redis snapshot
+
+[Timer]
+OnCalendar=*-*-* 02:30:00 Asia/Jakarta
+RandomizedDelaySec=300
+Persistent=true
+Unit=ujian-redis-backup.service
+
+[Install]
+WantedBy=timers.target

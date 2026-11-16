@@ -7,6 +7,9 @@ backend/venv/
 .env
 .env.local
 backend/.env
+.server-notes/
+.secrets/
+.production.env
 
 # Node.js
 frontend/node_modules/

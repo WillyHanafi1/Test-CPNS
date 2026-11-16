@@ -54,7 +54,8 @@ app.add_middleware(SlowAPIMiddleware)
 
 @app.middleware("http")
 async def log_requests(request, call_next):
-    logger.info(f"Incoming request: {request.method} {request.url}")
+    # Password-reset tokens and payment callbacks may appear in query strings.
+    logger.info("Incoming request: %s %s", request.method, request.url.path)
     # NOTE: Cookies and Authorization headers are NOT logged for security
     response = await call_next(request)
     logger.info(f"Response status: {response.status_code}")
