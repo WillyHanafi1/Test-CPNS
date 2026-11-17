@@ -35,6 +35,7 @@ Runner privat harus memiliki Bash, Git, SSH, dan versi runner yang mendukung act
 - `.production.env`, `.secrets/`, serta `.server-notes/images.env` sudah dipersiapkan menggunakan prosedur deployment proyek. Base image tetap dipin dengan digest.
 - User SSH memiliki akses `sudo -n /usr/bin/bash /home/rusunawa/@docker/Ujian/scripts/ops/deploy-ujian.sh release …` sesuai pengaturan deployment proyek. Hak ini memberi kemampuan menjalankan kode rilis dengan Docker; gunakan user/key khusus.
 - Schema production sudah sesuai commit kandidat. Migrasi production tetap eksplisit setelah backup/rehearsal sesuai [runbook](redesign-release-runbook.md). CI hanya memigrasikan database uji sekali pakai.
+- Jika backend sudah berjalan, revision schema diperiksa secara read-only sebelum build untuk menghindari build yang belum bisa dirilis. Instalasi pertama tetap memeriksa schema melalui image kandidat setelah build.
 
 Setelah konfigurasi tersebut siap, cukup push ke `main`. Tidak perlu menekan tombol deploy. Deploy manual juga hanya menerima commit `main` terbaru yang telah lolos CI. Workflow tidak mengubah pengaturan repository atau secrets.
 

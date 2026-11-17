@@ -22,6 +22,7 @@ case "$name" in
   python3)
     case "$*" in
       'scripts/ops/preflight.py app') [[ "${FAIL_MODE:-}" != preflight ]] ;;
+      scripts/ops/check-release-schema.py) [[ "${FAIL_MODE:-}" != schema-early ]] ;;
       scripts/ops/release-tag.py)
         sed -i '/^RELEASE_TAG=/d' .server-notes/images.env
         printf 'RELEASE_TAG=candidate\n' >> .server-notes/images.env ;;
@@ -29,8 +30,11 @@ case "$name" in
     esac ;;
   docker)
     case "$*" in
-      'buildx inspect ujian-ci --format '*) printf 'docker-container\n' ;;
-      'buildx inspect ujian-ci') [[ "${FAIL_MODE:-}" != create ]] ;;
+      'buildx inspect ujian-ci')
+        if [[ "${FAIL_MODE:-}" == create && ! -f .builder-created ]]; then exit 1; fi
+        if [[ "${FAIL_MODE:-}" == driver ]]; then printf 'Name: ujian-ci\nDriver: docker\n'; exit 0; fi
+        printf 'Name: ujian-ci\nDriver: docker-container\n' ;;
+      'buildx create '*) touch .builder-created ;;
       'buildx prune --help') printf '%s\n' --max-used-space ;;
       'image ls '*)
         repository="$3"
@@ -124,6 +128,13 @@ class ReleaseTests(unittest.TestCase):
         result, trace = self.release(sha="b" * 40)
         self.assertNotEqual(result.returncode, 0)
         self.assertNotIn("compose@", trace)
+
+    def test_live_schema_mismatch_stops_before_building_or_replacing_manifest(self):
+        result, trace = self.release("schema-early")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("RELEASE_TAG=previous", self.manifest.read_text())
+        self.assertNotIn("buildx", trace)
+        self.assertNotIn("compose@", trace)
         result, trace = self.release("lock")
         self.assertNotEqual(result.returncode, 0)
         self.assertNotIn("compose@", trace)
@@ -132,6 +143,13 @@ class ReleaseTests(unittest.TestCase):
         result, trace = self.release("create")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("buildx create --name ujian-ci --driver docker-container", trace)
+
+    def test_refuses_to_clean_a_builder_using_the_shared_driver(self):
+        result, trace = self.release("driver")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("RELEASE_TAG=previous", self.manifest.read_text())
+        self.assertNotIn("buildx prune --builder", trace)
+        self.assertNotIn("compose@", trace)
 
 
 if __name__ == "__main__":

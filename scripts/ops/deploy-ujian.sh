@@ -81,6 +81,8 @@ case "${1:-help}" in
             printf 'Release requires the exact tested 40-character commit SHA.\n' >&2; exit 1;
         }
         python3 scripts/ops/preflight.py app
+        # Use the running backend's existing connection before spending disk/RAM on builds.
+        python3 scripts/ops/check-release-schema.py
         umask 077
         release_snapshot="$(mktemp .server-notes/images.release.XXXXXX)"
         cp -p -- .server-notes/images.env "$release_snapshot"
@@ -88,12 +90,13 @@ case "${1:-help}" in
         release_builder_ready=0
         release_candidate=''
         trap finish_release EXIT
-        if ! docker buildx inspect ujian-ci >/dev/null 2>&1; then
+        if ! builder_info="$(docker buildx inspect ujian-ci 2>/dev/null)"; then
             docker buildx create --name ujian-ci --driver docker-container \
                 --driver-opt default-load=true,memory=1536m \
                 --buildkitd-config infra/buildkit/ujian-ci.toml
+            builder_info="$(docker buildx inspect ujian-ci)"
         fi
-        [[ "$(docker buildx inspect ujian-ci --format '{{.Driver}}')" == docker-container ]] || {
+        [[ "$builder_info" =~ Driver:[[:space:]]+docker-container($|[[:space:]]) ]] || {
             printf 'ujian-ci must be a dedicated docker-container builder.\n' >&2; exit 1;
         }
         release_builder_ready=1
