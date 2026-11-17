@@ -13,8 +13,8 @@ import socket
 
 
 from backend.core.celery_app import celery_app
-from backend.models.models import ExamSession, Question, Answer, Package, User
-from backend.core.ai_service import ai_service
+from backend.models.models import ExamSession, Question, Answer, Package, User, ExamJob
+from backend.services import exams as durable
 from backend.core.constants import PASSING_GRADE
 from backend.config import settings
 
@@ -65,7 +65,7 @@ async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: s
             logger_scoring.info(f"Fetching session {session_id_str} from DB")
             result = await db.execute(
                 select(ExamSession)
-                .where(ExamSession.id == session_id, ExamSession.user_id == user_id)
+                .where(ExamSession.id == session_id, ExamSession.user_id == user_id).with_for_update()
             )
             session = result.scalar_one_or_none()
             if not session:
@@ -74,6 +74,10 @@ async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: s
             if session.status == "finished":
                 logger_scoring.info(f"Session {session_id_str} already finished — skipping")
                 return {"status": "skipped", "reason": "already finished"}
+
+            if session.revision_id:
+                await durable.score(db, session)
+                return {"status": "success", "total_score": session.total_score}
 
             cache_key = f"exam_answers:{user_id_str}:{session_id_str}"
             redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
@@ -153,7 +157,6 @@ async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: s
                 session.total_score = total_score
                 session.is_passed = is_passed
                 session.status = "finished"
-                session.end_time = datetime.now(timezone.utc)
 
                 db.add_all(db_answers)
                 logger_scoring.info(f"Committing {len(db_answers)} answers for session {session_id_str}")
@@ -315,8 +318,7 @@ async def _mark_session_expired(session_factory, session_id: uuid.UUID):
         result = await db.execute(select(ExamSession).where(ExamSession.id == session_id))
         session = result.scalar_one_or_none()
         if session and session.status in ("ongoing", "processing"):
-            session.status = "expired"
-            session.end_time = datetime.now(timezone.utc)
+            session.status = "processing"
             await db.commit()
             logger_beat.warning(f"Session {session_id} marked as expired (fallback)")
 
@@ -335,92 +337,20 @@ def auto_finish_expired_sessions():
 # AI Analysis Task
 # ====================================================================
 
-async def async_generate_ai_analysis(session_id_str: str, stats: dict, history: list = None):
-    logger_ai.info(f"Starting AI analysis for session {session_id_str}")
-    engine = create_async_engine(
-        settings.DATABASE_URL, echo=False, poolclass=NullPool,
-        connect_args={"statement_cache_size": 0},  # Required: Supabase PgBouncer doesn't support prepared statements
-    )
-    session_factory = async_sessionmaker(engine, expire_on_commit=False)
-
-    try:
-        session_id = uuid.UUID(session_id_str)
-
-        # Fetch past session history if not provided (AI memory feature)
-        past_history = history
-        if past_history is None:
-            async with session_factory() as db:
-                result = await db.execute(select(ExamSession).where(ExamSession.id == session_id))
-                current_session = result.scalar_one_or_none()
-
-                if current_session:
-                    history_result = await db.execute(
-                        select(ExamSession)
-                        .where(
-                            ExamSession.user_id == current_session.user_id,
-                            ExamSession.status == "finished",
-                            ExamSession.id != session_id,
-                            ExamSession.is_preview == False
-                        )
-                        .order_by(ExamSession.start_time.desc())
-                        .limit(3)
-                    )
-                    past_sessions = history_result.scalars().all()
-                    past_history = [
-                        {
-                            "date": ps.start_time.strftime("%d %b %Y") if ps.start_time else "N/A",
-                            "total_score": ps.total_score,
-                            "score_twk": ps.score_twk,
-                            "score_tiu": ps.score_tiu,
-                            "score_tkp": ps.score_tkp,
-                        }
-                        for ps in past_sessions
-                    ]
-                    logger_ai.info(f"Loaded {len(past_history)} past session(s) for AI memory")
-
-        analysis_result = await ai_service.generate_analysis(stats, past_history)
-
-        async with session_factory() as db:
-            result = await db.execute(select(ExamSession).where(ExamSession.id == session_id))
-            session = result.scalar_one_or_none()
-            if session:
-                session.ai_analysis = analysis_result
-                session.ai_status = "completed"
-                await db.commit()
-                logger_ai.info(f"AI analysis saved for session {session_id_str}")
-
-    except (OperationalError, OSError):
-        # Explicitly raise for Celery autoretry_for
-        raise
-
-    except Exception as e:
-        logger_ai.error(f"AI analysis failed for session {session_id_str}: {e}\n{traceback.format_exc()}")
-        async with session_factory() as db:
-            result = await db.execute(select(ExamSession).where(ExamSession.id == session_id))
-            session = result.scalar_one_or_none()
-            if session:
-                session.ai_status = "failed"
-                await db.commit()
-
-    finally:
-        await engine.dispose()
-
-
-@celery_app.task(
-    name="backend.core.tasks.generate_ai_analysis",
-    autoretry_for=(OperationalError, OSError),
-    max_retries=3,
-    default_retry_delay=10,
-)
-def generate_ai_analysis_task(session_id: str, stats: dict, history: list = None):
-    return run_async_task(async_generate_ai_analysis)(session_id, stats, history)
+@celery_app.task(name="backend.core.tasks.generate_ai_analysis")
+def generate_ai_analysis_task(*args, **kwargs):
+    # Consume already queued legacy jobs without invoking the model.
+    return {"status": "retired"}
 
 # ====================================================================
 # Data Integrity & Audit Tasks
 # ====================================================================
 
 async def async_repair_question_bias(question_id_str: str):
-    """Regenerates distractors for a specific question to remove length bias."""
+    """Optional admin tool; never imported by core startup."""
+    if not settings.ADMIN_AI_ENABLED:
+        return {"status": "disabled"}
+    from backend.core.ai_service import ai_service
     logger_ai.info(f"Starting AI bias repair for question {question_id_str}")
     engine = create_async_engine(
         settings.DATABASE_URL, echo=False, poolclass=NullPool,
@@ -441,6 +371,9 @@ async def async_repair_question_bias(question_id_str: str):
             if not question:
                 logger_ai.error(f"Question {question_id_str} not found")
                 return {"status": "error", "message": "question not found"}
+
+            from backend.services.exams import lock_editable_package
+            await lock_editable_package(db, question.package_id)
 
             # Get correct answer and wrong answers
             correct_opt = next((opt for opt in question.options if opt.score > 0), None)
@@ -480,3 +413,30 @@ async def async_repair_question_bias(question_id_str: str):
 )
 def repair_question_bias_task(question_id: str):
     return run_async_task(async_repair_question_bias)(question_id)
+
+
+async def async_reconcile_jobs():
+    engine = create_async_engine(settings.DATABASE_URL, poolclass=NullPool,
+                                 connect_args={"statement_cache_size": 0})
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with factory() as db:
+            jobs = (await db.execute(select(ExamJob.session_id, ExamSession.user_id, User.email)
+                .join(ExamSession, ExamSession.id == ExamJob.session_id)
+                .join(User, User.id == ExamSession.user_id)
+                .where(ExamJob.status == "pending").limit(50))).all()
+        for sid, uid, email in jobs:
+            result = await async_run_scoring(str(sid), str(uid), email)
+            if result.get("status") in ("success", "skipped"):
+                async with factory() as db:
+                    job = await db.scalar(select(ExamJob).where(ExamJob.session_id == sid))
+                    job.status = "completed"
+                    job.completed_at = datetime.now(timezone.utc)
+                    await db.commit()
+    finally:
+        await engine.dispose()
+
+
+@celery_app.task(name="backend.core.tasks.reconcile_exam_jobs")
+def reconcile_exam_jobs():
+    return run_async_task(async_reconcile_jobs)()

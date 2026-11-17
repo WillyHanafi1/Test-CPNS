@@ -8,10 +8,11 @@ from pydantic import BaseModel, ConfigDict
 from datetime import datetime, timezone, timedelta
 
 from backend.db.session import get_async_session
-from backend.models.models import Package, Question, User, QuestionOption, ExamSession, Answer
+from backend.models.models import Package, Question, User, QuestionOption, ExamSession, Answer, ExamResponse
 from backend.api.v1.endpoints.auth import get_current_admin
 from backend.core.redis_service import redis_service
 from backend.core.utils import sanitize_search
+from backend.services.exams import snapshot, validation_errors, publish_revision, freeze_revision
 
 router = APIRouter(prefix="/admin/packages", tags=["admin-packages"])
 
@@ -125,6 +126,8 @@ async def create_package_admin(
     db: AsyncSession = Depends(get_async_session),
     admin: User = Depends(get_current_admin)
 ):
+    if package_in.is_published:
+        raise HTTPException(422, "Buat sebagai draft, lengkapi soal, lalu terbitkan setelah validasi.")
     new_package = Package(**package_in.model_dump())
     db.add(new_package)
     await db.commit()
@@ -140,15 +143,19 @@ async def update_package_admin(
     db: AsyncSession = Depends(get_async_session),
     admin: User = Depends(get_current_admin)
 ):
-    result = await db.execute(select(Package).where(Package.id == package_id))
+    result = await db.execute(select(Package).where(Package.id == package_id)
+        .options(selectinload(Package.questions).selectinload(Question.options)).with_for_update())
     package = result.scalar_one_or_none()
     if not package:
         raise HTTPException(status_code=404, detail="Package not found")
-    
+
     update_data = package_in.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(package, key, value)
-    
+    if package.start_at and package.end_at and package.end_at <= package.start_at:
+        raise HTTPException(422, "Waktu selesai harus sesudah waktu mulai.")
+    if update_data.get("is_published"):
+        await publish_revision(db, package)
     await db.commit()
     await db.refresh(package)
     
@@ -288,6 +295,7 @@ async def quick_preview_package(
         select(Package)
         .options(selectinload(Package.questions).selectinload(Question.options))
         .where(Package.id == package_id)
+        .with_for_update()
     )
     package = result.scalar_one_or_none()
     if not package:
@@ -296,12 +304,15 @@ async def quick_preview_package(
     if not package.questions:
         raise HTTPException(status_code=400, detail="Package has no questions to preview")
 
+    # Preview has its own immutable snapshot and never moves the published pointer.
+    revision = await freeze_revision(db, package)
     # 2. Create a mock finished session
     now = datetime.now(timezone.utc)
     session = ExamSession(
         id=uuid.uuid4(),
         user_id=admin.id,
         package_id=package_id,
+        revision_id=revision.id,
         status="finished",
         is_preview=True,
         start_time=now,  # [FIX] Both must be timezone-aware UTC — no .replace(tzinfo=None)
@@ -326,12 +337,12 @@ async def quick_preview_package(
         best_option = max(q.options, key=lambda o: o.score) if q.options else None
         
         if best_option:
-            ans = Answer(
+            ans = ExamResponse(
                 session_id=session.id,
                 question_id=q.id,
                 option_id=best_option.id,
-                selected_option=best_option.label,
-                points_earned=best_option.score
+                mutation_id=str(uuid.uuid4()),
+                revision=1,
             )
             db.add(ans)
             
@@ -346,6 +357,8 @@ async def quick_preview_package(
     session.score_twk = s_twk
     session.score_tiu = s_tiu
     session.score_tkp = s_tkp
+    session.is_passed = all({"TWK": s_twk, "TIU": s_tiu, "TKP": s_tkp}[key] >= value
+                            for key, value in revision.payload["passing_grades"].items())
     
     await db.commit()
     
@@ -353,3 +366,17 @@ async def quick_preview_package(
     # to avoid polluting national rankings with admin preview data.
 
     return {"session_id": session.id}
+
+
+@router.get("/{package_id}/validation")
+async def validate_package(package_id: uuid.UUID, db: AsyncSession = Depends(get_async_session),
+                           admin: User = Depends(get_current_admin)):
+    package = await db.scalar(select(Package).where(Package.id == package_id)
+        .options(selectinload(Package.questions).selectinload(Question.options)))
+    if not package:
+        raise HTTPException(404, "Paket tidak ditemukan.")
+    payload = snapshot(package)
+    errors = validation_errors(payload)
+    return {"valid": not errors, "errors": errors, "question_count": len(payload["questions"]),
+            "published_revision_id": package.published_revision_id,
+            "notice": "Validasi struktur bukan pengganti peninjauan akademis."}

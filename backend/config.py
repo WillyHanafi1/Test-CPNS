@@ -56,6 +56,7 @@ class Settings(BaseSettings):
     
     # Google Gemini AI
     GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
+    ADMIN_AI_ENABLED: bool = False
 
     # Logging
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")

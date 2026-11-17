@@ -50,14 +50,14 @@ async def main():
         for number in range(1, 111):
             segment = 'TWK' if number <= 30 else 'TIU' if number <= 65 else 'TKP'
             question = models.Question(package_id=package.id, content=f'Verification question {number}',
-                                       segment=segment, number=number)
+                                       segment=segment, number=number, discussion='Synthetic explanation.')
             database.add(question)
             await database.flush()
             for index, label in enumerate('ABCDE'):
                 database.add(models.QuestionOption(question_id=question.id, label=label,
                              content=f'Option {label}', score=(5-index if segment == 'TKP' else 5 if index == 0 else 0)))
         await database.commit()
-    async with httpx.AsyncClient(base_url='http://gateway:8080', headers={'Host': 'tocpns.my.id'}, timeout=20) as client:
+    async with httpx.AsyncClient(base_url='http://gateway:8080', headers={'Host': 'tocpns.my.id', 'X-Exam-Protocol':'2'}, timeout=20) as client:
         health = await client.get('/health')
         assert health.status_code == 200, health.text
         assert health.json()['db'] == health.json()['redis'] == 'ok'
@@ -67,7 +67,7 @@ async def main():
         assert health.headers['cache-control'] == 'no-store'
         print('PASS: security headers and API cache prevention')
         landing = await client.get('/')
-        assert landing.status_code == 200 and 'Lolos CPNS' in landing.text
+        assert landing.status_code == 200 and 'Latihan terarah' in landing.text
         assert 'http://localhost:8001' not in landing.text
         print('PASS: production frontend through gateway')
         redirect = await client.get('/catalog', headers={'Host': 'www.tocpns.my.id'})
@@ -107,11 +107,10 @@ async def main():
                                       json={'question_id': question['id'], 'option_id': answer['id']})
             assert saved.status_code == 200, f'Autosave returned {saved.status_code}'
         async with async_session_maker() as database:
-            count = await database.scalar(select(func.count(models.Answer.id)).where(models.Answer.session_id == uuid.UUID(session_id)))
-            assert count == 0
-        cache_key = f"exam_answers:{registered.json()['id']}:{session_id}"
-        assert await redis_service.redis.hlen(cache_key) == 3
-        print('PASS: 110-question exam, answer secrecy, and Redis-first autosave')
+            count = await database.scalar(select(func.count(models.ExamResponse.id)).where(models.ExamResponse.session_id == uuid.UUID(session_id)))
+            assert count == 3
+        await redis_service.redis.delete(f"exam_answers:{registered.json()['id']}:{session_id}")
+        print('PASS: answer secrecy and database-acknowledged autosave independent of Redis answer cache')
         submitted = await client.post(f'/api/v1/exam/finish/{session_id}', headers=auth)
         assert submitted.status_code == 200
         for _ in range(60):
@@ -124,11 +123,9 @@ async def main():
             raise AssertionError('Background scoring did not finish within 30 seconds')
         assert result.json()['total_score'] == 15
         assert all(result.json()[name] == 5 for name in ['score_twk', 'score_tiu', 'score_tkp'])
-        assert await redis_service.redis.zscore(f'leaderboard:practice:{package_id}', email) is not None
-        assert not await redis_service.redis.exists(cache_key)
         duplicate = await client.post(f'/api/v1/exam/finish/{session_id}', headers=auth)
-        assert duplicate.json()['status'] == 'already finished'
-        print('PASS: asynchronous Celery scoring, category totals, leaderboard and duplicate submit')
+        assert duplicate.json()['status'] == 'finished'
+        print('PASS: asynchronous Celery scoring, category totals, and idempotent duplicate submit')
         cors = await client.options('/api/v1/auth/me', headers={'Origin': 'https://tocpns.my.id', 'Access-Control-Request-Method': 'GET'})
         assert cors.headers.get('access-control-allow-origin') == 'https://tocpns.my.id'
         denied = await client.options('/api/v1/auth/me', headers={'Origin': 'https://untrusted.example', 'Access-Control-Request-Method': 'GET'})

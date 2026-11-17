@@ -1,167 +1,99 @@
 "use client";
-
-import React, { useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { UserPlus, Loader2 } from 'lucide-react';
-import { GoogleLogin } from '@react-oauth/google';
-
-export default function RegisterPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import AppShell, { ErrorPanel } from "@/components/AppShell";
+import { useAuth } from "@/context/AuthContext";
+import { safeReturn } from "@/lib/api";
+export default function Register() {
+  const { register } = useAuth();
   const router = useRouter();
-  const { register, refreshSession } = useAuth();
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError('');
-
-    try {
-      await register(email, password, fullName);
-      router.push('/login?registered=true');
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleGoogleSuccess = async (credentialResponse: any) => {
-    setIsLoading(true);
-    setError('');
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
-
-    try {
-      const res = await fetch(`${API_URL}/api/v1/auth/google`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: credentialResponse.credential }),
-        credentials: 'include',
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        await refreshSession();
-        router.replace(data.role === 'admin' ? '/admin' : '/dashboard');
-      } else {
-        const data = await res.json();
-        setError(data.detail || 'Google registration failed');
-      }
-    } catch (err: any) {
-      console.error('Google register error:', err);
-      const errorMessage = err?.message || err?.detail || (typeof err === 'string' ? err : 'Terjadi kesalahan sistem saat registrasi Google');
-      setError(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-950 via-slate-900 to-black p-4">
-      <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))] pb-40" />
-      
-      <Card className="w-full max-w-md bg-slate-900/50 border-slate-800 backdrop-blur-xl shadow-2xl relative">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center text-white">Create Account</CardTitle>
-          <CardDescription className="text-center text-slate-400">
-            Start your journey to become a CPNS today
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            {error && (
-              <div className="p-3 rounded-md bg-red-500/10 border border-red-500/20 text-red-500 text-sm text-center">
-                {error}
-              </div>
-            )}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-200" htmlFor="fullName">Full Name</label>
-              <Input 
-                id="fullName" 
-                type="text" 
-                placeholder="John Doe" 
-                className="bg-slate-950/50 border-slate-800 text-white placeholder:text-slate-500"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-200" htmlFor="email">Email</label>
-              <Input 
-                id="email" 
-                type="email" 
-                placeholder="name@example.com" 
-                className="bg-slate-950/50 border-slate-800 text-white placeholder:text-slate-500"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-200" htmlFor="password">Password</label>
-              <Input 
-                id="password" 
-                type="password" 
-                placeholder="••••••••" 
-                className="bg-slate-950/50 border-slate-800 text-white placeholder:text-slate-500"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-4">
-            <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white border-0 py-6 text-base font-semibold transition-all duration-200 ease-in-out transform hover:scale-[1.02]" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating account...
-                </>
-              ) : (
-                <>
-                  <UserPlus className="mr-2 h-4 w-4" /> Sign Up
-                </>
-              )}
-            </Button>
-
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-slate-800" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-[#0f172a] px-2 text-slate-500">Or continue with</span>
-              </div>
-            </div>
-
-            <div className="flex justify-center w-full">
-              <div className="w-full flex justify-center">
-                <GoogleLogin
-                  onSuccess={handleGoogleSuccess}
-                  onError={() => setError('Google Registration Failed')}
-                  theme="filled_black"
-                  shape="rectangular"
-                  text="signup_with"
-                />
-              </div>
-            </div>
-
-            <p className="text-sm text-slate-400 text-center mt-6">
-              Already have an account?{' '}
-              <Link href="/login" className="text-indigo-400 hover:text-indigo-300 font-medium">
-                Log in here
-              </Link>
-            </p>
-          </CardFooter>
+    <AppShell>
+      <div className="panel auth-panel stack">
+        <div>
+          <p className="eyebrow">LANGKAH PERTAMA</p>
+          <h1>Buat ruang latihanmu.</h1>
+          <p className="muted" style={{ marginTop: 12 }}>
+            Daftar gratis dan mulai dari satu paket.
+          </p>
+        </div>
+        {error && <ErrorPanel message={error} />}
+        <form
+          className="stack"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setBusy(true);
+            try {
+              await register(email, password, name);
+              const next = safeReturn(
+                new URLSearchParams(window.location.search).get("next"),
+              );
+              router.push(
+                `/login?registered=true&next=${encodeURIComponent(next)}`,
+              );
+            } catch (e) {
+              setError(
+                e instanceof Error ? e.message : "Pendaftaran belum berhasil.",
+              );
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <label className="field">
+            Nama lengkap
+            <input
+              className="input"
+              autoComplete="name"
+              required
+              maxLength={100}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </label>
+          <label className="field">
+            Email
+            <input
+              className="input"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </label>
+          <label className="field">
+            Kata sandi
+            <input
+              className="input"
+              type="password"
+              autoComplete="new-password"
+              minLength={8}
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <span className="muted" style={{ fontSize: 13 }}>
+              Gunakan sedikitnya 8 karakter.
+            </span>
+          </label>
+          <button className="button" disabled={busy}>
+            {busy ? "Membuat akun…" : "Daftar gratis"}
+          </button>
         </form>
-      </Card>
-    </div>
+        <p className="muted">
+          Sudah terdaftar?{" "}
+          <Link href="/login" style={{ color: "var(--accent)" }}>
+            Masuk
+          </Link>
+        </p>
+      </div>
+    </AppShell>
   );
 }

@@ -48,8 +48,11 @@ services:
       retries: 10
   backend:
     <<: *backend
+    # Dedicated verification subnet; never overlaps the production application network.
+    command: [uvicorn, backend.main:app, --host, 0.0.0.0, --port, '8001', --workers, '1', --proxy-headers, --forwarded-allow-ips, 172.31.142.2, --no-access-log]
     volumes:
       - ./smoke.py:/checks/smoke.py:ro
+      - ./load.py:/checks/load.py:ro
     healthcheck:
       test: [CMD, python, -c, "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8001/health',timeout=5)"]
       interval: 5s
@@ -84,9 +87,9 @@ services:
     tmpfs: ['/tmp:size=32m,mode=1777']
     networks:
       application:
-        ipv4_address: 172.30.42.2
+        ipv4_address: 172.31.142.2
       edge:
-        ipv4_address: 172.30.43.2
+        ipv4_address: 172.31.143.2
     mem_limit: 64m
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
@@ -101,11 +104,11 @@ networks:
     internal: true
     ipam:
       config:
-        - subnet: 172.30.42.0/24
-          ip_range: 172.30.42.128/25
+        - subnet: 172.31.142.0/24
+          ip_range: 172.31.142.128/25
   edge:
     internal: true
     ipam:
       config:
-        - subnet: 172.30.43.0/24
-          ip_range: 172.30.43.128/25
+        - subnet: 172.31.143.0/24
+          ip_range: 172.31.143.128/25

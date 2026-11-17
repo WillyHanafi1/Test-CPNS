@@ -49,6 +49,12 @@ def _get_client_ip(request: Request) -> str:
     return client_host or "unknown"
 
 
+def authenticated_limit_key(request: Request) -> str:
+    """Resolved auth dependency supplies the ID; clients cannot set this via headers."""
+    user_id = getattr(request.state, "authenticated_user_id", None)
+    return f"user:{user_id}" if user_id else _get_client_ip(request)
+
+
 # Initialize limiter with Redis storage backend
 limiter = Limiter(
     key_func=_get_client_ip,

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Body, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Body, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -13,8 +13,12 @@ from backend.db.session import get_async_session
 from backend.models.models import Package, Question, ExamSession, User, Answer, QuestionOption
 from backend.api.v1.endpoints.auth import get_current_user
 from backend.core.redis_service import redis_service
+from backend.core.rate_limiter import limiter, authenticated_limit_key
 from backend.schemas.exam import ExamSessionListItem
-from backend.core.tasks import calculate_exam_score, async_run_scoring, generate_ai_analysis_task
+from backend.core.tasks import calculate_exam_score, async_run_scoring
+from backend.services import exams as durable
+from backend.models.models import PackageRevision, ExamResponse
+from pydantic import Field
 from sqlalchemy import func, case
 
 logger = logging.getLogger(__name__)
@@ -52,6 +56,12 @@ class StartExamResponse(BaseModel):
     session_id: uuid.UUID
     package: PackageResponse
     end_time: datetime
+    server_now: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    writer_epoch: int = 1
+    writer_id: Optional[str] = None
+    status: str = "ongoing"
+    answers: dict = Field(default_factory=dict)
+    revisions: dict = Field(default_factory=dict)
 
 class ReviewOptionResponse(BaseModel):
     id: uuid.UUID
@@ -74,6 +84,7 @@ class ReviewQuestionResponse(BaseModel):
 
 class ReviewSessionResponse(BaseModel):
     session_id: uuid.UUID
+    revision_id: Optional[uuid.UUID] = None
     package_title: str
     total_score: int
     score_twk: int
@@ -84,135 +95,52 @@ class ReviewSessionResponse(BaseModel):
 # ==============================================================
 
 @router.post("/start/{package_id}", response_model=StartExamResponse)
+@limiter.limit("12/minute", key_func=authenticated_limit_key)
 async def start_exam(
+    request: Request,
+    response: Response,
     package_id: uuid.UUID,
     db: AsyncSession = Depends(get_async_session),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    writer_id: Optional[str] = Query(None, max_length=100),
 ):
-    # 1. Verify package exists
-    result = await db.execute(
-        select(Package)
-        .options(selectinload(Package.questions).selectinload(Question.options))
-        .where(Package.id == package_id)
-    )
-    package = result.scalar_one_or_none()
-    if not package:
-        raise HTTPException(status_code=404, detail="Package not found")
-        
-    now = datetime.now(timezone.utc)
-
-    # DEFINISIKAN HELPER SEBELUM DIPAKAI
-    async def populate_valid_options(sess_id: uuid.UUID):
-        valid_options_key = f"valid_options:{sess_id}"
-        valid_ids = [str(opt.id) for q in package.questions for opt in q.options]
-        if valid_ids:
-            await redis_service.redis.sadd(valid_options_key, *valid_ids)
-            await redis_service.redis.expire(valid_options_key, 10800)
-
-    # RBAC enforcement — premium packages require PRO subscription
-    if package.is_premium and not current_user.is_pro_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Paket ini hanya tersedia untuk pengguna PRO. Silakan upgrade ke PRO untuk mengakses seluruh paket."
-        )
-
-    # 2. Check for duplicate "ongoing" session or finished session for Weekly TO
-    # 2. Prevent Multiple Ongoing Sessions (Global Policy)
-    # This addresses the TOCTOU issue and ensures only one ongoing session per user/package
-    existing_check = await db.execute(
-        select(ExamSession).where(
-            ExamSession.user_id == current_user.id,
-            ExamSession.package_id == package_id,
-            ExamSession.status == "ongoing"
-        ).with_for_update() # Row-level lock to prevent concurrent sessions
-    )
-    existing_session = existing_check.scalar_one_or_none()
-    
-    if existing_session:
-        # Check if the session is actually expired
-        now_utc = datetime.now(timezone.utc)
-        session_end = existing_session.end_time
-        if session_end.tzinfo is None:
-            session_end = session_end.replace(tzinfo=timezone.utc)
-
-        if session_end < now_utc:
-            # Auto-finish the expired session
-            logger.info(f"Auto-finishing expired session {existing_session.id} for user {current_user.id}")
-            existing_session.status = "finished"
-            await db.commit()
-            
-            # Trigger background scoring (imported here to avoid circular dependencies)
-            from backend.core.tasks import async_run_scoring
-            async_run_scoring.delay(existing_session.id)
-            
-            # Reset existing_session to None so a new one can be created
-            existing_session = None
-        else:
-            # Resume valid ongoing session
-            await populate_valid_options(existing_session.id)
-            return {
-                "session_id": existing_session.id,
-                "package": package,
-                "end_time": existing_session.end_time.replace(tzinfo=timezone.utc)
-            }
-
-
-    # 2b. Specifically for Weekly TO: Check if already finished
-    if package.is_weekly:
-        finished_check = await db.execute(
-            select(ExamSession).where(
-                ExamSession.user_id == current_user.id,
-                ExamSession.package_id == package_id,
-                ExamSession.status == "finished"
-            )
-        )
-        if finished_check.scalar_one_or_none():
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Anda sudah menyelesaikan Tryout ini. Tryout mingguan hanya dapat dikerjakan satu kali."
-            )
-    
-
-
-    # 3. Create session in DB
-    # Standard SKD time is 100 minutes
-    start_time = datetime.now(timezone.utc)
-    end_time = start_time + timedelta(minutes=100)
-    
-    session = ExamSession(
-        id=uuid.uuid4(),
-        user_id=current_user.id,
-        package_id=package_id,
-        start_time=start_time,
-        end_time=end_time,
-        status="ongoing"
-    )
-    db.add(session)
+    response = await durable.start(db, package_id, current_user, writer_id,
+        protocol=2 if request.headers.get("X-Exam-Protocol") == "2" else 1)
+    if response is not None:
+        return response
+    legacy = await db.scalar(select(ExamSession).where(
+        ExamSession.user_id == current_user.id, ExamSession.package_id == package_id,
+        ExamSession.status == "ongoing").with_for_update())
+    response = await durable.session_payload(db, legacy)
+    valid_ids = [str(o["id"]) for q in response["package"]["questions"] for o in q["options"]]
+    if valid_ids:
+        await redis_service.redis.sadd(f"valid_options:{legacy.id}", *valid_ids)
+        await redis_service.redis.expire(f"valid_options:{legacy.id}", 10800)
     await db.commit()
-    await db.refresh(session)
-
-    # PANGGIL HELPER DI SINI UNTUK SESI BARU
-    await populate_valid_options(session.id)
-
-    session_meta_key = f"session_meta:{session.id}"
-    # FIX: end_time is naive UTC. We MUST attach timezone before calling timestamp()
-    # Otherwise Python assumes local timezone and gives the wrong epoch.
-    await redis_service.redis.setex(session_meta_key, 10800, str(end_time.replace(tzinfo=timezone.utc).timestamp()))
-
-    return {
-        "session_id": session.id,
-        "package": package,
-        "end_time": end_time.replace(tzinfo=timezone.utc)  # aware for JSON response
-    }
+    return response
 
 @router.post("/autosave/{session_id}")
+@limiter.limit("240/minute", key_func=authenticated_limit_key)
 async def autosave_answer(
+    request: Request,
+    response: Response,
     session_id: uuid.UUID,
     question_id: uuid.UUID = Body(...),
     option_id: uuid.UUID = Body(...),
+    mutation_id: str = Body(default="legacy", max_length=100),
+    expected_revision: int = Body(default=0, ge=0),
+    writer_epoch: int = Body(default=1, ge=1),
+    writer_id: Optional[str] = Body(default=None, max_length=100),
     db: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_user)
 ):
+    attempt = await durable.owned_session(db, session_id, current_user.id, lock=True)
+    if attempt.revision_id:
+        return await durable.save(db, attempt, question_id, option_id, mutation_id,
+                                  expected_revision, writer_epoch, writer_id)
+    if not await db.scalar(select(QuestionOption.id).where(
+        QuestionOption.id == option_id, QuestionOption.question_id == question_id)):
+        raise HTTPException(400, "Pilihan tidak sesuai dengan soal.")
     # 1. Validation - Ownership & duplicate limit
     session_result = await db.execute(
         select(ExamSession).where(
@@ -305,11 +233,25 @@ async def autosave_answer(
 
 
 @router.post("/finish/{session_id}")
+@limiter.limit("12/minute", key_func=authenticated_limit_key)
 async def finish_exam(
+    request: Request,
+    response: Response,
     session_id: uuid.UUID,
     db: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_user)
 ):
+    attempt = await durable.owned_session(db, session_id, current_user.id, lock=True)
+    if attempt.revision_id:
+        await durable.submit(db, attempt)
+        # A durable job is already committed; periodic reconciliation survives broker failure.
+        if attempt.status != "finished":
+            import asyncio
+            try:
+                await asyncio.to_thread(calculate_exam_score.delay, str(attempt.id), str(current_user.id), current_user.email)
+            except Exception:
+                logger.warning("Scoring dispatch deferred; durable job retained")
+        return {"status": attempt.status}
     # 1. Fetch session with row-level locking to prevent race conditions (double submission)
     result = await db.execute(
         select(ExamSession)
@@ -390,7 +332,10 @@ async def finish_exam(
             raise HTTPException(status_code=500, detail=f"Gagal menghitung nilai ujian: {str(fallback_error)}")
 
 @router.get("/result/{session_id}")
+@limiter.limit("60/minute", key_func=authenticated_limit_key)
 async def get_exam_result(
+    request: Request,
+    response: Response,
     session_id: uuid.UUID,
     db: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_user)
@@ -407,15 +352,17 @@ async def get_exam_result(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
+    revision = await db.get(PackageRevision, session.revision_id) if session.revision_id else None
     return {
+        "passing_grades": revision.payload["passing_grades"] if revision else dict(durable.PASSING_GRADE),
+        "revision_id": session.revision_id,
         "status": session.status,
         "package_id": str(session.package_id),
         "total_score": getattr(session, 'total_score', 0) or 0,
         "score_twk": getattr(session, 'score_twk', 0) or 0,
         "score_tiu": getattr(session, 'score_tiu', 0) or 0,
         "score_tkp": getattr(session, 'score_tkp', 0) or 0,
-        "ai_analysis": session.ai_analysis,
-        "ai_status": session.ai_status
+        "is_passed": session.is_passed
     }
 
 @router.get("/session/{session_id}/review", response_model=ReviewSessionResponse)
@@ -447,6 +394,15 @@ async def get_exam_review(
             detail="Pembahasan hanya tersedia setelah ujian selesai"
         )
 
+    if session.revision_id:
+        revision = await db.get(PackageRevision, session.revision_id)
+        rows = (await db.scalars(select(ExamResponse).where(ExamResponse.session_id == session.id))).all()
+        answers = {str(r.question_id): r.option_id for r in rows}
+        return {"session_id": session.id, "revision_id": session.revision_id, "package_title": revision.payload["title"],
+                "total_score": session.total_score, "score_twk": session.score_twk,
+                "score_tiu": session.score_tiu, "score_tkp": session.score_tkp,
+                "questions": [{**q, "selected_option_id": answers.get(q["id"])}
+                              for q in revision.payload["questions"]]}
     # 2. Fetch all questions for this package with their options
     q_result = await db.execute(
         select(Question)
@@ -709,6 +665,9 @@ async def get_my_sessions(
     sessions = []
     for row in result:
         session, package_title = row
+        if session.revision_id:
+            revision = await db.get(PackageRevision, session.revision_id)
+            package_title = revision.payload["title"]
         sessions.append(ExamSessionListItem(
             id=session.id,
             package_id=session.package_id,
@@ -725,95 +684,58 @@ async def get_my_sessions(
     
     return sessions
 @router.post("/{session_id}/ai-generate")
-async def generate_manual_ai(
-    session_id: uuid.UUID,
-    db: AsyncSession = Depends(get_async_session),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Manually trigger AI analysis for a finished session.
-    Only for PRO users.
-    """
-    # 1. Validation: PRO User
-    if not current_user.is_pro_active:
-        raise HTTPException(status_code=403, detail="Hanya pengguna PRO yang dapat menggunakan fitur Analisis AI.")
+async def retired_analysis(session_id: uuid.UUID, current_user: User = Depends(get_current_user)):
+    raise HTTPException(410, "Fitur AI peserta telah dihentikan.")
 
-    # 2. Validation: Sesi milik user dan sudah selesai
-    result = await db.execute(
-        select(ExamSession).where(
-            ExamSession.id == session_id, 
-            ExamSession.user_id == current_user.id,
-            ExamSession.is_preview == False
-        )
-    )
-    session = result.scalar_one_or_none()
-    if not session:
-        raise HTTPException(status_code=404, detail="Sesi ujian tidak ditemukan.")
-    
-    if session.status != "finished":
-        raise HTTPException(status_code=400, detail="Sesi ujian belum selesai. Selesaikan ujian terlebih dahulu.")
 
-    # 3. Validation: Status AI (jangan generate ulang jika sudah/sedang berproses)
-    if session.ai_status == "processing":
-        return {"status": "processing", "message": "Analisis AI sedang diproses."}
-    if session.ai_status == "completed":
-        return {"status": "completed", "message": "Analisis AI sudah tersedia."}
+@router.get("/session/{session_id}/state", response_model=StartExamResponse)
+@limiter.limit("120/minute", key_func=authenticated_limit_key)
+async def get_session_state(request: Request, response: Response, session_id: uuid.UUID, db: AsyncSession = Depends(get_async_session),
+                            current_user: User = Depends(get_current_user)):
+    attempt = await durable.owned_session(db, session_id, current_user.id)
+    return await durable.session_payload(db, attempt)
 
-    # 4. Prepare data for AI
-    ans_result = await db.execute(
-        select(Answer, Question.sub_category)
-        .join(Question, Answer.question_id == Question.id)
-        .where(Answer.session_id == session_id)
-    )
-    answers_data = ans_result.all()
-    
-    sub_cat_stats = {}
-    for ans, sub_cat in answers_data:
-        cat = sub_cat or "Umum"
-        if cat not in sub_cat_stats:
-            sub_cat_stats[cat] = {"score": 0, "max_possible": 0}
-        sub_cat_stats[cat]["score"] += ans.points_earned
-        sub_cat_stats[cat]["max_possible"] += 5
 
-    current_stats = {
-        "score_twk": session.score_twk,
-        "score_tiu": session.score_tiu,
-        "score_tkp": session.score_tkp,
-        "total_score": session.total_score,
-        "is_passed": session.is_passed,
-        "sub_categories": sub_cat_stats
-    }
-
-    # 5. Fetch User History (last 5 sessions)
-    history_result = await db.execute(
-        select(ExamSession)
-        .where(
-            ExamSession.user_id == current_user.id,
-            ExamSession.id != session_id,
-            ExamSession.status == "finished",
-            ExamSession.is_preview.is_(False)
-        )
-        .order_by(ExamSession.start_time.desc())
-        .limit(5)
-    )
-    past_sessions = history_result.scalars().all()
-    
-    history_data = []
-    for s in past_sessions:
-        history_data.append({
-            "date": s.start_time.strftime("%Y-%m-%d") if s.start_time else "Unknown",
-            "total_score": s.total_score,
-            "score_twk": s.score_twk,
-            "score_tiu": s.score_tiu,
-            "score_tkp": s.score_tkp,
-            "is_passed": s.is_passed,
-            "ai_analysis": s.ai_analysis # Provide past analysis for consistency
-        })
-
-    # 6. Trigger task
-    session.ai_status = "processing"
+@router.post("/session/{session_id}/claim", response_model=StartExamResponse)
+async def claim_session(session_id: uuid.UUID, writer_id: str = Body(..., embed=True, min_length=1, max_length=100),
+                        db: AsyncSession = Depends(get_async_session), current_user: User = Depends(get_current_user)):
+    attempt = await durable.owned_session(db, session_id, current_user.id, lock=True)
+    if not attempt.revision_id or attempt.status != "ongoing" or durable.utc(attempt.end_time) <= datetime.now(timezone.utc):
+        raise HTTPException(409, "Sesi tidak dapat dilanjutkan.")
+    attempt.writer_epoch += 1
+    attempt.writer_id = writer_id
+    response = await durable.session_payload(db, attempt)
     await db.commit()
-    
-    generate_ai_analysis_task.delay(str(session_id), current_stats, history_data)
+    return response
 
-    return {"status": "processing", "message": "Permintaan Analisis AI telah dikirim dengan data riwayat."}
+
+@router.get("/ranking/{package_id}")
+async def revision_ranking(package_id: uuid.UUID, revision_id: Optional[uuid.UUID] = None,
+                           db: AsyncSession = Depends(get_async_session),
+                           user: User = Depends(get_current_user)):
+    import hashlib
+    package = await db.scalar(select(Package).where(Package.id == package_id,
+        Package.is_published.is_(True), Package.is_active.is_(True)))
+    if not package:
+        raise HTTPException(404, "Paket tidak ditemukan.")
+    target = revision_id or package.published_revision_id
+    if not target:
+        return {"rows": [], "notice": "Peringkat tersedia setelah ada sesi dengan versi konten tercatat."}
+    revision = await db.get(PackageRevision, target)
+    if not revision or revision.package_id != package.id:
+        raise HTTPException(404, "Versi latihan tidak ditemukan.")
+    order = [ExamSession.total_score.desc(), ExamSession.score_tkp.desc(),
+             ExamSession.score_tiu.desc(), ExamSession.score_twk.desc(), ExamSession.start_time.asc()]
+    best = select(ExamSession.user_id, ExamSession.total_score, ExamSession.score_twk,
+        ExamSession.score_tiu, ExamSession.score_tkp,
+        func.row_number().over(partition_by=ExamSession.user_id, order_by=order).label("attempt_rank")
+        ).where(ExamSession.package_id == package.id, ExamSession.revision_id == target,
+            ExamSession.status == "finished", ExamSession.is_preview.is_(False)).subquery()
+    rows = (await db.execute(select(best).where(best.c.attempt_rank == 1).order_by(
+        best.c.total_score.desc(), best.c.score_tkp.desc(), best.c.score_tiu.desc(),
+        best.c.score_twk.desc(), best.c.user_id).limit(50))).mappings().all()
+    return {"rows": [{"rank": i + 1, "name": "Kamu" if row["user_id"] == user.id else
+        "Peserta " + hashlib.sha256(str(row["user_id"]).encode()).hexdigest()[:6],
+        "score": row["total_score"], "twk": row["score_twk"], "tiu": row["score_tiu"], "tkp": row["score_tkp"]}
+        for i, row in enumerate(rows)], "revision_id": target,
+        "notice": "Maksimal 50 skor terbaik, satu percobaan terbaik per peserta pada versi paket yang sama. Bukan peringkat seleksi resmi."}

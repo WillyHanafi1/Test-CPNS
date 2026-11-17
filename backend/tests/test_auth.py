@@ -4,7 +4,7 @@ Auth Flow Tests — register, login, me, logout, duplicate prevention.
 
 import pytest
 from httpx import AsyncClient
-from tests.conftest import login_and_get_cookies
+from backend.tests.conftest import login_and_get_cookies
 
 
 class TestRegister:

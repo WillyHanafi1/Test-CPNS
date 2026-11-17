@@ -17,9 +17,9 @@ from backend.api.v1.endpoints.admin_transactions import router as admin_transact
 from backend.api.v1.endpoints.admin_analytics import router as admin_analytics_router
 from backend.api.v1.endpoints.admin_feedback import router as admin_feedback_router
 from backend.api.v1.endpoints.transactions_api import router as transactions_router
-from backend.api.v1.endpoints.chat import router as chat_router
 from backend.api.v1.endpoints.user_api import router as user_router
 from backend.api.v1.endpoints.analytics import router as analytics_router
+from backend.api.v1.endpoints.membership import router as membership_router
 from backend.config import settings
 from backend.core.rate_limiter import limiter, rate_limit_exceeded_handler
 
@@ -54,11 +54,25 @@ app.add_middleware(SlowAPIMiddleware)
 
 @app.middleware("http")
 async def log_requests(request, call_next):
+    import uuid
+    from time import perf_counter
+    from fastapi.responses import JSONResponse
+    request_id = uuid.uuid4().hex
+    started = perf_counter()
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"} and request.cookies.get("access_token"):
+        origin = request.headers.get("origin")
+        if origin and origin not in settings.cors_origins_list:
+            return JSONResponse(status_code=403, content={"detail": "Asal permintaan tidak diizinkan."})
     # Password-reset tokens and payment callbacks may appear in query strings.
     logger.info("Incoming request: %s %s", request.method, request.url.path)
     # NOTE: Cookies and Authorization headers are NOT logged for security
     response = await call_next(request)
-    logger.info(f"Response status: {response.status_code}")
+    response.headers["X-Request-ID"] = request_id
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "private, no-store"
+    logger.info("request_id=%s method=%s path=%s status=%s duration_ms=%.1f",
+                request_id, request.method, request.url.path, response.status_code,
+                (perf_counter() - started) * 1000)
     return response
 
 app.include_router(auth_router, prefix="/api/v1")
@@ -72,10 +86,15 @@ app.include_router(admin_transactions_router, prefix="/api/v1")
 app.include_router(admin_analytics_router, prefix="/api/v1")
 app.include_router(admin_feedback_router, prefix="/api/v1")
 app.include_router(transactions_router, prefix="/api/v1")
-app.include_router(chat_router, prefix="/api/v1")
 app.include_router(public_stats_router, prefix="/api/v1")
 app.include_router(user_router, prefix="/api/v1")
 app.include_router(analytics_router, prefix="/api/v1")
+app.include_router(membership_router, prefix="/api/v1")
+
+@app.api_route("/api/v1/chat/{path:path}", methods=["GET", "POST", "DELETE"])
+async def retired_participant_chat(path: str):
+    from fastapi import HTTPException
+    raise HTTPException(410, "Fitur AI peserta telah dihentikan. Gunakan pembahasan soal.")
 
 @app.get("/")
 async def root():
@@ -122,3 +141,9 @@ async def health_check():
         return JSONResponse(status_code=503, content=health)
     
     return health
+
+
+@app.get("/api/v1/health/live", include_in_schema=False)
+async def liveness():
+    """Process liveness only. /health separately checks DB and Redis readiness."""
+    return {"status": "alive"}

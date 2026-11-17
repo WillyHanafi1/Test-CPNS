@@ -20,6 +20,7 @@ x-backend: &backend
     REDIS_URL: redis://redis:6379/0
     ENV: production
     COOKIE_SECURE: 'true'
+    ADMIN_AI_ENABLED: 'false'
   user: '10001:10001'
   init: true
   read_only: true
@@ -37,6 +38,26 @@ x-backend: &backend
       condition: service_healthy
 
 services:
+  database-backup:
+    # backup-postgres.sh requires a compatible digest pin before this profile runs.
+    image: ${POSTGRES_BACKUP_IMAGE:-postgres:18-alpine}
+    profiles: [operations]
+    user: '${RUN_UID:-1000}:${RUN_GID:-1000}'
+    env_file:
+      - path: ./.secrets/application.env
+        format: raw
+    entrypoint: [sh, /ops/dump-postgres.sh]
+    volumes:
+      - ./scripts/ops/dump-postgres.sh:/ops/dump-postgres.sh:ro
+      - ./.server-notes/backups:/backups
+    read_only: true
+    tmpfs: [/tmp:size=32m,mode=1777]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [application]
+    mem_limit: 128m
+    cpus: 0.25
+
   redis:
     image: ${REDIS_IMAGE:?Base image digest is required}
     command: [redis-server, --appendonly, 'yes', --appendfsync, everysec, --maxmemory, 96mb, --maxmemory-policy, noeviction, --save, '60 1']
@@ -92,6 +113,24 @@ services:
       timeout: 5s
       retries: 3
       start_period: 30s
+
+  admin-ai-worker:
+    <<: *backend
+    profiles: [admin-ai]
+    command: [celery, -A, backend.core.celery_app.celery_app, worker, --queues=admin-ai, --loglevel=WARNING, --concurrency=1]
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      ENV: production
+      COOKIE_SECURE: 'true'
+      ADMIN_AI_ENABLED: 'true'
+    env_file:
+      - path: ./.secrets/application.env
+        format: raw
+      - path: ./.secrets/admin-ai.env
+        required: false
+        format: raw
+    mem_limit: 384m
+    cpus: 0.5
 
   frontend:
     image: ujian-frontend:${RELEASE_TAG:-prepared}

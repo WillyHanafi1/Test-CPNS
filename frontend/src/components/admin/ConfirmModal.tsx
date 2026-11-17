@@ -1,9 +1,10 @@
 "use client";
+import AdminDialog from "@/components/admin/AdminDialog";
 
-import React from 'react';
-import { X, AlertCircle, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import React from "react";
+import { X, AlertCircle, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 
 interface ConfirmModalProps {
   isOpen: boolean;
@@ -13,7 +14,7 @@ interface ConfirmModalProps {
   description: string;
   confirmText?: string;
   cancelText?: string;
-  variant?: 'danger' | 'warning' | 'info';
+  variant?: "danger" | "warning" | "info";
   loading?: boolean;
 }
 
@@ -23,54 +24,71 @@ export function ConfirmModal({
   onConfirm,
   title,
   description,
-  confirmText = 'Konfirmasi',
-  cancelText = 'Batal',
-  variant = 'danger',
+  confirmText = "Konfirmasi",
+  cancelText = "Batal",
+  variant = "danger",
   loading = false,
 }: ConfirmModalProps) {
   if (!isOpen) return null;
 
   const getIcon = () => {
     switch (variant) {
-      case 'danger': return <AlertCircle className="w-6 h-6 text-rose-500" />;
-      case 'warning': return <AlertTriangle className="w-6 h-6 text-amber-500" />;
-      default: return <CheckCircle2 className="w-6 h-6 text-indigo-500" />;
+      case "danger":
+        return <AlertCircle className="w-6 h-6 text-danger" />;
+      case "warning":
+        return <AlertTriangle className="w-6 h-6 text-warning" />;
+      default:
+        return <CheckCircle2 className="w-6 h-6 text-accent" />;
     }
   };
 
   const getButtonStyle = () => {
     switch (variant) {
-      case 'danger': return 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/20';
-      case 'warning': return 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/20';
-      default: return 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/20';
+      case "danger":
+        return "bg-danger-solid hover:bg-danger-solid ";
+      case "warning":
+        return "bg-warning-solid hover:bg-warning-solid ";
+      default:
+        return "bg-accent-solid hover:bg-accent-solid ";
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={onClose} />
-      <Card className="relative w-full max-w-md bg-slate-900 border-slate-800 border-2 rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+    <AdminDialog label={title} onClose={onClose}>
+      <Card className="relative w-full max-w-md bg-surface border-line border rounded-2xl shadow-sm overflow-hidden animate-in zoom-in-95 duration-300">
         <div className="p-8">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border ${
-                variant === 'danger' ? 'bg-rose-500/10 border-rose-500/20' :
-                variant === 'warning' ? 'bg-amber-500/10 border-amber-500/20' :
-                'bg-indigo-500/10 border-indigo-500/20'
-              }`}>
+              <div
+                className={`w-12 h-12 rounded-2xl flex items-center justify-center border ${
+                  variant === "danger"
+                    ? "bg-danger-soft border-line"
+                    : variant === "warning"
+                      ? "bg-warning-soft border-line"
+                      : "bg-accent-soft border-accent-border"
+                }`}
+              >
                 {getIcon()}
               </div>
               <div>
-                <h2 className="text-xl font-black tracking-tight">{title}</h2>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Konfirmasi Tindakan</p>
+                <h2 className="text-xl font-semibold tracking-tight">
+                  {title}
+                </h2>
+                <p className="text-xs font-bold text-muted uppercase tracking-wide">
+                  Konfirmasi Tindakan
+                </p>
               </div>
             </div>
-            <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors">
+            <button
+              aria-label="Tutup dialog"
+              onClick={onClose}
+              className="text-muted hover:text-ink transition-colors"
+            >
               <X className="w-6 h-6" />
             </button>
           </div>
 
-          <p className="text-slate-400 font-medium leading-relaxed mb-8">
+          <p className="text-muted font-medium leading-relaxed mb-8">
             {description}
           </p>
 
@@ -78,7 +96,7 @@ export function ConfirmModal({
             <Button
               type="button"
               variant="ghost"
-              className="flex-1 py-7 rounded-2xl font-bold text-slate-400"
+              className="flex-1 py-7 rounded-2xl font-bold text-muted"
               onClick={onClose}
               disabled={loading}
             >
@@ -86,18 +104,18 @@ export function ConfirmModal({
             </Button>
             <Button
               type="button"
-              className={`flex-1 py-7 rounded-2xl font-bold shadow-xl transition-all ${getButtonStyle()}`}
+              className={`flex-1 py-7 rounded-2xl font-bold shadow-sm transition-all ${getButtonStyle()}`}
               onClick={onConfirm}
               disabled={loading}
             >
               {loading ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                <div className="w-5 h-5 border border-white border-t-transparent rounded-full animate-spin mr-2" />
               ) : null}
               {confirmText}
             </Button>
           </div>
         </div>
       </Card>
-    </div>
+    </AdminDialog>
   );
 }

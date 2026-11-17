@@ -5,7 +5,7 @@ Exam Lifecycle Tests — start, autosave, finish, result polling.
 import pytest
 import uuid
 from httpx import AsyncClient
-from tests.conftest import login_and_get_cookies
+from backend.tests.conftest import login_and_get_cookies
 
 
 class TestStartExam:
@@ -20,7 +20,7 @@ class TestStartExam:
         assert "session_id" in data
         assert "package" in data
         questions = data["package"]["questions"]
-        assert len(questions) == 3
+        assert len(questions) == 110
         # Verify no score is exposed in public questions
         for q in questions:
             for opt in q["options"]:

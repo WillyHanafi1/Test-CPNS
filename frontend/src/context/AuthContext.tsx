@@ -1,173 +1,137 @@
 "use client";
-
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
-
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  ReactNode,
+} from "react";
+import { useRouter } from "next/navigation";
+import { api, ApiError, safeReturn } from "@/lib/api";
 interface User {
   id: string;
   email: string;
   role: string;
   full_name?: string;
   is_pro?: boolean;
+  pro_expires_at?: string | null;
 }
-
-interface AuthContextType {
+interface Auth {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  register: (email: string, password: string, full_name: string) => Promise<void>;
+  register: (
+    email: string,
+    password: string,
+    fullName: string,
+  ) => Promise<void>;
   refreshSession: () => Promise<void>;
 }
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
-
+const Context = createContext<Auth | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        // Validation: Check if we have a saved user info in localStorage
-        const savedUser = localStorage.getItem('user_info');
-        if (savedUser) {
-          const userData = JSON.parse(savedUser);
-          
-          // Set user immediately from localStorage to prevent "Auth Flicker"
-          setUser(userData);
-          
-          // Verify session with backend in the background
-          const response = await fetch(`${API_URL}/api/v1/auth/me`, {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include', // Important: send credentials (cookies)
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            const freshUser: User = { 
-              id: data.id, 
-              email: data.email, 
-              role: data.role,
-              full_name: data.profile?.full_name,
-              is_pro: data.is_pro
-            };
-            setUser(freshUser);
-            localStorage.setItem('user_info', JSON.stringify(freshUser));
-          } else {
-            // Token expired or invalid
-            localStorage.removeItem('user_info');
-            setUser(null);
-            router.replace('/login');
-          }
-        }
-      } catch (error) {
-        console.error("Auth check failed", error);
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, []);
-
-  const login = async (email: string, password: string) => {
-    const formData = new FormData();
-    formData.append('username', email);
-    formData.append('password', password);
-
-    const response = await fetch(`${API_URL}/api/v1/auth/login`, {
-      method: 'POST',
-      body: formData,
-      credentials: 'include',
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      const userData: User = { 
-        id: data.user_id, 
-        email: data.email, 
-        role: data.role,
-        is_pro: data.is_pro
-      };
-      setUser(userData);
-      localStorage.setItem('user_info', JSON.stringify(userData));
-      
-      if (data.role === 'admin') {
-        router.replace('/admin');
-      } else {
-        router.replace('/dashboard');
-      }
-    } else {
-      const error = await response.json();
-      throw new Error(error.detail || 'Login failed');
-    }
-  };
-
-  const logout = async () => {
+  const refreshSession = useCallback(async () => {
     try {
-      await fetch(`${API_URL}/api/v1/auth/logout`, { method: 'POST', credentials: 'include' });
+      const d = await api<User & { profile?: { full_name?: string } }>(
+        "/auth/me",
+      );
+      setUser({ ...d, full_name: d.profile?.full_name });
     } catch (e) {
-      console.error("Logout request failed", e);
+      if (e instanceof ApiError && [401, 403].includes(e.status)) setUser(null);
+      throw e;
     }
-    setUser(null);
-    localStorage.removeItem('user_info');
-    router.push('/login');
+  }, []);
+  useEffect(() => {
+    Promise.resolve()
+      .then(refreshSession)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+    const handler = (e: StorageEvent) => {
+      if (e.key === "tocpns-auth-event") refreshSession().catch(() => {});
+    };
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+  }, [refreshSession]);
+  const login = async (email: string, password: string) => {
+    const data = new FormData();
+    data.append("username", email);
+    data.append("password", password);
+    const body = await api<{ role: string }>("/auth/login", {
+      method: "POST",
+      body: data,
+    });
+    await refreshSession();
+    localStorage.setItem("tocpns-auth-event", String(Date.now()));
+    router.replace(
+      body.role === "admin"
+        ? "/admin"
+        : safeReturn(new URLSearchParams(window.location.search).get("next")),
+    );
   };
-
-  const register = async (email: string, password: string, full_name: string) => {
-    const response = await fetch(`${API_URL}/api/v1/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+  const logout = async () => {
+    const { useExamStore } = await import("@/store/useExamStore");
+    const state = useExamStore.getState();
+    const tabKeys = Object.keys(localStorage).filter((k) =>
+      k.startsWith("tocpns-exam-v2:"),
+    );
+    const otherPending = tabKeys.some((k) => {
+      try {
+        const saved = JSON.parse(localStorage.getItem(k) || "{}").state;
+        return (
+          saved?.ownerId === user?.id &&
+          Object.keys(saved.pending || {}).length > 0
+        );
+      } catch {
+        return false;
+      }
+    });
+    if (
+      (Object.keys(state.pending || {}).length || otherPending) &&
+      !window.confirm(
+        "Ada jawaban yang belum terkirim. Tetap keluar dan hapus antrean lokal?",
+      )
+    )
+      return;
+    await api("/auth/logout", { method: "POST" });
+    useExamStore.getState().resetExam();
+    tabKeys.forEach((k) => {
+      try {
+        if (
+          JSON.parse(localStorage.getItem(k) || "{}").state?.ownerId ===
+          user?.id
+        )
+          localStorage.removeItem(k);
+      } catch {}
+    });
+    localStorage.removeItem("user_info");
+    setUser(null);
+    localStorage.setItem("tocpns-auth-event", String(Date.now()));
+    router.push("/login");
+  };
+  const register = async (
+    email: string,
+    password: string,
+    full_name: string,
+  ) => {
+    await api("/auth/register", {
+      method: "POST",
       body: JSON.stringify({ email, password, full_name }),
     });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'Registration failed');
-    }
   };
-
-  const refreshSession = async () => {
-    try {
-      const response = await fetch(`${API_URL}/api/v1/auth/me`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-      });
-      if (response.ok) {
-        const data = await response.json();
-        const freshUser: User = { 
-          id: data.id, 
-          email: data.email, 
-          role: data.role,
-          full_name: data.profile?.full_name,
-          is_pro: data.is_pro
-        };
-        setUser(freshUser);
-        localStorage.setItem('user_info', JSON.stringify(freshUser));
-      }
-    } catch (error) {
-      console.error("Refresh session failed", error);
-    }
-  };
-
   return (
-    <AuthContext.Provider value={{ user, login, logout, register, loading, refreshSession }}>
+    <Context.Provider
+      value={{ user, loading, login, logout, register, refreshSession }}
+    >
       {children}
-    </AuthContext.Provider>
+    </Context.Provider>
   );
 }
-
 export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  const context = useContext(Context);
+  if (!context) throw new Error("AuthProvider diperlukan.");
   return context;
 }

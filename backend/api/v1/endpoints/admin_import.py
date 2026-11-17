@@ -9,6 +9,7 @@ from backend.db.session import get_async_session
 from backend.models.models import Question, QuestionOption, Package, User, Answer, ExamSession, ChatSession, ChatMessage
 from backend.api.v1.endpoints.auth import get_current_admin
 from backend.core.redis_service import redis_service
+from backend.services.exams import lock_editable_package
 
 router = APIRouter(prefix="/admin/import", tags=["admin-import"])
 
@@ -23,10 +24,7 @@ async def import_questions(
     admin: User = Depends(get_current_admin)
 ):
     # 1. Check if package exists
-    result = await db.execute(select(Package).where(Package.id == package_id))
-    package = result.scalar_one_or_none()
-    if not package:
-        raise HTTPException(status_code=404, detail="Package not found")
+    package = await lock_editable_package(db, package_id)
 
     content = await file.read()
     if len(content) > MAX_FILE_SIZE:
@@ -100,44 +98,6 @@ async def import_questions(
             detail={"message": "Validasi Header gagal.", "errors": errors}
         )
 
-    # 3. Handling Replace / Overwrite
-    if replace:
-        from sqlalchemy import delete
-        try:
-            # Order matters based on GEMINI.md requirements
-            # 1. ChatMessage (via ChatSession lookup)
-            chat_session_ids_result = await db.execute(
-                select(ChatSession.id).where(
-                    (ChatSession.question_id.in_(select(Question.id).where(Question.package_id == package_id))) |
-                    (ChatSession.exam_session_id.in_(select(ExamSession.id).where(ExamSession.package_id == package_id)))
-                )
-            )
-            chat_session_ids = [r[0] for r in chat_session_ids_result.all()]
-            
-            if chat_session_ids:
-                await db.execute(delete(ChatMessage).where(ChatMessage.session_id.in_(chat_session_ids)))
-                await db.execute(delete(ChatSession).where(ChatSession.id.in_(chat_session_ids)))
-
-            # 2. Answer (via Question or Session lookup)
-            await db.execute(
-                delete(Answer).where(
-                    (Answer.question_id.in_(select(Question.id).where(Question.package_id == package_id))) |
-                    (Answer.session_id.in_(select(ExamSession.id).where(ExamSession.package_id == package_id)))
-                )
-            )
-            
-            # 3. QuestionOption & Question
-            # Cascading usually handled by models, but being explicit for re-import
-            await db.execute(delete(QuestionOption).where(QuestionOption.question_id.in_(select(Question.id).where(Question.package_id == package_id))))
-            await db.execute(delete(ExamSession).where(ExamSession.package_id == package_id))
-            await db.execute(delete(Question).where(Question.package_id == package_id))
-            
-            # Flush but don't commit yet (insertion follows)
-            await db.flush()
-        except Exception as e:
-            await db.rollback()
-            raise HTTPException(status_code=500, detail=f"Gagal membersihkan data lama: {str(e)}")
-
     # 4. PRE-FLIGHT VALIDATION (Dry Run)
     existing_nums = set()
     if not replace:
@@ -169,6 +129,15 @@ async def import_questions(
             status_code=400,
             detail={"message": "Validasi baris gagal.", "errors": errors}
         )
+
+    # Replacement changes draft content only. Never delete attempts, answers or chats.
+    # The parent lock prevents publication/start while this transaction is incomplete.
+    if replace:
+        from sqlalchemy import delete
+        await db.execute(delete(QuestionOption).where(QuestionOption.question_id.in_(
+            select(Question.id).where(Question.package_id == package_id))))
+        await db.execute(delete(Question).where(Question.package_id == package_id))
+        await db.flush()
 
     # 4. ATOMIC INSERTION
     try:

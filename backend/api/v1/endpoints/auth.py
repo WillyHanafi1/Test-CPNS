@@ -87,6 +87,7 @@ async def get_current_user(
         raise HTTPException(status_code=401, detail="User not found or deleted")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account is inactive")
+    request.state.authenticated_user_id = str(user.id)
     return user
 
 async def get_optional_user(

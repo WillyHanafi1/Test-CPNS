@@ -10,6 +10,9 @@ trap cleanup EXIT
 compose config --quiet
 compose up -d --no-build --wait --wait-timeout 180
 compose exec -T backend python /checks/smoke.py
+if [ "${RUN_LOAD_CHECK:-0}" = 1 ]; then
+    compose exec -T backend python /checks/load.py
+fi
 if compose exec -T backend python -m backend.ops.check_schema; then
     printf 'FAIL: missing schema revision was accepted.\n' >&2
     exit 1

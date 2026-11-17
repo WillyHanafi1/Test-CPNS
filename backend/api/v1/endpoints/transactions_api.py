@@ -6,12 +6,15 @@ from sqlalchemy import select, func, desc, distinct
 import uuid
 from typing import List, Optional, Dict
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation
 
 from backend.db.session import get_async_session
 from backend.models.models import User, UserTransaction, Package, UserProfile
 from backend.api.v1.endpoints.auth import get_current_user
 from backend.core.doku_service import doku_service
 from backend.config import settings
+from backend.services.exams import utc
+import asyncio
 from backend.schemas.transaction import DonationRequest, DonationResponse, SupporterResponse, TopSupporter, DonationStats
 from backend.core.rate_limiter import limiter
 from sqlalchemy.orm import selectinload
@@ -33,27 +36,44 @@ async def create_pro_upgrade_transaction(
     Create a transaction for upgrading to a PRO account.
     Returns the DOKU redirect_url.
     """
+    if not settings.DOKU_CLIENT_ID or not settings.DOKU_SECRET_KEY:
+        raise HTTPException(503, "Pembayaran belum tersedia. Silakan coba kembali nanti.")
+    from urllib.parse import urlsplit
+    if callback_url:
+        target, allowed = urlsplit(callback_url), urlsplit(settings.FRONTEND_URL)
+        if target.scheme != allowed.scheme or target.netloc != allowed.netloc:
+            raise HTTPException(400, "Alamat kembali tidak diizinkan.")
+    await db.scalar(select(User).where(User.id == current_user.id).with_for_update())
     order_id = f"PRO-{current_user.id.hex[:8]}-{uuid.uuid4().hex[:6]}"
     
+    from urllib.parse import urlencode, urlsplit, urlunsplit, parse_qsl
+    callback_parts = urlsplit(callback_url or f"{settings.FRONTEND_URL}/payment/success")
+    query = dict(parse_qsl(callback_parts.query)); query["order_id"] = order_id
+    callback_url = urlunsplit(callback_parts._replace(query=urlencode(query)))
     # Prevention of pending transaction spam
     existing_pending = await db.scalar(
         select(func.count(UserTransaction.id)).where(
             UserTransaction.user_id == current_user.id,
             UserTransaction.payment_status == "pending",
-            UserTransaction.transaction_type == "pro_upgrade"
+            UserTransaction.transaction_type == "pro_upgrade",
+            UserTransaction.created_at > datetime.now(timezone.utc) - timedelta(minutes=60),
         )
     )
     if existing_pending > 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, 
-            detail="Sudah ada transaksi pending untuk upgrade PRO. Silakan selesaikan atau batalkan transaksi sebelumnya."
-        )
+        pending = await db.scalar(select(UserTransaction).where(
+            UserTransaction.user_id == current_user.id, UserTransaction.payment_status == "pending",
+            UserTransaction.transaction_type == "pro_upgrade",
+            UserTransaction.created_at > datetime.now(timezone.utc) - timedelta(minutes=60)
+            ).order_by(UserTransaction.created_at.desc()).limit(1))
+        if pending.payment_url:
+            return {"redirect_url": pending.payment_url, "order_id": pending.order_id}
 
     new_transaction = UserTransaction(
         user_id=current_user.id,
         transaction_type="pro_upgrade",
         order_id=order_id,
         amount=settings.PRO_PRICE,
+        duration_days=365,
         payment_status="pending",
     )
     db.add(new_transaction)
@@ -72,7 +92,7 @@ async def create_pro_upgrade_transaction(
     }
     
     try:
-        snap_response = doku_service.create_transaction(
+        snap_response = await asyncio.to_thread(doku_service.create_transaction,
             order_id=order_id,
             amount=settings.PRO_PRICE,
             item_details=item_details,
@@ -108,7 +128,10 @@ async def get_user_transactions(
         .order_by(UserTransaction.created_at.desc())
     )
     transactions = result.scalars().all()
-    return transactions
+    return [{"id": t.id, "order_id": t.order_id, "amount": t.amount,
+             "payment_status": t.payment_status, "transaction_type": t.transaction_type,
+             "created_at": t.created_at, "duration_days": t.duration_days,
+             "payment_url": t.payment_url if t.payment_status == "pending" else None} for t in transactions]
 
 @router.post("/donate", response_model=DonationResponse)
 @limiter.limit("5/minute")
@@ -155,7 +178,7 @@ async def create_donation_transaction(
     }
     
     try:
-        snap_response = doku_service.create_transaction(
+        snap_response = await asyncio.to_thread(doku_service.create_transaction,
             order_id=order_id,
             amount=payload.amount,
             item_details=item_details,
@@ -336,9 +359,17 @@ async def doku_webhook(
             
         logger.info(f"DOKU Webhook received for Order: {order_id}, DOKU Status: {transaction_status}, Internal Status: {target_status}")
         
-        await fulfill_transaction(db, order_id, target_status)
+        try:
+            amount = Decimal(str(status_response.get("amount")))
+            if not amount.is_finite() or amount <= 0:
+                raise InvalidOperation
+        except (InvalidOperation, ValueError):
+            raise HTTPException(400, "Nominal notifikasi tidak valid.")
+        await fulfill_transaction(db, order_id, target_status, expected_amount=amount)
         return {"status": "ok"}
         
+    except HTTPException:
+        raise
     except ValueError as ve:
         logger.error(f"DOKU Webhook signature mismatch or missing headers: {str(ve)}")
         raise HTTPException(status_code=401, detail=str(ve))
@@ -346,7 +377,12 @@ async def doku_webhook(
         logger.error(f"Webhook processing error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal processing error")
 
-async def fulfill_transaction(db: AsyncSession, order_id: str, payment_status: str):
+async def fulfill_transaction(db: AsyncSession, order_id: str, payment_status: str, expected_amount=None):
+    # Match checkout's lock order: user first, transaction second.
+    owner = await db.scalar(select(UserTransaction.user_id).where(UserTransaction.order_id == order_id))
+    if owner is None:
+        raise HTTPException(404, "Transaksi tidak ditemukan.")
+    user = await db.scalar(select(User).where(User.id == owner).with_for_update())
     # [SECURITY] Row-level lock to prevent race conditions from duplicate DOKU webhooks
     result = await db.execute(
         select(UserTransaction)
@@ -357,24 +393,40 @@ async def fulfill_transaction(db: AsyncSession, order_id: str, payment_status: s
     
     if not transaction:
         return
+    if expected_amount is not None and Decimal(transaction.amount) != expected_amount:
+        raise HTTPException(400, "Nominal notifikasi tidak sesuai pesanan.")
         
-    if transaction.payment_status in ("success", "failed"):
+    if transaction.payment_status == "success":
         logger.info(f"Transaction {order_id} already has final status: {transaction.payment_status}. Skipping fulfillment.")
         return
         
     transaction.payment_status = payment_status
     logger.info(f"Transaction {order_id} updated to status: {payment_status}")
     
-    user_result = await db.execute(select(User).where(User.id == transaction.user_id).with_for_update())
-    user = user_result.scalar_one_or_none()
-    
     if user and payment_status == "success":
-        if transaction.transaction_type == "pro_upgrade":
+        if transaction.transaction_type == "pro_upgrade" and not transaction.granted_at:
+            lifetime = user.is_pro and user.pro_expires_at is None
             user.is_pro = True
+            transaction.granted_at = datetime.now(timezone.utc)
+            if lifetime:
+                await db.commit()
+                return
             now = datetime.now(timezone.utc)
-            if user.pro_expires_at and user.pro_expires_at > now:
-                user.pro_expires_at = user.pro_expires_at + timedelta(days=365)
+            if user.pro_expires_at and utc(user.pro_expires_at) > now:
+                user.pro_expires_at = utc(user.pro_expires_at) + timedelta(days=transaction.duration_days or 365)
             else:
-                user.pro_expires_at = now + timedelta(days=365)
+                user.pro_expires_at = now + timedelta(days=transaction.duration_days or 365)
                 
     await db.commit()
+
+
+@router.get("/status/{order_id}")
+async def transaction_status(order_id: str, db: AsyncSession = Depends(get_async_session),
+                             user: User = Depends(get_current_user)):
+    transaction = await db.scalar(select(UserTransaction).where(
+        UserTransaction.order_id == order_id, UserTransaction.user_id == user.id))
+    if not transaction:
+        raise HTTPException(404, "Transaksi tidak ditemukan.")
+    return {"order_id": transaction.order_id, "status": transaction.payment_status,
+            "is_pro": user.is_pro_active, "expires_at": user.pro_expires_at,
+            "amount": transaction.amount}
