@@ -1,91 +1,74 @@
-name: Deploy CPNS Proyek
+name: Deploy
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  actions: read
+
+# Never interrupt SSH while it is replacing containers. Keep only the latest pending run.
+concurrency:
+  group: ujian-production
+  cancel-in-progress: false
+
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: tocpns
-          POSTGRES_PASSWORD: development-only
-          POSTGRES_DB: tocpns_test
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd "pg_isready -U tocpns -d tocpns_test"
-          --health-interval 5s --health-retries 10
-      redis:
-        image: redis:7-alpine
-        ports: ['6379:6379']
-    env:
-      TEST_DATABASE_URL: postgresql+asyncpg://tocpns:development-only@127.0.0.1:5432/tocpns_test
-      DATABASE_URL: postgresql+asyncpg://tocpns:development-only@127.0.0.1:5432/tocpns_test
-      REDIS_URL: redis://127.0.0.1:6379/0
-      SECRET_KEY: integration-test-only-key-never-for-production
-      GOOGLE_API_KEY: ''
-      ADMIN_AI_ENABLED: 'false'
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.12'
-
-      - name: Install backend dependencies
-        run: pip install -r backend/requirements.txt
-      - name: Test backend with PostgreSQL
-        run: |
-          python -m compileall -q backend
-          python -m pytest backend/tests -q
-      - name: Rehearse additive migration
-        env:
-          LOCAL_PG_PORT: '5432'
-        run: python scripts/ops/verify_migration.py
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - name: Verify frontend
-        working-directory: frontend
-        env:
-          NEXT_PUBLIC_API_URL: http://localhost:8017
-        run: |
-          npm ci
-          npm run lint:participant
-          npm run test:unit
-          npm run typecheck
-          npm run build
-
   deploy:
-    needs: test
-    # Enable after the new server secrets and production environment are ready.
-    if: ${{ github.event_name == 'workflow_dispatch' && vars.DEPLOY_ENABLED == 'true' }}
-    runs-on: ubuntu-latest
+    if: >-
+      vars.DEPLOY_ENABLED != 'false' &&
+      ((github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_repository.full_name == github.repository) ||
+       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
+    runs-on: ${{ vars.DEPLOY_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 35
     steps:
-      - name: Deploy Ujian via SSH
-        uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
+      - name: Select the latest commit that passed CI
+        id: revision
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT || '9130' }}
-          command_timeout: 20m
           script: |
-            set -eu
-            cd /home/rusunawa/@docker/Ujian
-            
-            git pull --ff-only origin main
-            
-            # The runner must have a route to the private SSH host.
-            # Start refuses schema drift and never silently migrates a shared DB.
-            sudo -n bash scripts/ops/deploy-ujian.sh build
-            sudo -n bash scripts/ops/deploy-ujian.sh start
+            const expected = context.payload.workflow_run?.head_sha || context.sha;
+            const { data: branch } = await github.rest.repos.getBranch({
+              ...context.repo, branch: 'main',
+            });
+            if (branch.commit.sha !== expected) {
+              core.notice('Skipping an obsolete release; a newer commit is on main.');
+              await core.summary.addRaw('Deploy skipped: a newer commit is on main.').write();
+              return;
+            }
+            if (context.eventName === 'workflow_dispatch') {
+              const { data } = await github.rest.actions.listWorkflowRuns({
+                ...context.repo, workflow_id: 'qa.yml', head_sha: expected,
+                branch: 'main', status: 'success', per_page: 100,
+              });
+              if (!data.workflow_runs.some(run =>
+                ['push', 'workflow_dispatch'].includes(run.event) &&
+                run.head_repository?.full_name === context.payload.repository.full_name
+              )) {
+                core.setFailed('Run CI successfully on the current main commit before deploying.');
+                return;
+              }
+            }
+            core.setOutput('sha', expected);
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        if: steps.revision.outputs.sha != ''
+        with:
+          ref: ${{ steps.revision.outputs.sha }}
+          persist-credentials: false
+      - name: Deploy the tested revision via SSH
+        if: steps.revision.outputs.sha != ''
+        env:
+          HOST: ${{ secrets.HOST }}
+          USERNAME: ${{ secrets.USERNAME }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          SSH_PORT: ${{ secrets.SSH_PORT || '9130' }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/home/rusunawa/@docker/Ujian' }}
+          RELEASE_SHA: ${{ steps.revision.outputs.sha }}
+        run: bash scripts/ops/ci-ssh-deploy.sh

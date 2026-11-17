@@ -1,0 +1,7 @@
+# This builder belongs only to Ujian. Serialize work on the shared 4 GB host.
+[worker.oci]
+  max-parallelism = 1
+  gc = true
+  reservedSpace = "0MB"
+  maxUsedSpace = "512MB"
+  minFreeSpace = "1GB"

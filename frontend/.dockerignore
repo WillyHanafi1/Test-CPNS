@@ -2,6 +2,10 @@ node_modules/
 .next/
 out/
 build/
+coverage/
+playwright-report/
+test-results/
+e2e/
 .git/
 .gitignore
 .dockerignore

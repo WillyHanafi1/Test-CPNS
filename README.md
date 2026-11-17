@@ -50,6 +50,8 @@ Script menolak menimpa database rehearsal yang sudah terisi. SQLite dapat dipaka
 
 ## Aturan data dan rilis
 
+CI/CD otomatis pada push `main`, pengaturan SSH, dan kebijakan cache/image: [docs/ci-cd.md](docs/ci-cd.md). Lint memberi saran; test dan build menjaga rilis. Deploy menunggu CI sukses dan schema production yang sesuai.
+
 - Publikasi membuat snapshot privat paket. Sesi baru terikat pada snapshot; kunci dan pembahasan tidak dikirim sebelum ujian selesai.
 - Ubah soal melalui draft, validasi, lalu terbitkan revisi. Paket dengan histori legacy disalin untuk penyuntingan; histori lama tidak dipalsukan menjadi snapshot atau dihapus saat impor.
 - Client mesin ujian baru mengirim `X-Exam-Protocol: 2` pada start/resume. Bundle lama ditolak dengan `update_required` untuk sesi mesin baru; adapter sesi legacy tetap tersedia.
