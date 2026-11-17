@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, field_validator
 from sqlalchemy.orm import selectinload
 from sqlalchemy import delete
 from backend.core.utils import sanitize_search
+from backend.services.exams import lock_editable_package
 
 router = APIRouter(prefix="/admin/questions", tags=["admin-questions"])
 
@@ -132,7 +133,10 @@ async def bulk_delete_questions(
     db: AsyncSession = Depends(get_async_session),
     admin: User = Depends(get_current_admin)
 ):
-    # SECURITY: Cek apakah ada sesi ujian aktif yang menggunakan soal-soal ini
+    package_ids = (await db.scalars(select(Question.package_id).where(Question.id.in_(question_ids)).distinct())).all()
+    for package_id in sorted(package_ids, key=str):
+        await lock_editable_package(db, package_id)
+    # Legacy attempts are protected by lock_editable_package; modern attempts use snapshots.
     from backend.models.models import ExamSession
     active_sessions = await db.scalar(
         select(func.count(ExamSession.id))
@@ -160,10 +164,7 @@ async def create_question(
     admin: User = Depends(get_current_admin)
 ):
     # Check if package exists
-    result = await db.execute(select(Package).where(Package.id == question_in.package_id))
-    package = result.scalar_one_or_none()
-    if not package:
-        raise HTTPException(status_code=404, detail="Package not found")
+    await lock_editable_package(db, question_in.package_id)
         
     # Check duplicate number in the same package
     existing = await db.scalar(
@@ -210,7 +211,11 @@ async def update_question(
     db: AsyncSession = Depends(get_async_session),
     admin: User = Depends(get_current_admin)
 ):
-    # Retrieve the question
+    package_id = await db.scalar(select(Question.package_id).where(Question.id == question_id))
+    if package_id is None:
+        raise HTTPException(404, "Soal tidak ditemukan.")
+    await lock_editable_package(db, package_id)
+    # Retrieve the question after acquiring the parent lock.
     result = await db.execute(
         select(Question)
         .options(selectinload(Question.options))
@@ -281,6 +286,10 @@ async def delete_question(
     db: AsyncSession = Depends(get_async_session),
     admin: User = Depends(get_current_admin)
 ):
+    package_id = await db.scalar(select(Question.package_id).where(Question.id == question_id))
+    if package_id is None:
+        raise HTTPException(404, "Soal tidak ditemukan.")
+    await lock_editable_package(db, package_id)
     result = await db.execute(select(Question).where(Question.id == question_id))
     question = result.scalar_one_or_none()
     if not question:

@@ -2,17 +2,23 @@
 **/__pycache__/
 *.pyc
 backend/venv/
+**/.venv/
+**/venv/
 
 # Local env files
 .env
 .env.local
 backend/.env
+.server-notes/
+.secrets/
+.production.env
 
 # Node.js
 frontend/node_modules/
 frontend/.next/
-frontend/out/# DOKU Library & External Docs
-lib/
+frontend/out/
+# DOKU Library & External Docs (root only; frontend/src/lib is source code)
+/lib/
 docs/doku_docs/
 
 # IDEs

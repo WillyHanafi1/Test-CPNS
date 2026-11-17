@@ -1,0 +1,27 @@
+ARG PYTHON_IMAGE=python:3.12-slim-bookworm
+FROM ${PYTHON_IMAGE} AS builder
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_NO_CACHE_DIR=1
+WORKDIR /build
+RUN apt-get update && apt-get install -y --no-install-recommends gcc libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+COPY requirements.txt build_requirements.py ./
+RUN python build_requirements.py > requirements.production.txt \
+    && pip wheel --wheel-dir /wheels -r requirements.production.txt
+
+FROM ${PYTHON_IMAGE} AS runtime
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=/app \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends libpq5 \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10001 ujian && useradd --uid 10001 --gid ujian --no-create-home ujian
+COPY --from=builder /wheels /wheels
+COPY --from=builder /build/requirements.production.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir --upgrade pip==26.2 \
+    && pip install --no-cache-dir --no-index --find-links=/wheels -r /tmp/requirements.txt \
+    && pip check && rm -rf /wheels /tmp/requirements.txt
+COPY --chown=10001:10001 . /app/backend/
+USER 10001:10001
+EXPOSE 8001
+# Migrations are an explicit release step, never an application startup side effect.
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "1", "--loop", "uvloop", "--http", "httptools", "--proxy-headers", "--forwarded-allow-ips", "172.30.42.2", "--no-access-log", "--timeout-graceful-shutdown", "30"]

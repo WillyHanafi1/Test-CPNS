@@ -57,6 +57,11 @@ class PackageCreate(PackageBase):
 class Package(PackageBase):
     id: uuid.UUID
     user_status: Optional[str] = None  # ongoing, finished, or None
+    session_id: Optional[uuid.UUID] = None
+    question_count: int = 0
+    duration_minutes: int = 100
+    is_ready: bool = False
+    access_reason: str = "included"
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -99,5 +104,10 @@ class PackagePublic(BaseModel):
     end_at: Optional[datetime] = None
 
     user_status: Optional[str] = None  # ongoing, finished, or None
+    session_id: Optional[uuid.UUID] = None
+    question_count: int = 0
+    duration_minutes: int = 100
+    is_ready: bool = False
+    access_reason: str = "included"
  
     model_config = ConfigDict(from_attributes=True)

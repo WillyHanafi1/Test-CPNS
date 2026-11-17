@@ -19,7 +19,7 @@ class TestStartExam:
         assert "session_id" in data
         assert "package" in data
         questions = data["package"]["questions"]
-        assert len(questions) == 3
+        assert len(questions) == 110
         # Verify no score is exposed in public questions
         for q in questions:
             for opt in q["options"]:

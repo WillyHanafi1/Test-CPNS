@@ -6,12 +6,33 @@ from typing import List, Dict
 from pydantic import BaseModel
 
 from backend.db.session import get_async_session
-from backend.models.models import User, UserTransaction, ExamSession, Package, Question
+from backend.models.models import User, UserTransaction, ExamSession, Package, Question, ExamJob, ExamResponse
 from backend.api.v1.endpoints.auth import get_current_admin
 from backend.core.constants import PASSING_GRADE
 from backend.core.redis_service import redis_service
 
 router = APIRouter(prefix="/admin/analytics", tags=["admin-analytics"])
+
+
+@router.get("/infrastructure")
+async def infrastructure_status(db: AsyncSession = Depends(get_async_session),
+                                admin: User = Depends(get_current_admin)):
+    """Aggregate operational signals, without participant IDs or payment credentials."""
+    from backend.services.exams import utc
+    now = datetime.now(timezone.utc)
+    jobs = (await db.execute(select(func.count(ExamJob.id), func.min(ExamJob.created_at))
+        .where(ExamJob.status == "pending"))).one()
+    overdue = await db.scalar(select(func.count(ExamSession.id)).where(
+        ExamSession.status == "ongoing", ExamSession.end_time < now))
+    legacy = await db.scalar(select(func.count(ExamSession.id)).where(
+        ExamSession.status.in_(["ongoing", "processing"]), ExamSession.revision_id.is_(None),
+        ExamSession.is_preview.is_(False)))
+    latest_save = await db.scalar(select(func.max(ExamResponse.saved_at)))
+    return {"observed_at": now, "pending_scoring_jobs": jobs[0],
+            "oldest_pending_seconds": max(0, int((now - utc(jobs[1])).total_seconds())) if jobs[1] else 0,
+            "overdue_ongoing_sessions": overdue or 0, "legacy_unfinished_sessions": legacy or 0,
+            "last_acknowledged_answer_at": latest_save,
+            "notice": "Sinyal database; tidak membuktikan worker, backup, atau layanan pembayaran sehat."}
 
 class OverviewStats(BaseModel):
     total_users: int

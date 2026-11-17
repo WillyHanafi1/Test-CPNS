@@ -45,10 +45,14 @@ from backend.core.security import get_password_hash
 # 1. SQLite In-Memory Engine & Session Override
 # ====================================================================
 
-TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+if not TEST_DATABASE_URL.startswith("sqlite") and not TEST_DATABASE_URL.endswith("/tocpns_test"):
+    raise RuntimeError("Integration tests require the dedicated tocpns_test database")
 
 # SQLite does NOT support statement_cache_size, so we create a clean engine
-test_engine = create_async_engine(TEST_DATABASE_URL, echo=False)
+from sqlalchemy.pool import NullPool
+test_engine = create_async_engine(TEST_DATABASE_URL, echo=False,
+    **({"poolclass": NullPool} if not TEST_DATABASE_URL.startswith("sqlite") else {}))
 TestSessionLocal = async_sessionmaker(test_engine, expire_on_commit=False)
 
 
@@ -228,7 +232,7 @@ async def client() -> AsyncGenerator[AsyncClient, None]:
     exam_endpoint.calculate_exam_score = mock_task
 
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as ac:
+    async with AsyncClient(transport=transport, base_url="http://testserver", headers={"X-Exam-Protocol":"2"}) as ac:
         yield ac
 
     # Restore
@@ -303,7 +307,7 @@ async def test_package_with_questions(db_session: AsyncSession) -> Package:
 
     # Question 1: TWK (correct = option A, score 5)
     q1 = Question(
-        id=uuid.uuid4(), package_id=pkg.id, content="TWK Question 1",
+        id=uuid.uuid4(), package_id=pkg.id, content="TWK Question 1", discussion="Pembahasan contoh.",
         segment="TWK", number=1,
     )
     db_session.add(q1)
@@ -316,7 +320,7 @@ async def test_package_with_questions(db_session: AsyncSession) -> Package:
 
     # Question 2: TIU (correct = option B, score 5)
     q2 = Question(
-        id=uuid.uuid4(), package_id=pkg.id, content="TIU Question 1",
+        id=uuid.uuid4(), package_id=pkg.id, content="TIU Question 1", discussion="Pembahasan contoh.",
         segment="TIU", number=2,
     )
     db_session.add(q2)
@@ -329,7 +333,7 @@ async def test_package_with_questions(db_session: AsyncSession) -> Package:
 
     # Question 3: TKP (scores: A=1, B=2, C=3, D=4, E=5)
     q3 = Question(
-        id=uuid.uuid4(), package_id=pkg.id, content="TKP Question 1",
+        id=uuid.uuid4(), package_id=pkg.id, content="TKP Question 1", discussion="Pembahasan contoh.",
         segment="TKP", number=3,
     )
     db_session.add(q3)
@@ -340,6 +344,15 @@ async def test_package_with_questions(db_session: AsyncSession) -> Package:
             label=label, content=f"Option {label}", score=score,
         ))
 
+    remaining = ["TWK"] * 29 + ["TIU"] * 34 + ["TKP"] * 44
+    for number, segment in enumerate(remaining, 4):
+        q = Question(id=uuid.uuid4(), package_id=pkg.id, content=f"Soal {number}",
+                     discussion="Pembahasan contoh.", sub_category="Contoh", segment=segment, number=number)
+        db_session.add(q)
+        await db_session.flush()
+        for i, label in enumerate("ABCDE"):
+            db_session.add(QuestionOption(id=uuid.uuid4(), question_id=q.id, label=label,
+                content=f"Opsi {label}", score=(i + 1 if segment == "TKP" else (5 if i == 0 else 0))))
     await db_session.commit()
     return pkg
 

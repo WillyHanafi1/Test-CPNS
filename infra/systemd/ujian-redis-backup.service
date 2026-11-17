@@ -1,0 +1,12 @@
+[Unit]
+Description=Private Redis snapshot for Ujian
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/rusunawa/@docker/Ujian
+ExecStart=/usr/bin/bash scripts/ops/backup-redis.sh
+UMask=0077
+Nice=10
+IOSchedulingClass=idle

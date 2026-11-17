@@ -27,7 +27,10 @@ class User(Base):
     @property
     def is_pro_active(self) -> bool:
         now = datetime.now(timezone.utc)
-        return self.is_pro and (not self.pro_expires_at or self.pro_expires_at > now)
+        expiry = self.pro_expires_at
+        if expiry and expiry.tzinfo is None:
+            expiry = expiry.replace(tzinfo=timezone.utc)
+        return self.is_pro and (not expiry or expiry > now)
 
     profile: Mapped["UserProfile"] = relationship(back_populates="user", uselist=False, cascade="all, delete-orphan")
     sessions: Mapped[list["ExamSession"]] = relationship(back_populates="user", cascade="all, delete-orphan")
@@ -63,6 +66,8 @@ class Package(Base):
     is_published: Mapped[bool] = mapped_column(Boolean, default=False)
     is_weekly: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    published_revision_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("package_revisions.id", use_alter=True, name="fk_package_published_revision"), nullable=True)
     start_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     end_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
@@ -129,6 +134,10 @@ class ExamSession(Base):
     status: Mapped[str] = mapped_column(String(20), default="ongoing", index=True)
     is_preview: Mapped[bool] = mapped_column(Boolean, default=False)
     is_passed: Mapped[bool] = mapped_column(Boolean, default=False)
+    revision_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("package_revisions.id"), nullable=True)
+    writer_epoch: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    writer_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    submitted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # AI Analysis Fields
     ai_analysis: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
@@ -144,6 +153,9 @@ class ExamSession(Base):
     __table_args__ = (
         Index("ix_exam_session_user_status", "user_id", "status"),
         Index("ix_exam_session_user_package", "user_id", "package_id"),
+        Index("uq_modern_active_session", "user_id", unique=True,
+              postgresql_where=(revision_id.is_not(None) & (status == "ongoing")),
+              sqlite_where=(revision_id.is_not(None) & (status == "ongoing"))),
     )
 
     user: Mapped["User"] = relationship(back_populates="sessions")
@@ -152,6 +164,40 @@ class ExamSession(Base):
 
     def __repr__(self) -> str:
         return f"<ExamSession id={self.id} status={self.status} score={self.total_score}>"
+
+
+class PackageRevision(Base):
+    """Immutable, server-private snapshot shared by attempts on the same content."""
+    __tablename__ = "package_revisions"
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    package_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("packages.id"), index=True)
+    digest: Mapped[str] = mapped_column(String(64))
+    payload: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    __table_args__ = (UniqueConstraint("package_id", "digest", name="uq_package_revision_digest"),)
+
+
+class ExamResponse(Base):
+    __tablename__ = "exam_responses"
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("exam_sessions.id"), index=True)
+    # IDs refer to the immutable revision payload, never mutable draft rows.
+    question_id: Mapped[uuid.UUID] = mapped_column()
+    option_id: Mapped[uuid.UUID] = mapped_column()
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    mutation_id: Mapped[str] = mapped_column(String(100))
+    saved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    __table_args__ = (UniqueConstraint("session_id", "question_id", name="uq_response_session_question"),)
+
+
+class ExamJob(Base):
+    """Durable scoring intent; replay is safe under the session row lock."""
+    __tablename__ = "exam_jobs"
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("exam_sessions.id"), unique=True)
+    status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class Answer(Base):
@@ -184,6 +230,8 @@ class UserTransaction(Base):
     order_id: Mapped[Optional[str]] = mapped_column(String(100), unique=True, index=True, nullable=True)
     payment_status: Mapped[str] = mapped_column(String(20), default="pending", index=True)  # pending, success, failed
     amount: Mapped[int] = mapped_column(Integer)
+    duration_days: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    granted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     payment_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # For DOKU Checkout Link
     message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # For donation message
     is_anonymous: Mapped[bool] = mapped_column(Boolean, default=False)

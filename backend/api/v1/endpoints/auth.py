@@ -31,7 +31,8 @@ from backend.core.security import (
 from backend.config import settings as app_settings
 from backend.core.email import send_reset_password_email
 from backend.core.rate_limiter import limiter
-from jose import JWTError, jwt
+import jwt
+from jwt import InvalidTokenError as JWTError
 
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
@@ -86,6 +87,7 @@ async def get_current_user(
         raise HTTPException(status_code=401, detail="User not found or deleted")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account is inactive")
+    request.state.authenticated_user_id = str(user.id)
     return user
 
 async def get_optional_user(

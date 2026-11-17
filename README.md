@@ -1,102 +1,66 @@
-# CPNS Platform V2.0 🚀 (Supabase & Vertex AI Edition)
+# TOCPNS
 
-Platform latihan ujian CPNS (CAT) modern dengan arsitektur *high-performance* dan *latest tech stack*, didukung sepenuhnya oleh **Supabase Cloud**, **Bank BJB SNAP BI Payment**, dan **Google Vertex AI (Gemini 3.1 Pro)**.
+Aplikasi latihan CAT CPNS: pilih paket, kerjakan ujian, lihat hasil, pelajari pembahasan. Peserta Pro dapat mengakses seluruh paket yang terbit, aktif, siap, dan sesuai jadwal selama keanggotaannya berlaku. Fitur AI peserta dihentikan; alat AI admin opsional dan mati secara default.
 
-## 🏗️ Technology Stack
+Stack yang digunakan tercatat dalam `frontend/package-lock.json` dan `backend/requirements.txt`: Next.js/React, FastAPI, PostgreSQL, Redis, dan Celery. PostgreSQL menjadi sumber jawaban ujian baru yang sudah dikonfirmasi tersimpan. Redis dipakai untuk broker/cache/revokasi token, serta kompatibilitas sesi lama sampai selesai.
 
-### Frontend
-- **Next.js 16.1 (App Router)**: Framework React terbaru untuk performa maksimal.
-- **Tailwind CSS & Shadcn UI**: Styling utility-first dengan komponen UI premium.
-- **TanStack Query v5 & Zustand**: Manajemen state server dan state global yang robust.
-- **GSAP & Framer Motion**: Micro-animations interaktif.
+## Menjalankan preview lokal
 
-### Backend
-- **FastAPI 0.135.1**: Framework Python asinkron berkinerja tinggi.
-- **SQLAlchemy 2.0 (Async)**: ORM modern untuk interaksi database asinkron.
-- **Supabase PostgreSQL**: Database relasional utama di cloud.
-- **Redis 7**: Caching, Real-time Leaderboard (ZSET), Rate Limiting, dan Autosave Ujian.
-- **Celery & RabbitMQ**: Manajemen *background tasks* (kalkulasi skor & asinkron).
+Gunakan Node.js 22, Python 3.12, dan Docker Compose. Jalankan dari root repositori. Preview tidak memakai database Supabase atau provider pembayaran/email/AI production.
 
-### AI & Observability
-- **Google Vertex AI**: Menggunakan model `gemini-3.1-pro-preview` dengan fitur *High Thinking* untuk generasi soal Hots (TWK, TIU, TKP) dan AI Mentor Chatbot.
-- **LangChain & Langfuse**: Orkestrasi LLM agen dan *observability* (tracing) komprehensif.
-
-## 🚀 Fitur Utama
-1. **Real-time CAT Interface**: Antarmuka ujian responsif dengan sinkronisasi statis ke Redis (*autosave* 5 detik).
-2. **AI-Powered Question Generation**: *Pipeline* pembuat soal otomatis dengan rasionalisasi matematis akurat.
-3. **BJB SNAP BI Payment Integration**: Sistem pembayaran otomatis dengan webhook terproteksi HMAC-SHA512.
-4. **Leaderboard Nasional**: Peringkat *real-time* berskala besar berbasis Redis ZSET.
-5. **Quality Assurance Framework**: *Test suite* tangguh (E2E, Unit, Component) untuk Backend, Frontend, dan keluaran AI.
-
-## 🧪 Quality Assurance (QA) & Testing
-
-Proyek ini menjunjung tinggi standar kualitas *enterprise-grade* dengan sistem pengujian komprehensif:
-
-- **Backend QA**: Menggunakan `pytest` dengan *SQLite in-memory* terisolasi, dan `pytest-cov` untuk mengecek persentase *coverage*. Pengujian linter otomatis dan super cepat dengan `Ruff`.
-- **Frontend QA**: Pengujian komponen (Component Testing) menggunakan `Vitest` + `React Testing Library`. Simulasi antarmuka ujian menggunakan `Playwright` untuk *End-to-End* (E2E) user flow. Linting tingkat lanjut secara ketat via `ESLint`.
-- **AI-Specific QA**: Sistem memiliki *test suite* mandiri (`tests/test_ai_evals.py`) yang berdedikasi memvalidasi struktur *output* JSON Vertex AI, kelengkapan format *discussion*, dan jaminan logika skor (TIU/TWK: 0 atau 5, TKP: 1 sampai 5 unik) guna menolak halusinasi bot masuk ke database.
-- **CI/CD Pipeline**: Pipeline otomatis di **GitHub Actions** (`qa.yml`) akan menguji seluruh integritas program (*lint & test*) di setiap siklus `Push` dan `Pull Request`.
-
-## 🛠️ Cara Menjalankan
-
-### Prasyarat
-- Node.js 20+
-- Python 3.11+
-- Redis (Lokal atau Cloud)
-
-### 1. Kloning Repositori & Kredensial
-```bash
-git clone https://github.com/WillyHanafi1/Test-CPNS.git
-cd Test-CPNS
-```
-*(Penting: Dapatkan file kredensial `service_account.json` dari Google Cloud Console dan masukkan ke folder `backend/` untuk akses fungsionalitas Vertex AI).*
-
-### 2. Konfigurasi Environment Backend
-```bash
-cp backend/.env.example backend/.env
-# Buka backend/.env dan isi kredensial Supabase, Redis, Langfuse, Midtrans/BJB, dan Vertex AI Anda.
-```
-
-### 3. Setup Backend
 ```powershell
-# Jalankan dari folder Test-CPNS
-python -m venv venv
-.\venv\Scripts\activate  # Windows
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 pip install -r backend/requirements.txt
-
-# Menjalankan server di port 8001
-$env:PYTHONPATH = "d:\ProjectAI\Test-CPNS"; uvicorn backend.main:app --reload --port 8001
+npm --prefix frontend ci
+docker compose -f infra/development/compose.yml up -d --wait
+python scripts/ops/development.py seed
 ```
 
-### 4. Setup Frontend
-```bash
-cd frontend
-cp .env.example .env.local
-# Pastikan NEXT_PUBLIC_API_URL menunjuk ke backend: NEXT_PUBLIC_API_URL=http://localhost:8001
-npm install
-npm run dev
+Buka tiga terminal terpisah dengan virtualenv aktif:
+
+```powershell
+python scripts/ops/development.py api
+python scripts/ops/development.py worker
+python scripts/ops/development.py web
 ```
 
----
+Buka `http://localhost:3107`. Akun sintetis: `demo@example.com` dan `admin@example.com`, password preview **PreviewOnly123!**. Gunakan hanya pada database preview lokal. Seed berisi tiga simulasi sintetis untuk menguji infrastruktur, bukan materi pembelajaran siap terbit.
 
-## 📐 Panduan Manajemen Database (Alembic)
+`docker-compose.yml` juga menyediakan profil `app` untuk backend/frontend/worker/beat development. Konfigurasi ini hanya menggunakan PostgreSQL/Redis development. Container tidak melakukan migrasi otomatis. Helper seed memakai `create_all` hanya pada database bernama `tocpns_dev` di loopback; ini bukan pengganti Alembic untuk production.
 
-Untuk mencegah *error* sinkronisasi, *database crash*, atau munculnya fenomena "Zombie DB" di Supabase:
+## Verifikasi
 
-### 🛑 3 ATURAN EMAS
-1. **DILARANG merombak tabel lewat UI Website (Supabase).** Selalu gunakan modifikasi di `backend/models/models.py`.
-2. **DILARANG menghapus file `.py` di folder `alembic/versions/` manual** jika file tersebut sudah telanjur di-`upgrade head`.
-3. **SELALU `git pull` sebelum memodifikasi `models.py`.** 
+```powershell
+$env:TEST_DATABASE_URL='postgresql+asyncpg://tocpns:development-only@127.0.0.1:55439/tocpns_test'
+python -m pytest backend/tests -q
+npm --prefix frontend run lint:participant
+npm --prefix frontend run test:unit
+npm --prefix frontend run typecheck
+npm --prefix frontend run build
+```
 
-### ✅ SOP: Cara Menambah / Mengubah Kolom
-1. Ubah kode di `backend/models/models.py`.
-2. Generate Migrasi: `$env:PYTHONPATH = "d:\ProjectAI\Test-CPNS"; alembic revision --autogenerate -m "Pesan perubahan"`
-3. Apply Migrasi: `$env:PYTHONPATH = "d:\ProjectAI\Test-CPNS"; alembic upgrade head`
+Uji migrasi memakai database lokal khusus yang **harus kosong**:
 
-### 🚑 Mengatasi Error Alembic (Zombie DB)
-- **Salah Ketik / Ingin Mundur:** Batalkan efek migrasi dengan memerintahkan `$env:PYTHONPATH = "d:\ProjectAI\Test-CPNS"; alembic downgrade -1`. Baru setelah itu perbaiki file model dan hapus file versi terakhir.
-- **Sinkronisasi Paksa (Target DB not up to date):** Paksa sinkronisasi status lokal dengan remote: `$env:PYTHONPATH = "d:\ProjectAI\Test-CPNS"; alembic stamp head`
-- **Reset Ulang Riwayat (Tanpa Hapus Data):** Hapus semua file `.py` di `versions/`, hapus tabel bernama `alembic_version` dari DBeaver/Supabase UI, jalankan `revision --autogenerate`, lalu diakhiri wajib dengan `stamp head`.
+```powershell
+python scripts/ops/verify_migration.py
+```
 
----
-Developed with ❤️ using the latest agentic technology.
+Script menolak menimpa database rehearsal yang sudah terisi. SQLite dapat dipakai untuk unit test cepat tanpa `TEST_DATABASE_URL`; pengujian konkurensi row lock memerlukan PostgreSQL.
+
+## Aturan data dan rilis
+
+- Publikasi membuat snapshot privat paket. Sesi baru terikat pada snapshot; kunci dan pembahasan tidak dikirim sebelum ujian selesai.
+- Ubah soal melalui draft, validasi, lalu terbitkan revisi. Paket dengan histori legacy disalin untuk penyuntingan; histori lama tidak dipalsukan menjadi snapshot atau dihapus saat impor.
+- Client mesin ujian baru mengirim `X-Exam-Protocol: 2` pada start/resume. Bundle lama ditolak dengan `update_required` untuk sesi mesin baru; adapter sesi legacy tetap tersedia.
+- Satu peserta memiliki satu sesi aktif dan satu writer. Jawaban diterima setelah commit, dengan mutation ID, revisi, dan antrean lokal per tab. Waktu berasal dari deadline server.
+- Submit menyimpan pekerjaan scoring di PostgreSQL. Rekonsiliasi berkala memulihkan pekerjaan yang belum selesai ketika broker/worker sempat gagal.
+- Harga dan durasi penawaran datang dari backend. Grant pembayaran dilindungi lock dan deduplikasi per order. Akun lama tanpa expiry tetap dipertahankan. Pembayaran nyata membutuhkan pengujian provider tersendiri.
+- Production memakai `compose.production.yml`, image dengan digest, container tanpa root, konfigurasi privat, dan Cloudflare Tunnel. Detail akses/token berada di `.server-notes/`/`.secrets/` yang diabaikan Git.
+- Migrasi adalah langkah rilis eksplisit setelah backup dan rehearsal. Jangan memakai `stamp head`, menghapus sejarah Alembic, atau melakukan downgrade destruktif untuk menyembunyikan ketidakcocokan schema. Migrasi jawaban baru sengaja menolak downgrade yang akan menghapus data.
+
+Laporan implementasi dan batas validasi: [docs/infrastructure-implementation-2026-11-17.md](docs/infrastructure-implementation-2026-11-17.md). Prosedur cutover: [docs/redesign-release-runbook.md](docs/redesign-release-runbook.md). Rencana dan backlog tetap tersedia di folder `docs`.
+
+## Tampilan
+
+Tema terang, gelap, atau mengikuti perangkat tersedia di seluruh aplikasi. Gunakan tombol matahari/bulan pada header, atau pilih mode sistem melalui Akun → Tampilan. Preferensi disimpan pada browser. Audit 30 halaman, pengukuran kontras, dan screenshot ada di [docs/dark-theme-review-2026-11-17.md](docs/dark-theme-review-2026-11-17.md).

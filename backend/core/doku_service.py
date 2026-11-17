@@ -111,7 +111,7 @@ class DokuService:
         }
 
         # Use 'data' instead of 'json' to send the exact string we digested
-        response = requests.post(url, data=json_body, headers=headers)
+        response = requests.post(url, data=json_body, headers=headers, timeout=(5, 20))
         
         if response.status_code >= 400:
             logger.error(f"DOKU Checkout failed: {response.text}")
@@ -145,6 +145,9 @@ class DokuService:
         if not all([client_id_received, request_id, request_timestamp, signature_received]):
             logger.error(f"DOKU Webhook Missing Headers: {list(h.keys())}")
             raise ValueError("Missing required DOKU headers")
+
+        if client_id_received != self.client_id or target_path != "/api/v1/transactions/webhook":
+            raise ValueError("Invalid DOKU client or notification target")
             
         # 1. Generate Digest
         digest_bytes = hashlib.sha256(body_bytes).digest()
@@ -187,6 +190,7 @@ class DokuService:
 
         return {
             "order_id": body_json.get("order", {}).get("invoice_number"),
+            "amount": body_json.get("order", {}).get("amount"),
             "transaction_status": transaction_status,
             "raw_body": body_json
         }

@@ -1,8 +1,9 @@
 "use client";
+import AdminDialog from "@/components/admin/AdminDialog";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { toast } from 'react-hot-toast';
-import MarkdownRenderer from '@/components/ui/MarkdownRenderer';
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { toast } from "react-hot-toast";
+import MarkdownRenderer from "@/components/ui/MarkdownRenderer";
 import {
   Plus,
   Upload,
@@ -18,22 +19,22 @@ import {
   X,
   CheckCircle2,
   AlertCircle,
-  Loader2
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+  Loader2,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
   AdminPageHeader,
   AdminDataTable,
   AdminPagination,
   ConfirmModal,
-  Column
-} from '@/components/admin';
-import { useQuestions } from '@/hooks/useQuestions';
+  Column,
+} from "@/components/admin";
+import { useQuestions } from "@/hooks/useQuestions";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 
 export default function QuestionsAdmin() {
   const {
@@ -52,14 +53,14 @@ export default function QuestionsAdmin() {
     deleteQuestion,
     bulkDeleteQuestions,
     toggleSelect,
-    toggleSelectAll
+    toggleSelectAll,
   } = useQuestions();
 
   const [packages, setPackages] = useState<any[]>([]);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importLoading, setImportLoading] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
-  const [importPackageId, setImportPackageId] = useState('');
+  const [importPackageId, setImportPackageId] = useState("");
   const [importReplace, setImportReplace] = useState(false);
   const [importErrors, setImportErrors] = useState<string[]>([]);
 
@@ -67,18 +68,18 @@ export default function QuestionsAdmin() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState<any>({
-    content: '',
-    segment: 'TWK',
+    content: "",
+    segment: "TWK",
     number: 1,
-    image_url: '',
-    discussion: '',
+    image_url: "",
+    discussion: "",
     options: [
-      { label: 'A', content: '', score: 0 },
-      { label: 'B', content: '', score: 0 },
-      { label: 'C', content: '', score: 0 },
-      { label: 'D', content: '', score: 0 },
-      { label: 'E', content: '', score: 0 },
-    ]
+      { label: "A", content: "", score: 0 },
+      { label: "B", content: "", score: 0 },
+      { label: "C", content: "", score: 0 },
+      { label: "D", content: "", score: 0 },
+      { label: "E", content: "", score: 0 },
+    ],
   });
 
   const [formLoading, setFormLoading] = useState(false);
@@ -93,10 +94,13 @@ export default function QuestionsAdmin() {
   const fetchPackages = async () => {
     try {
       // Peningkatan limit (size=100) agar semua paket muncul di dropdown admin
-      const response = await fetch(`${API_URL}/api/v1/admin/packages?size=100`, {
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include'
-      });
+      const response = await fetch(
+        `${API_URL}/api/v1/admin/packages?size=100`,
+        {
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+        },
+      );
       const data = await response.json();
 
       // FIX: Backend mengirimkan { items: [], total: x, ... }, bukan Array langsung
@@ -131,7 +135,7 @@ export default function QuestionsAdmin() {
         ? `${API_URL}/api/v1/admin/questions`
         : `${API_URL}/api/v1/admin/questions/${currentQuestion.id}`;
 
-      const method = isNew ? 'POST' : 'PUT';
+      const method = isNew ? "POST" : "PUT";
 
       const payload = {
         ...currentQuestion,
@@ -141,25 +145,25 @@ export default function QuestionsAdmin() {
           label: opt.label,
           content: opt.content,
           image_url: opt.image_url,
-          score: opt.score
-        }))
+          score: opt.score,
+        })),
       };
 
       if (isNew) payload.package_id = selectedPackage || importPackageId;
 
       const response = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-        credentials: 'include'
+        credentials: "include",
       });
 
       if (!response.ok) {
         const err = await response.json();
-        throw new Error(err.detail || 'Gagal menyimpan soal');
+        throw new Error(err.detail || "Gagal menyimpan soal");
       }
 
-      toast.success(`Soal berhasil ${isNew ? 'ditambah' : 'diupdate'}`);
+      toast.success(`Soal berhasil ${isNew ? "ditambah" : "diupdate"}`);
       setIsDrawerOpen(false);
       fetchQuestions();
     } catch (error: any) {
@@ -170,13 +174,15 @@ export default function QuestionsAdmin() {
   };
 
   const handleScoreChange = (index: number, value: number) => {
-    const updatedOptions = currentQuestion.options.map((opt: any, i: number) => {
-      if (currentQuestion.segment === 'TKP') {
-        return i === index ? { ...opt, score: value } : opt;
-      } else {
-        return { ...opt, score: i === index ? 5 : 0 };
-      }
-    });
+    const updatedOptions = currentQuestion.options.map(
+      (opt: any, i: number) => {
+        if (currentQuestion.segment === "TKP") {
+          return i === index ? { ...opt, score: value } : opt;
+        } else {
+          return { ...opt, score: i === index ? 5 : 0 };
+        }
+      },
+    );
 
     setCurrentQuestion({ ...currentQuestion, options: updatedOptions });
   };
@@ -188,14 +194,17 @@ export default function QuestionsAdmin() {
     setImportLoading(true);
     setImportErrors([]);
     const formData = new FormData();
-    formData.append('file', importFile);
+    formData.append("file", importFile);
 
     try {
-      const response = await fetch(`${API_URL}/api/v1/admin/import/questions?package_id=${importPackageId}&replace=${importReplace}`, {
-        method: 'POST',
-        body: formData,
-        credentials: 'include'
-      });
+      const response = await fetch(
+        `${API_URL}/api/v1/admin/import/questions?package_id=${importPackageId}&replace=${importReplace}`,
+        {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+        },
+      );
 
       const data = await response.json();
       if (response.ok) {
@@ -205,15 +214,19 @@ export default function QuestionsAdmin() {
         fetchQuestions();
       } else {
         // Handle detailed errors from backend refactor
-        if (data.detail && typeof data.detail === 'object' && data.detail.errors) {
+        if (
+          data.detail &&
+          typeof data.detail === "object" &&
+          data.detail.errors
+        ) {
           setImportErrors(data.detail.errors);
-          toast.error(data.detail.message || 'Validasi file gagal');
+          toast.error(data.detail.message || "Validasi file gagal");
         } else {
-          toast.error(data.detail || 'Import gagal');
+          toast.error(data.detail || "Import gagal");
         }
       }
     } catch (error) {
-      toast.error('Terjadi kesalahan sistem');
+      toast.error("Terjadi kesalahan sistem");
     } finally {
       setImportLoading(false);
     }
@@ -221,54 +234,65 @@ export default function QuestionsAdmin() {
 
   const columns: Column<any>[] = [
     {
-      header: 'No.',
-      accessor: 'number',
-      className: 'w-20',
+      header: "No.",
+      accessor: "number",
+      className: "w-20",
       render: (q) => (
-        <span className="font-black text-slate-500 group-hover:text-indigo-400 transition-colors">{q.number}</span>
-      )
+        <span className="font-semibold text-muted group-hover:text-accent transition-colors">
+          {q.number}
+        </span>
+      ),
     },
     {
-      header: 'Segment',
+      header: "Segment",
       render: (q) => (
-        <Badge className={`rounded-xl py-1 px-3 font-bold text-[10px] border-none tracking-widest ${q.segment === 'TWK' ? 'bg-blue-500/10 text-blue-400' :
-            q.segment === 'TIU' ? 'bg-indigo-500/10 text-indigo-400' :
-              'bg-orange-500/10 text-orange-400'
-          }`}>
+        <Badge
+          className={`rounded-xl py-1 px-3 font-bold text-xs border-none tracking-wide ${
+            q.segment === "TWK"
+              ? "bg-accent-soft text-accent"
+              : q.segment === "TIU"
+                ? "bg-accent-soft text-accent"
+                : "bg-warning-soft text-warning"
+          }`}
+        >
           {q.segment}
         </Badge>
-      )
+      ),
     },
     {
-      header: 'Konten Soal',
-      className: 'max-w-md',
+      header: "Konten Soal",
+      className: "max-w-md",
       render: (q) => (
-        <div className="text-sm font-medium text-slate-200 line-clamp-2 leading-relaxed overflow-x-auto">
-          <MarkdownRenderer>{q.content ?? ''}</MarkdownRenderer>
+        <div className="text-sm font-medium text-ink line-clamp-2 leading-relaxed overflow-x-auto">
+          <MarkdownRenderer>{q.content ?? ""}</MarkdownRenderer>
         </div>
-      )
+      ),
     },
     {
-      header: 'Opsi / Jawaban',
+      header: "Opsi / Jawaban",
       render: (q) => (
         <div className="flex -space-x-2">
-          {[1, 2, 3, 4, 5].map(o => (
-            <div key={o} className="w-7 h-7 rounded-lg bg-slate-800 border-2 border-slate-900 flex items-center justify-center text-[10px] font-black text-slate-500">
+          {[1, 2, 3, 4, 5].map((o) => (
+            <div
+              key={o}
+              className="w-7 h-7 rounded-lg bg-surface-hover border border-line flex items-center justify-center text-xs font-semibold text-muted"
+            >
               {String.fromCharCode(64 + o)}
             </div>
           ))}
         </div>
-      )
+      ),
     },
     {
-      header: 'Aksi',
-      className: 'text-center',
+      header: "Aksi",
+      className: "text-center",
       render: (q) => (
         <div className="flex items-center justify-center space-x-2">
           <Button
+            aria-label="Ubah"
             variant="ghost"
             size="icon"
-            className="w-10 h-10 rounded-xl hover:bg-slate-800 hover:text-white transition-all"
+            className="w-10 h-10 rounded-xl hover:bg-surface-hover hover:text-ink transition-all"
             onClick={() => {
               setIsEditing(true);
               setCurrentQuestion({ ...q });
@@ -278,9 +302,10 @@ export default function QuestionsAdmin() {
             <Edit className="w-4 h-4" />
           </Button>
           <Button
+            aria-label="Hapus"
             variant="ghost"
             size="icon"
-            className="w-10 h-10 rounded-xl hover:bg-rose-500/10 hover:text-rose-400 transition-all"
+            className="w-10 h-10 rounded-xl hover:bg-danger-soft hover:text-danger transition-all"
             onClick={() => {
               setItemToDelete(q);
               setDeleteConfirmOpen(true);
@@ -288,12 +313,16 @@ export default function QuestionsAdmin() {
           >
             <Trash2 className="w-4 h-4" />
           </Button>
-          <Button variant="ghost" size="icon" className="w-10 h-10 rounded-xl hover:bg-slate-800">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="w-10 h-10 rounded-xl hover:bg-surface-hover"
+          >
             <MoreVertical className="w-4 h-4" />
           </Button>
         </div>
-      )
-    }
+      ),
+    },
   ];
 
   return (
@@ -305,29 +334,32 @@ export default function QuestionsAdmin() {
           <>
             <Button
               variant="outline"
-              className="border-slate-800 bg-slate-900/50 hover:bg-slate-800 hover:text-white rounded-2xl py-6 px-6 font-bold"
+              className="border-line bg-surface hover:bg-surface-hover hover:text-ink rounded-2xl py-6 px-6 font-bold"
               onClick={() => setIsImportModalOpen(true)}
             >
               <Upload className="w-5 h-5 mr-2" />
               Import Excel
             </Button>
             <Button
-              className="bg-indigo-600 hover:bg-indigo-700 rounded-2xl py-6 px-10 font-bold shadow-xl shadow-indigo-600/20"
+              className="bg-accent-solid hover:bg-accent-solid rounded-2xl py-6 px-10 font-bold shadow-sm "
               onClick={() => {
                 setIsEditing(false);
                 setCurrentQuestion({
-                  content: '',
-                  segment: 'TWK',
-                  number: (questions.length > 0 ? Math.max(...questions.map(q => q.number)) + 1 : 1),
-                  image_url: '',
-                  discussion: '',
+                  content: "",
+                  segment: "TWK",
+                  number:
+                    questions.length > 0
+                      ? Math.max(...questions.map((q) => q.number)) + 1
+                      : 1,
+                  image_url: "",
+                  discussion: "",
                   options: [
-                    { label: 'A', content: '', score: 0 },
-                    { label: 'B', content: '', score: 0 },
-                    { label: 'C', content: '', score: 0 },
-                    { label: 'D', content: '', score: 0 },
-                    { label: 'E', content: '', score: 0 },
-                  ]
+                    { label: "A", content: "", score: 0 },
+                    { label: "B", content: "", score: 0 },
+                    { label: "C", content: "", score: 0 },
+                    { label: "D", content: "", score: 0 },
+                    { label: "E", content: "", score: 0 },
+                  ],
                 });
                 setIsDrawerOpen(true);
               }}
@@ -339,25 +371,24 @@ export default function QuestionsAdmin() {
         }
       />
 
-
       {/* Filters & Search */}
-      <Card className="bg-slate-900/40 border-slate-800/60 rounded-[2rem] overflow-hidden">
+      <Card className="bg-surface border-line rounded-2xl overflow-hidden">
         <CardContent className="p-4 md:p-6">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1 group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted group-focus-within:text-accent transition-colors" />
               <Input
                 placeholder="Cari konten soal..."
-                className="pl-12 bg-slate-950/50 border-slate-800/80 rounded-2xl py-7 font-medium md:text-lg focus:ring-indigo-500 focus:border-indigo-500"
+                className="pl-12 bg-surface border-line rounded-2xl py-7 font-medium md:text-lg focus:ring-accent-border focus:border-accent-border"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
             <div className="flex items-center space-x-3">
-              <div className="bg-slate-950/50 border border-slate-800/80 rounded-2xl px-4 py-3 flex items-center min-w-[200px]">
-                <Filter className="w-4 h-4 text-slate-500 mr-2" />
+              <div className="bg-surface border border-line rounded-2xl px-4 py-3 flex items-center min-w-[200px]">
+                <Filter className="w-4 h-4 text-muted mr-2" />
                 <select
-                  className="bg-transparent text-sm font-bold text-slate-300 focus:outline-none w-full appearance-none pr-10"
+                  className="bg-transparent text-sm font-bold text-ink focus:outline-none w-full appearance-none pr-10"
                   value={selectedPackage}
                   onChange={(e) => {
                     setSelectedPackage(e.target.value);
@@ -365,7 +396,11 @@ export default function QuestionsAdmin() {
                   }}
                 >
                   <option value="">Semua Paket</option>
-                  {packages.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+                  {packages.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.title}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -377,7 +412,7 @@ export default function QuestionsAdmin() {
         columns={columns}
         data={questions}
         loading={loading}
-        emptyIcon={<BookOpen className="w-12 h-12 text-slate-800" />}
+        emptyIcon={<BookOpen className="w-12 h-12 text-muted" />}
         emptyText="Belum ada soal ditemukan"
         selectedIds={selectedIds}
         onSelectToggle={toggleSelect}
@@ -394,16 +429,16 @@ export default function QuestionsAdmin() {
       {/* --- BULK ACTIONS TOOLBAR --- */}
       {selectedIds.size > 0 && (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-8 duration-500">
-          <div className="bg-slate-900 border-2 border-slate-800 rounded-3xl py-4 px-8 shadow-2xl flex items-center space-x-6 backdrop-blur-xl bg-opacity-90">
-            <div className="flex items-center space-x-4 pr-6 border-r border-slate-800">
-              <div className="w-8 h-8 bg-indigo-500 rounded-xl flex items-center justify-center font-black text-xs">
+          <div className="bg-surface border border-line rounded-2xl py-4 px-8 shadow-sm flex items-center space-x-6  bg-opacity-90">
+            <div className="flex items-center space-x-4 pr-6 border-r border-line">
+              <div className="w-8 h-8 bg-accent-solid rounded-xl flex items-center justify-center font-semibold text-xs">
                 {selectedIds.size}
               </div>
-              <span className="text-sm font-bold text-slate-300">Soal Terpilih</span>
+              <span className="text-sm font-bold text-ink">Soal Terpilih</span>
             </div>
             <Button
               variant="ghost"
-              className="text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 font-bold rounded-xl"
+              className="text-danger hover:text-danger hover:bg-danger-soft font-bold rounded-xl"
               onClick={() => setBulkDeleteConfirmOpen(true)}
             >
               <Trash2 className="w-4 h-4 mr-2" />
@@ -411,7 +446,7 @@ export default function QuestionsAdmin() {
             </Button>
             <Button
               variant="ghost"
-              className="text-slate-400 hover:text-white font-bold rounded-xl"
+              className="text-muted hover:text-ink font-bold rounded-xl"
               onClick={() => setSelectedIds(new Set())}
             >
               <X className="w-4 h-4 mr-2" />
@@ -423,32 +458,57 @@ export default function QuestionsAdmin() {
 
       {/* --- DRAWER EDITOR --- */}
       {isDrawerOpen && (
-        <div className="fixed inset-0 z-[70] overflow-hidden">
-          <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity" onClick={() => setIsDrawerOpen(false)} />
-          <div className={`absolute top-0 right-0 h-full w-full max-w-2xl bg-slate-950 border-l border-slate-800 shadow-2xl flex flex-col transform transition-transform duration-500 ease-in-out ${isDrawerOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+        <AdminDialog
+          label="Formulir soal"
+          onClose={() => setIsDrawerOpen(false)}
+        >
+          <div
+            className={`absolute top-0 right-0 h-full w-full max-w-2xl bg-canvas border-l border-line shadow-sm flex flex-col transform transition-transform duration-500 ease-in-out ${isDrawerOpen ? "translate-x-0" : "translate-x-full"}`}
+          >
             {/* Drawer Header â€” stays fixed at top */}
-            <div className="flex items-center justify-between px-10 py-8 border-b border-slate-800 flex-shrink-0">
+            <div className="flex items-center justify-between px-10 py-8 border-b border-line flex-shrink-0">
               <div>
-                <h2 className="text-3xl font-black tracking-tight">{isEditing ? 'Edit Soal' : 'Tambah Soal Baru'}</h2>
-                <p className="text-xs font-bold text-indigo-400 uppercase tracking-widest mt-1">CAT CPNS Engine Editor</p>
+                <h2 className="text-3xl font-semibold tracking-tight">
+                  {isEditing ? "Edit Soal" : "Tambah Soal Baru"}
+                </h2>
+                <p className="text-xs font-bold text-accent uppercase tracking-wide mt-1">
+                  CAT CPNS Engine Editor
+                </p>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => setIsDrawerOpen(false)} className="rounded-2xl hover:bg-slate-900">
+              <Button
+                aria-label="Tutup dialog"
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsDrawerOpen(false)}
+                className="rounded-2xl hover:bg-surface"
+              >
                 <X className="w-6 h-6" />
               </Button>
             </div>
 
             {/* Scrollable content area */}
             <div className="flex-1 overflow-y-auto p-10">
-
-              <form id="question-form" onSubmit={saveQuestion} className="space-y-8">
+              <form
+                id="question-form"
+                onSubmit={saveQuestion}
+                className="space-y-8"
+              >
                 {/* Basic Info */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Segmen / Kategori</label>
+                    <label className="text-xs font-semibold text-muted uppercase tracking-wide ml-1">
+                      Segmen / Kategori
+                    </label>
                     <select
-                      className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 text-sm font-bold text-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none appearance-none"
+                      aria-label="Segmen / Kategori"
+                      className="w-full bg-surface border border-line rounded-2xl p-4 text-sm font-bold text-ink focus:ring-2 focus:ring-accent-border focus:outline-none appearance-none"
                       value={currentQuestion.segment}
-                      onChange={(e) => setCurrentQuestion({ ...currentQuestion, segment: e.target.value })}
+                      onChange={(e) =>
+                        setCurrentQuestion({
+                          ...currentQuestion,
+                          segment: e.target.value,
+                        })
+                      }
                     >
                       <option value="TWK">TWK (Wawasan Kebangsaan)</option>
                       <option value="TIU">TIU (Intelegensia Umum)</option>
@@ -456,58 +516,88 @@ export default function QuestionsAdmin() {
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Nomor Soal</label>
+                    <label className="text-xs font-semibold text-muted uppercase tracking-wide ml-1">
+                      Nomor Soal
+                    </label>
                     <Input
+                      aria-label="Nomor Soal"
                       type="number"
                       value={currentQuestion.number}
-                      onChange={(e) => setCurrentQuestion({ ...currentQuestion, number: parseInt(e.target.value) })}
-                      className="bg-slate-900 border-slate-800 p-7 rounded-2xl font-bold"
+                      onChange={(e) =>
+                        setCurrentQuestion({
+                          ...currentQuestion,
+                          number: parseInt(e.target.value),
+                        })
+                      }
+                      className="bg-surface border-line p-7 rounded-2xl font-bold"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Konten Pertanyaan</label>
+                  <label className="text-xs font-semibold text-muted uppercase tracking-wide ml-1">
+                    Konten Pertanyaan
+                  </label>
                   <textarea
-                    className="w-full h-40 bg-slate-900 border border-slate-800 rounded-2xl p-6 text-sm font-medium text-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none leading-relaxed"
+                    aria-label="Konten Pertanyaan"
+                    className="w-full h-40 bg-surface border border-line rounded-2xl p-6 text-sm font-medium text-ink focus:ring-2 focus:ring-accent-border focus:outline-none resize-none leading-relaxed"
                     value={currentQuestion.content}
-                    onChange={(e) => setCurrentQuestion({ ...currentQuestion, content: e.target.value })}
+                    onChange={(e) =>
+                      setCurrentQuestion({
+                        ...currentQuestion,
+                        content: e.target.value,
+                      })
+                    }
                     placeholder="Ketik pertanyaan di sini..."
                   />
                 </div>
 
                 {/* Options */}
                 <div className="space-y-4">
-                  <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">Pilihan Jawaban & Skor</label>
+                  <label className="text-xs font-semibold text-accent uppercase tracking-wide ml-1">
+                    Pilihan Jawaban & Skor
+                  </label>
                   <div className="space-y-3">
                     {currentQuestion.options.map((opt: any, index: number) => (
                       <div key={index} className="flex gap-3 group">
-                        <div className="w-12 h-12 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center font-black text-slate-500 group-hover:border-indigo-500 group-hover:text-indigo-400 transition-colors">
+                        <div className="w-12 h-12 rounded-2xl bg-surface border border-line flex items-center justify-center font-semibold text-muted group-hover:border-accent-border group-hover:text-accent transition-colors">
                           {opt.label}
                         </div>
                         <textarea
-                          className="flex-1 bg-slate-900 border border-slate-800 rounded-2xl p-3 text-sm text-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none leading-relaxed min-h-[48px]"
+                          className="flex-1 bg-surface border border-line rounded-2xl p-3 text-sm text-ink focus:ring-2 focus:ring-accent-border focus:outline-none resize-none leading-relaxed min-h-[48px]"
                           value={opt.content}
                           rows={2}
                           onChange={(e) => {
                             const newOpts = [...currentQuestion.options];
                             newOpts[index].content = e.target.value;
-                            setCurrentQuestion({ ...currentQuestion, options: newOpts });
+                            setCurrentQuestion({
+                              ...currentQuestion,
+                              options: newOpts,
+                            });
                           }}
                           placeholder={`Opsi ${opt.label}...`}
                         />
-                        {currentQuestion.segment === 'TKP' ? (
+                        {currentQuestion.segment === "TKP" ? (
                           <select
-                            className="w-20 bg-slate-900 border border-slate-800 rounded-2xl px-3 text-xs font-black text-indigo-400 focus:ring-2 focus:ring-indigo-500 outline-none"
+                            className="w-20 bg-surface border border-line rounded-2xl px-3 text-xs font-semibold text-accent focus:ring-2 focus:ring-accent-border outline-none"
                             value={opt.score}
-                            onChange={(e) => handleScoreChange(index, parseInt(e.target.value))}
+                            onChange={(e) =>
+                              handleScoreChange(index, parseInt(e.target.value))
+                            }
                           >
-                            {[1, 2, 3, 4, 5].map(v => <option key={v} value={v}>{v} Poin</option>)}
+                            {[1, 2, 3, 4, 5].map((v) => (
+                              <option key={v} value={v}>
+                                {v} Poin
+                              </option>
+                            ))}
                           </select>
                         ) : (
                           <div
-                            className={`w-12 h-12 rounded-2xl border flex items-center justify-center cursor-pointer transition-all ${opt.score === 5 ? 'bg-indigo-500 border-indigo-400 text-white' : 'bg-slate-900 border-slate-800 text-slate-600 hover:border-indigo-500'
-                              }`}
+                            className={`w-12 h-12 rounded-2xl border flex items-center justify-center cursor-pointer transition-all ${
+                              opt.score === 5
+                                ? "bg-accent-solid border-accent-border text-white"
+                                : "bg-surface border-line text-muted hover:border-accent-border"
+                            }`}
                             onClick={() => handleScoreChange(index, 5)}
                           >
                             <CheckCircle2 className="w-5 h-5" />
@@ -519,23 +609,30 @@ export default function QuestionsAdmin() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Pembahasan (Opsional)</label>
+                  <label className="text-xs font-semibold text-muted uppercase tracking-wide ml-1">
+                    Pembahasan (Opsional)
+                  </label>
                   <textarea
-                    className="w-full h-32 bg-slate-900 border border-slate-800 rounded-2xl p-6 text-sm font-medium text-slate-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none italic"
-                    value={currentQuestion.discussion || ''}
-                    onChange={(e) => setCurrentQuestion({ ...currentQuestion, discussion: e.target.value })}
+                    aria-label="Pembahasan (Opsional)"
+                    className="w-full h-32 bg-surface border border-line rounded-2xl p-6 text-sm font-medium text-ink focus:ring-2 focus:ring-accent-border focus:outline-none resize-none italic"
+                    value={currentQuestion.discussion || ""}
+                    onChange={(e) =>
+                      setCurrentQuestion({
+                        ...currentQuestion,
+                        discussion: e.target.value,
+                      })
+                    }
                     placeholder="Tuliskan pembahasan soal..."
                   />
                 </div>
-
               </form>
             </div>
 
-            <div className="flex-shrink-0 bg-slate-950 p-6 border-t border-slate-800 flex space-x-4">
+            <div className="flex-shrink-0 bg-canvas p-6 border-t border-line flex space-x-4">
               <Button
                 type="button"
                 variant="ghost"
-                className="flex-1 py-7 rounded-2xl font-bold text-slate-400"
+                className="flex-1 py-7 rounded-2xl font-bold text-muted"
                 onClick={() => setIsDrawerOpen(false)}
               >
                 Batal
@@ -543,15 +640,19 @@ export default function QuestionsAdmin() {
               <Button
                 type="submit"
                 form="question-form"
-                className="flex-[2] bg-indigo-600 hover:bg-indigo-700 py-7 rounded-2xl font-bold shadow-xl shadow-indigo-600/20"
+                className="flex-[2] bg-accent-solid hover:bg-accent-solid py-7 rounded-2xl font-bold shadow-sm "
                 disabled={formLoading}
               >
-                {formLoading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <CheckCircle2 className="w-5 h-5 mr-2" />}
+                {formLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                ) : (
+                  <CheckCircle2 className="w-5 h-5 mr-2" />
+                )}
                 Simpan Perubahan
               </Button>
             </div>
           </div>
-        </div>
+        </AdminDialog>
       )}
 
       <ConfirmModal
@@ -574,58 +675,84 @@ export default function QuestionsAdmin() {
 
       {/* Import Modal */}
       {isImportModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => setIsImportModalOpen(false)} />
-          <Card className="relative w-full max-w-xl bg-slate-900 border-slate-800 border-2 rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+        <AdminDialog
+          label="Formulir soal"
+          onClose={() => setIsImportModalOpen(false)}
+        >
+          <Card className="relative w-full max-w-xl bg-surface border-line border rounded-2xl shadow-sm overflow-hidden animate-in zoom-in-95 duration-300">
             <div className="p-8">
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center border border-indigo-500/20">
-                    <FileSpreadsheet className="w-6 h-6 text-indigo-500" />
+                  <div className="w-12 h-12 bg-accent-soft rounded-2xl flex items-center justify-center border border-accent-border">
+                    <FileSpreadsheet className="w-6 h-6 text-accent" />
                   </div>
                   <div>
-                    <h2 className="text-2xl font-black tracking-tight">Mass Import Soal</h2>
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Excel / CSV Uploader</p>
+                    <h2 className="text-2xl font-semibold tracking-tight">
+                      Mass Import Soal
+                    </h2>
+                    <p className="text-xs font-bold text-muted uppercase tracking-wide">
+                      Excel / CSV Uploader
+                    </p>
                   </div>
                 </div>
-                <button onClick={() => {
-                  setIsImportModalOpen(false);
-                  setImportReplace(false);
-                }} className="text-slate-500 hover:text-white transition-colors">
+                <button
+                  aria-label="Tutup dialog"
+                  onClick={() => {
+                    setIsImportModalOpen(false);
+                    setImportReplace(false);
+                  }}
+                  className="text-muted hover:text-ink transition-colors"
+                >
                   <X className="w-6 h-6" />
                 </button>
               </div>
 
               {/* Error List - Enterprise Grade */}
               {importErrors.length > 0 && (
-                <div className="mb-6 p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl max-h-[150px] overflow-y-auto">
-                  <p className="text-xs font-black text-rose-400 uppercase tracking-widest mb-2">Daftar Kesalahan Baris:</p>
+                <div className="mb-6 p-4 bg-danger-soft border border-line rounded-2xl max-h-[150px] overflow-y-auto">
+                  <p className="text-xs font-semibold text-danger uppercase tracking-wide mb-2">
+                    Daftar Kesalahan Baris:
+                  </p>
                   <ul className="space-y-1">
                     {importErrors.map((err, i) => (
-                      <li key={i} className="text-[11px] text-rose-300 font-medium leading-relaxed italic">â€¢ {err}</li>
+                      <li
+                        key={i}
+                        className="text-[11px] text-danger font-medium leading-relaxed italic"
+                      >
+                        â€¢ {err}
+                      </li>
                     ))}
                   </ul>
                 </div>
               )}
 
               <form onSubmit={handleImport} className="space-y-6">
-                <div className="space-y-4 p-4 bg-slate-950/50 border border-slate-800 rounded-2xl relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-3xl" />
+                <div className="space-y-4 p-4 bg-surface border border-line rounded-2xl relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-accent-soft blur-3xl" />
                   <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                      <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1 flex items-center">
-                        <AlertCircle className="w-3 h-3 mr-1" /> Petunjuk Format Excel
+                      <p className="text-xs font-semibold text-accent uppercase tracking-wide mb-1 flex items-center">
+                        <AlertCircle className="w-3 h-3 mr-1" /> Petunjuk Format
+                        Excel
                       </p>
-                      <p className="text-[11px] text-slate-400 leading-relaxed max-w-sm">
-                        Wajib memiliki kolom: <code className="text-indigo-300">No</code>, <code className="text-indigo-300">Segmen</code> (TWK/TIU/TKP), <code className="text-indigo-300">Teks Soal</code>, <code className="text-indigo-300">Opsi A-E</code>, dan <code className="text-indigo-300">Nilai A-E</code>.
+                      <p className="text-[11px] text-muted leading-relaxed max-w-sm">
+                        Wajib memiliki kolom:{" "}
+                        <code className="text-accent">No</code>,{" "}
+                        <code className="text-accent">Segmen</code>{" "}
+                        (TWK/TIU/TKP),{" "}
+                        <code className="text-accent">Teks Soal</code>,{" "}
+                        <code className="text-accent">Opsi A-E</code>, dan{" "}
+                        <code className="text-accent">Nilai A-E</code>.
                       </p>
                     </div>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10 flex-shrink-0"
-                      onClick={() => window.open('/template_soal_cpns.xlsx', '_blank')}
+                      className="border-accent-border text-accent hover:bg-accent-soft flex-shrink-0"
+                      onClick={() =>
+                        window.open("/template_soal_cpns.xlsx", "_blank")
+                      }
                     >
                       <FileSpreadsheet className="w-4 h-4 mr-2" />
                       Unduh Template
@@ -634,45 +761,82 @@ export default function QuestionsAdmin() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Pilih Paket Tujuan</label>
+                  <label className="text-xs font-semibold text-muted uppercase tracking-wide ml-1">
+                    Pilih Paket Tujuan
+                  </label>
                   <select
+                    aria-label="Pilih Paket Tujuan"
                     required
-                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-sm font-bold text-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    className="w-full bg-canvas border border-line rounded-2xl p-4 text-sm font-bold text-ink focus:ring-2 focus:ring-accent-border focus:outline-none"
                     value={importPackageId}
                     onChange={(e) => setImportPackageId(e.target.value)}
                   >
                     <option value="">Pilih Paket...</option>
-                    {packages.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+                    {packages.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.title}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
-                <div className="flex items-center space-x-3 p-4 bg-rose-500/5 border border-rose-500/10 rounded-2xl group cursor-pointer hover:bg-rose-500/10 transition-all select-none" onClick={() => setImportReplace(!importReplace)}>
-                  <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${importReplace ? 'bg-rose-500 border-rose-400' : 'border-slate-700 bg-slate-950'}`}>
-                    {importReplace && <CheckCircle2 className="w-4 h-4 text-white" />}
+                <div
+                  className="flex items-center space-x-3 p-4 bg-danger-soft border border-line rounded-2xl group cursor-pointer hover:bg-danger-soft transition-all select-none"
+                  onClick={() => setImportReplace(!importReplace)}
+                >
+                  <div
+                    className={`w-6 h-6 rounded-md border flex items-center justify-center transition-all ${importReplace ? "bg-danger-solid border-danger" : "border-line bg-canvas"}`}
+                  >
+                    {importReplace && (
+                      <CheckCircle2 className="w-4 h-4 text-white" />
+                    )}
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-bold text-slate-200">Timpa data lama dalam paket ini?</p>
-                    <p className="text-[10px] text-rose-400 font-medium leading-relaxed italic mt-1 uppercase tracking-widest">
-                      PERINGATAN: Semua soal, opsi, dan sesi ujian user yang ada akan dihapus permanen!
+                    <p className="text-sm font-bold text-ink">
+                      Timpa data lama dalam paket ini?
+                    </p>
+                    <p className="text-xs text-danger font-medium leading-relaxed italic mt-1 uppercase tracking-wide">
+                      PERINGATAN: Semua soal, opsi, dan sesi ujian user yang ada
+                      akan dihapus permanen!
                     </p>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">File Soal (.xlsx / .csv)</label>
-                  <div className={`border-2 border-dashed rounded-3xl p-10 flex flex-col items-center justify-center transition-all ${importFile ? 'border-indigo-500/50 bg-indigo-500/5' : 'border-slate-800 hover:border-slate-700'
-                    }`}>
+                  <label className="text-xs font-semibold text-muted uppercase tracking-wide ml-1">
+                    File Soal (.xlsx / .csv)
+                  </label>
+                  <div
+                    className={`border border-dashed rounded-2xl p-10 flex flex-col items-center justify-center transition-all ${
+                      importFile
+                        ? "border-accent-border bg-accent-soft"
+                        : "border-line hover:border-line"
+                    }`}
+                  >
                     <input
                       type="file"
                       accept=".xlsx,.csv"
                       className="hidden"
                       id="file-upload"
-                      onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                      onChange={(e) =>
+                        setImportFile(e.target.files?.[0] || null)
+                      }
                     />
-                    <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center">
-                      <Upload className={`w-10 h-10 mb-4 ${importFile ? 'text-indigo-400' : 'text-slate-600'}`} />
-                      <p className="text-sm font-bold text-slate-400">{importFile ? importFile.name : 'Pilih file atau drag & drop'}</p>
-                      <p className="text-[10px] text-slate-600 mt-2 font-medium">Max size: 10MB</p>
+                    <label
+                      htmlFor="file-upload"
+                      className="cursor-pointer flex flex-col items-center"
+                    >
+                      <Upload
+                        className={`w-10 h-10 mb-4 ${importFile ? "text-accent" : "text-muted"}`}
+                      />
+                      <p className="text-sm font-bold text-muted">
+                        {importFile
+                          ? importFile.name
+                          : "Pilih file atau drag & drop"}
+                      </p>
+                      <p className="text-xs text-muted mt-2 font-medium">
+                        Max size: 10MB
+                      </p>
                     </label>
                   </div>
                 </div>
@@ -681,7 +845,7 @@ export default function QuestionsAdmin() {
                   <Button
                     type="button"
                     variant="ghost"
-                    className="flex-1 py-7 rounded-2xl font-bold text-slate-400"
+                    className="flex-1 py-7 rounded-2xl font-bold text-muted"
                     onClick={() => {
                       setIsImportModalOpen(false);
                       setImportReplace(false);
@@ -691,19 +855,22 @@ export default function QuestionsAdmin() {
                   </Button>
                   <Button
                     type="submit"
-                    className="flex-[2] bg-indigo-600 hover:bg-indigo-700 py-7 rounded-2xl font-bold shadow-xl shadow-indigo-600/20"
+                    className="flex-[2] bg-accent-solid hover:bg-accent-solid py-7 rounded-2xl font-bold shadow-sm "
                     disabled={importLoading || !importFile || !importPackageId}
                   >
-                    {importLoading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <CheckCircle2 className="w-5 h-5 mr-2" />}
+                    {importLoading ? (
+                      <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                    ) : (
+                      <CheckCircle2 className="w-5 h-5 mr-2" />
+                    )}
                     Mulai Import Data
                   </Button>
                 </div>
               </form>
             </div>
           </Card>
-        </div>
+        </AdminDialog>
       )}
     </div>
   );
 }
-

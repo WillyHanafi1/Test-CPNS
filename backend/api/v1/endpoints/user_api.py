@@ -8,7 +8,6 @@ from backend.db.session import get_async_session
 from backend.models.models import User, Feedback
 from backend.api.v1.endpoints.auth import get_current_user
 from backend.core.analytics_service import analytics_service
-from backend.core.ai_service import ai_service
 from backend.schemas.feedback import FeedbackCreate
 
 router = APIRouter(prefix="/user", tags=["user"])
@@ -49,23 +48,7 @@ async def get_my_mastery_digest(
     db: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Generate an AI-driven digest of the user's topic mastery and weak points.
-    Restricted to PRO users.
-    """
-    if not current_user.is_pro_active:
-        raise HTTPException(
-            status_code=403, 
-            detail="Fitur Analisis AI Mastery hanya tersedia untuk akun PRO."
-        )
-    
-    mastery_data = await analytics_service.get_topic_mastery(db, current_user.id)
-    weak_points = await analytics_service.get_weak_points(db, current_user.id)
-    
-    if not mastery_data:
-        return {"message": "Belum ada data ujian yang cukup untuk dianalisis."}
-        
-    return await ai_service.generate_mastery_digest(mastery_data, weak_points)
+    raise HTTPException(410, "Fitur AI peserta telah dihentikan.")
 
 @router.post("/feedback")
 async def submit_feedback(

@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
-from typing import Union
-from jose import jwt
+from typing import Any, Union
+import jwt
 import bcrypt
 from backend.config import settings
 

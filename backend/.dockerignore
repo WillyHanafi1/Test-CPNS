@@ -3,6 +3,9 @@ __pycache__/
 *.pyo
 *.pyd
 .env
+.env.*
+.secrets/
+.server-notes/
 .venv
 venv/
 env/
