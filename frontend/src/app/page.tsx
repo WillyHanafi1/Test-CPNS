@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, Check, BookOpen, CheckCircle2 } from "lucide-react";
 import AppShell from "@/components/AppShell";
-import DonationSection from "@/components/donations/DonationSection";
 export default function Home() {
   return (
     <AppShell>
@@ -85,7 +84,6 @@ export default function Home() {
           <ArrowRight size={16} />
         </Link>
       </section>
-      <DonationSection />
     </AppShell>
   );
 }

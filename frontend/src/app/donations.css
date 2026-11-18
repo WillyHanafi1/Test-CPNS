@@ -18,7 +18,9 @@
   font-weight: 400;
 }
 .donation-home {
-  margin-top: 52px;
+  margin-top: 64px;
+  padding-top: 40px;
+  border-top: 1px solid var(--line);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 24px;
@@ -550,7 +552,8 @@
     grid-template-columns: minmax(0, 1fr);
   }
   .donation-home {
-    margin-top: 36px;
+    margin-top: 40px;
+    padding-top: 28px;
   }
   .donation-form-panel .donation-form {
     grid-template-columns: minmax(0, 1fr);

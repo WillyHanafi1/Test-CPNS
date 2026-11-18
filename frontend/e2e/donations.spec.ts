@@ -190,11 +190,35 @@ async function fixture(
   };
 }
 
-test("home puts the community section after learning content, shows donor chat messages, and the mobile header exposes Donasi", async ({
+test("public home contains no donation section or requests for community data", async ({
   page,
 }) => {
   const { errors } = await fixture(page, { guest: true });
+  const communityRequests: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/transactions/donations/"))
+      communityRequests.push(request.url());
+  });
   await page.goto("/");
+  await expect(
+    page.getByRole("heading", {
+      name: "Latihan terarah. Langkah lebih yakin.",
+    }),
+  ).toBeVisible();
+  await expect(page.locator(".donation-home")).toHaveCount(0);
+  await expect(
+    page.getByRole("region", { name: "Statistik donasi" }),
+  ).toHaveCount(0);
+  await expect(page.locator("footer")).toBeVisible();
+  expect(communityRequests).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test("account home separates the community section from learning content and exposes Donasi on mobile", async ({
+  page,
+}) => {
+  const { errors } = await fixture(page);
+  await page.goto("/dashboard");
   const section = page.getByRole("region", {
     name: "Ruang latihan ini tumbuh bersama.",
   });
@@ -210,7 +234,7 @@ test("home puts the community section after learning content, shows donor chat m
       .first(),
   ).toBeVisible();
   const positions = await page.evaluate(() => ({
-    feature: document.querySelector(".feature-card")!.getBoundingClientRect()
+    feature: document.querySelector(".two-column")!.getBoundingClientRect()
       .bottom,
     donations: document.querySelector(".donation-home")!.getBoundingClientRect()
       .top,
@@ -220,6 +244,12 @@ test("home puts the community section after learning content, shows donor chat m
   }));
   expect(positions.donations).toBeGreaterThan(positions.feature);
   expect(positions.footer).toBeGreaterThanOrEqual(positions.end);
+  await page.screenshot({
+    path: path.resolve(
+      "../.server-notes/ui-qa/donation-dashboard-separator.png",
+    ),
+    fullPage: true,
+  });
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(
     page.locator("header").getByRole("link", { name: "Donasi", exact: true }),
@@ -239,7 +269,7 @@ test("streamer boards use the full width below the introduction or form, with ch
   await page.addInitScript(() =>
     window.localStorage.setItem("tocpns-donation-leaderboard-layout", "mosaic"),
   );
-  for (const route of ["/", "/dashboard", "/donasi"]) {
+  for (const route of ["/dashboard", "/donasi"]) {
     await page.goto(route);
     await expect(page.locator(".donation-leaderboard-formats")).toHaveAttribute(
       "data-format",
