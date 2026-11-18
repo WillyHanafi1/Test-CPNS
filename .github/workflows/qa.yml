@@ -86,7 +86,8 @@ jobs:
 
   frontend:
     name: Frontend tests and build
-    runs-on: ubuntu-latest
+    # Playwright 1.60 supports Ubuntu 24.04; latest may select a newer unsupported OS.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
       run:
