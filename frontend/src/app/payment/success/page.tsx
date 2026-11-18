@@ -128,8 +128,15 @@ function Status() {
               </a>
             )}
             {data?.status === "success" ? (
-              <Link className="button" href="/catalog">
-                Buka paket soal
+              <Link
+                className="button"
+                href={
+                  data.transaction_type === "donation" ? "/donasi" : "/catalog"
+                }
+              >
+                {data.transaction_type === "donation"
+                  ? "Lihat dukungan komunitas"
+                  : "Buka paket soal"}
               </Link>
             ) : (
               <button

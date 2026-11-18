@@ -8,7 +8,7 @@ import React, {
   ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import { api, ApiError, safeReturn } from "@/lib/api";
+import { api, ApiError, loginDestination } from "@/lib/api";
 interface User {
   id: string;
   email: string;
@@ -74,9 +74,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await refreshSession();
     notifyOtherTabs();
     router.replace(
-      body.role === "admin"
-        ? "/admin"
-        : safeReturn(new URLSearchParams(window.location.search).get("next")),
+      loginDestination(
+        body.role,
+        new URLSearchParams(window.location.search).get("next"),
+      ),
     );
   };
   const logout = async () => {

@@ -9,6 +9,7 @@ import {
   UserRound,
   ArrowUpRight,
   Loader2,
+  Heart,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -46,11 +47,12 @@ export default function AppShell({
   }, []);
   const active = (href: string) => path === href || path.startsWith(href + "/");
   const navigation = user
-    ? links
+    ? [...links, { href: "/donasi", title: "Donasi", icon: Heart }]
     : [
         { href: "/catalog", title: "Paket Soal", icon: BookOpen },
         { href: "/catalog/upgrade", title: "Keanggotaan", icon: UserRound },
         { href: "/faq", title: "Bantuan", icon: Home },
+        { href: "/donasi", title: "Donasi", icon: Heart },
       ];
   return (
     <div className="app-surface">
@@ -87,6 +89,24 @@ export default function AppShell({
             </Link>
           </div>
         </div>
+        <nav className="mobile-header-links" aria-label="Navigasi singkat">
+          <Link
+            href="/catalog"
+            aria-current={active("/catalog") ? "page" : undefined}
+          >
+            Paket soal
+          </Link>
+          <Link
+            href="/donasi"
+            aria-current={active("/donasi") ? "page" : undefined}
+          >
+            <Heart size={14} aria-hidden="true" />
+            Donasi
+          </Link>
+          <Link href="/faq" aria-current={active("/faq") ? "page" : undefined}>
+            Bantuan
+          </Link>
+        </nav>
       </header>
       <main id="main-content" className="app-main">
         {offline && (
@@ -113,6 +133,7 @@ export default function AppShell({
         <span>TOCPNS · Latihan dengan lebih tenang.</span>
         <Link href="/faq">Bantuan</Link>
         <Link href="/support">Dukungan</Link>
+        <Link href="/donasi">Donasi</Link>
       </footer>
       {user && (
         <nav className="mobile-nav" aria-label="Navigasi ponsel">

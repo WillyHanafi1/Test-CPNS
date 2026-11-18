@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, BookOpen, Check } from "lucide-react";
 import AppShell, { Loading, ErrorPanel, Scores } from "@/components/AppShell";
+import DonationSection from "@/components/donations/DonationSection";
 import { useAuth } from "@/context/AuthContext";
 import { useResource } from "@/lib/useResource";
 import { SessionInfo, dateLabel } from "@/lib/api";
@@ -140,6 +141,7 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+      {user && <DonationSection />}
     </AppShell>
   );
 }

@@ -5,20 +5,24 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { GoogleLogin } from "@react-oauth/google";
 import AppShell, { Loading, ErrorPanel } from "@/components/AppShell";
 import { useAuth } from "@/context/AuthContext";
-import { api, safeReturn } from "@/lib/api";
+import { api, loginDestination, safeReturn } from "@/lib/api";
 function Form() {
   const { user, login, refreshSession } = useAuth();
   const router = useRouter();
   const params = useSearchParams();
   const next = safeReturn(params.get("next"));
+  const destination = loginDestination(
+    user?.role || "participant",
+    params.get("next"),
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => {
-    if (user) router.replace(user.role === "admin" ? "/admin" : next);
-  }, [user, router, next]);
+    if (user) router.replace(destination);
+  }, [user, router, destination]);
   return (
     <AppShell>
       <div className="panel auth-panel stack">

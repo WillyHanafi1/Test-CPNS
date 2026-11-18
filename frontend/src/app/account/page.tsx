@@ -7,6 +7,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useResource } from "@/lib/useResource";
 import { api, dateLabel } from "@/lib/api";
 import Modal from "@/components/Modal";
+import DonationVisibility from "@/components/donations/DonationVisibility";
 import { useTheme } from "@/context/ThemeContext";
 import { ThemePreference } from "@/lib/theme";
 type Transaction = {
@@ -17,6 +18,7 @@ type Transaction = {
   transaction_type: string;
   created_at: string;
   payment_url?: string;
+  is_anonymous?: boolean;
 };
 export default function Account() {
   const { user, loading, logout } = useAuth();
@@ -88,7 +90,7 @@ export default function Account() {
               transactions.data.map((t) => (
                 <div
                   key={t.id}
-                  className="history-row"
+                  className="history-row transaction-row"
                   style={{
                     paddingBottom: 16,
                     borderBottom: "1px solid var(--line)",
@@ -121,6 +123,14 @@ export default function Account() {
                     >
                       Rincian
                     </button>
+                    {t.transaction_type === "donation" && t.order_id && (
+                      <DonationVisibility
+                        key={`${t.order_id}:${t.is_anonymous}`}
+                        orderId={t.order_id}
+                        anonymous={t.is_anonymous ?? true}
+                        onUpdated={transactions.reload}
+                      />
+                    )}
                     {t.payment_status === "pending" && t.order_id && (
                       <Link
                         className="button button-small"

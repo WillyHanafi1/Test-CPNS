@@ -1,10 +1,7 @@
 "use client";
-import { useState } from "react";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
-import DonationModal from "@/components/DonationModal";
 export default function Support() {
-  const [open, setOpen] = useState(false);
   return (
     <AppShell
       title="Dukungan untuk ruang latihan"
@@ -30,14 +27,10 @@ export default function Support() {
           Dukungan sukarela terpisah dari pembelian keanggotaan dan tidak
           diperlukan untuk menggunakan paket yang sudah termasuk dalam akunmu.
         </p>
-        <button
-          className="button button-secondary"
-          onClick={() => setOpen(true)}
-        >
-          Lihat dukungan sukarela
-        </button>
+        <Link className="button button-secondary" href="/donasi">
+          Buka halaman donasi
+        </Link>
       </section>
-      <DonationModal isOpen={open} onClose={() => setOpen(false)} />
     </AppShell>
   );
 }

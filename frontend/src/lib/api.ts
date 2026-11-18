@@ -116,6 +116,10 @@ export const dateLabel = (value?: string | null) =>
       })
     : "Tanpa batas waktu";
 
+export function loginDestination(role: string, next: string | null) {
+  return next ? safeReturn(next) : role === "admin" ? "/admin" : "/dashboard";
+}
+
 export interface PackageInfo {
   id: string;
   title: string;
