@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "./donations.css";
+import "./donation-community.css";
 import "katex/dist/katex.min.css";
 
 import { AuthProvider } from "@/context/AuthContext";

@@ -14,6 +14,7 @@ const sample = (period = "month") => ({
   top_supporters: [
     {
       full_name: "Sinta Wijaya",
+      is_anonymous: false,
       total_amount: 10000,
       rank: 1,
       donation_count: 1,
@@ -21,6 +22,7 @@ const sample = (period = "month") => ({
     },
     {
       full_name: "Budi Santoso",
+      is_anonymous: false,
       total_amount: 4000,
       rank: 2,
       donation_count: 1,
@@ -104,7 +106,16 @@ async function fixture(
       }
       const data = sample(url.searchParams.get("period") || "month");
       if (options.anonymousOnly) {
-        data.top_supporters = [];
+        data.top_supporters = [
+          {
+            full_name: "Anonim",
+            total_amount: 1000,
+            donation_count: 1,
+            rank: 1,
+            is_anonymous: true,
+            message: '<img src=x onerror="window.fakeAttack=true">',
+          },
+        ];
         data.recent_supporters = [
           {
             ...data.recent_supporters[0],
@@ -150,6 +161,14 @@ async function fixture(
       await route.fulfill({
         json: { order_id: "DONATE-preview", is_anonymous: hidden },
       });
+      return;
+    }
+    if (target === "/exam/sessions/me") {
+      await route.fulfill({ json: [] });
+      return;
+    }
+    if (target === "/exam/sessions/me/stats") {
+      await route.fulfill({ json: { total_sessions: 0 } });
       return;
     }
     await route.fulfill({ json: {} });
@@ -202,6 +221,48 @@ test("home puts the community section after learning content, shows donor chat m
     .getByRole("link", { name: "Donasi", exact: true })
     .click();
   await expect(page).toHaveURL(/\/donasi$/);
+  expect(errors).toEqual([]);
+});
+
+test("approved streamer design is used on the home, dashboard and donation pages regardless of old preview settings", async ({
+  page,
+}) => {
+  const { errors } = await fixture(page);
+  await page.addInitScript(() =>
+    window.localStorage.setItem("tocpns-donation-leaderboard-layout", "mosaic"),
+  );
+  for (const route of ["/", "/dashboard", "/donasi"]) {
+    await page.goto(route);
+    await expect(page.locator(".donation-leaderboard-formats")).toHaveAttribute(
+      "data-format",
+      "overlay",
+    );
+    await expect(
+      page
+        .getByRole("region", { name: "Papan dukungan", exact: true })
+        .locator(".lb-stream-message"),
+    ).toHaveText("Terima kasih sudah merawat ruang belajar ini.");
+    await expect(
+      page.getByRole("region", { name: "Statistik donasi" }),
+    ).toContainText("Rp 15.000");
+    await expect(
+      page.getByRole("log", { name: "Riwayat pesan dukungan" }),
+    ).toContainText("Semangat berlatih!");
+    await expect(page.locator('a[href="/donasi/desain"]')).toHaveCount(0);
+    await expect(page.locator("footer")).toBeVisible();
+  }
+  await expect(page.getByRole("form", { name: "Form donasi" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Lanjutkan · Rp 5.000" }),
+  ).toBeEnabled();
+  await page
+    .locator(".donation-community")
+    .screenshot({
+      path: path.resolve(
+        "../.server-notes/ui-qa/donation-project-implemented.png",
+      ),
+      style: ".app-header { visibility: hidden !important; }",
+    });
   expect(errors).toEqual([]);
 });
 
@@ -353,12 +414,16 @@ test("anonymous contributions are included, messages remain text, and dark mobil
   await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
   await page.goto("/donasi");
   await expect(
-    page.getByText("Belum ada nama publik", { exact: false }),
+    page
+      .getByRole("region", { name: "Papan dukungan", exact: true })
+      .getByText("Anonim", { exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByText('<img src=x onerror="window.fakeAttack=true">', {
-      exact: true,
-    }),
+    page
+      .getByRole("log", { name: "Riwayat pesan dukungan" })
+      .getByText('<img src=x onerror="window.fakeAttack=true">', {
+        exact: true,
+      }),
   ).toBeVisible();
   expect(
     await page.evaluate(

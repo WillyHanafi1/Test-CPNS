@@ -2,15 +2,12 @@
 import Link from "next/link";
 import { ArrowRight, Heart } from "lucide-react";
 import { ErrorPanel, Loading } from "@/components/AppShell";
-import {
-  DonationProgress,
-  RecentList,
-  SupporterList,
-  useDonations,
-} from "./DonationDisplay";
+import { useDonations } from "./DonationDisplay";
+
+import DonationCommunity from "./DonationCommunity";
 
 export default function DonationSection() {
-  const { data, error, loading, reload } = useDonations("month", 4);
+  const { data, error, loading, reload } = useDonations("month", 20);
   return (
     <section className="donation-home" aria-labelledby="donation-home-title">
       <div className="donation-home-intro">
@@ -43,24 +40,7 @@ export default function DonationSection() {
         ) : (
           <>
             {error && <ErrorPanel message={error} retry={reload} />}
-            {data && (
-              <>
-                <DonationProgress
-                  stats={data.stats}
-                  periodLabel={data.period_label}
-                />
-                <div className="donation-preview-lists">
-                  <div>
-                    <h3>Pendukung bulan ini</h3>
-                    <SupporterList compact rows={data.top_supporters} />
-                  </div>
-                  <div>
-                    <h3>Pesan & dukungan terbaru</h3>
-                    <RecentList compact rows={data.recent_supporters} />
-                  </div>
-                </div>
-              </>
-            )}
+            {data && <DonationCommunity data={data} format="overlay" compact />}
           </>
         )}
       </div>

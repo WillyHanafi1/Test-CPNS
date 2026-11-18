@@ -27,6 +27,7 @@ class TopSupporter(BaseModel):
     donation_count: int = 1
     rank: int = 0
     message: Optional[str] = None
+    is_anonymous: bool = False
 
 class DonationStats(BaseModel):
     total_amount: int

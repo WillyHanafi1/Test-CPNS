@@ -27,10 +27,7 @@ export function donationAmount(value: string): number | null {
     .trim()
     .replace(/^(?:rp|idr)\.?\s*/i, "")
     .trim();
-  if (
-    !/^\d+$/.test(cleaned) &&
-    !/^\d{1,3}(?:[.,\s]\d{3})+$/.test(cleaned)
-  ) {
+  if (!/^\d+$/.test(cleaned) && !/^\d{1,3}(?:[.,\s]\d{3})+$/.test(cleaned)) {
     return null;
   }
   const amount = Number(cleaned.replace(/[.,\s]/g, ""));
@@ -110,6 +107,7 @@ export interface TopSupporter {
   donation_count: number;
   rank: number;
   message?: string | null;
+  is_anonymous?: boolean;
 }
 export interface RecentSupporter {
   full_name: string;
@@ -151,6 +149,8 @@ export function validDonationOverview(
         Number.isFinite(row.total_amount) &&
         Number.isFinite(row.rank) &&
         Number.isFinite(row.donation_count) &&
+        (row.is_anonymous === undefined ||
+          typeof row.is_anonymous === "boolean") &&
         (row.message === undefined ||
           row.message === null ||
           typeof row.message === "string"),

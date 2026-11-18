@@ -1,0 +1,340 @@
+.leaderboard-studio {
+  max-width: 1124px;
+  margin: auto;
+}
+.ls-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 23px;
+}
+.ls-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 25px;
+  margin-bottom: 25px;
+}
+.app-surface .ls-heading h1 {
+  font-size: 32px;
+  font-weight: 600;
+  margin: 14px 0 10px;
+  letter-spacing: -0.045em;
+}
+.ls-heading p {
+  font-size: 14px;
+  max-width: 650px;
+  line-height: 1.8;
+}
+.ls-pagination {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--muted);
+}
+.ls-pagination button {
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  border-radius: 50%;
+  width: 33px;
+  height: 33px;
+  cursor: pointer;
+}
+.ls-formats {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 25px;
+}
+.ls-formats button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 11px;
+  min-width: 0;
+  text-align: left;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+  min-height: 48px;
+}
+.ls-formats button > span {
+  color: var(--muted);
+  font-size: 10px;
+}
+.ls-formats strong {
+  font-size: 11px;
+  font-weight: 500;
+}
+.ls-formats svg {
+  flex-shrink: 0;
+  margin-left: auto;
+  color: var(--accent);
+}
+.ls-formats button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.ls-formats button:hover {
+  border-color: var(--accent-border);
+}
+.ls-concept {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 25px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+}
+.app-surface .ls-concept h2 {
+  font-size: 19px;
+  font-weight: 600;
+}
+.ls-concept > div {
+  flex-shrink: 0;
+}
+.ls-concept > div > p {
+  font-size: 11px;
+  margin-top: 4px;
+  color: var(--accent);
+}
+.ls-concept > p {
+  max-width: 485px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.8;
+}
+.ls-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+  margin-bottom: 17px;
+}
+.ls-toolbar > div:first-child {
+  display: flex;
+  gap: 6px;
+}
+.ls-toolbar .filter {
+  font-size: 11px;
+  min-height: 37px;
+}
+.ls-devices {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+.ls-devices button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  background: var(--surface);
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  cursor: pointer;
+}
+.ls-devices button[aria-pressed="true"] {
+  color: var(--accent);
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+}
+.ls-pin-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+  min-height: 35px;
+}
+.ls-pin-option input {
+  accent-color: var(--accent-solid);
+}
+.ls-scenario {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 13px 15px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.ls-scenario label {
+  font-size: 12px;
+  color: var(--muted);
+}
+.ls-scenario .input {
+  width: auto;
+  font-size: 12px;
+  padding: 8px 10px;
+  flex: 1;
+  max-width: 360px;
+}
+.ls-scenario .button {
+  margin-left: auto;
+  font-size: 11px;
+}
+.ls-scenario-note {
+  font-size: 11px;
+  color: var(--muted);
+  margin: 10px 0 22px;
+  line-height: 1.8;
+}
+.ls-preview {
+  width: 100%;
+  margin-inline: auto;
+}
+.ls-preview-mobile {
+  max-width: 390px;
+  border: 5px solid var(--line);
+  border-radius: 24px;
+  padding: 12px 8px;
+  background: var(--canvas);
+}
+.ls-preview-mobile .dc-stats {
+  border-radius: 12px;
+}
+.ls-bottom {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+  padding: 17px 0;
+  border-top: 1px solid var(--line);
+}
+.ls-bottom > p {
+  flex: 1;
+  font-size: 12px;
+  color: var(--muted);
+}
+.ls-bottom .button {
+  font-size: 12px;
+}
+.ls-reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+.ls-test-form,
+.ls-notes {
+  font-size: 12px;
+  color: var(--muted);
+  padding-top: 17px;
+}
+.ls-test-form summary,
+.ls-notes summary {
+  cursor: pointer;
+  min-height: 33px;
+}
+.ls-test-form .panel {
+  margin-top: 15px;
+  max-width: 560px;
+}
+.ls-notes p {
+  font-size: 12px;
+  line-height: 1.9;
+  max-width: 850px;
+  margin-top: 10px;
+}
+.ls-notes a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+@media (max-width: 1000px) {
+  .ls-formats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .ls-concept {
+    display: block;
+  }
+  .ls-concept > p {
+    max-width: 100%;
+    margin-top: 9px;
+  }
+}
+@media (max-width: 600px) {
+  .ls-heading {
+    align-items: flex-start;
+    gap: 10px;
+    flex-direction: column;
+  }
+  .app-surface .ls-heading h1 {
+    font-size: 28px;
+  }
+  .ls-heading p {
+    font-size: 13px;
+  }
+  .ls-pagination {
+    align-self: flex-end;
+  }
+  .ls-formats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+  }
+  .ls-formats button {
+    padding: 12px 9px;
+  }
+  .ls-formats strong {
+    font-size: 11px;
+  }
+  .ls-formats button > span {
+    font-size: 9px;
+  }
+  .ls-scenario {
+    gap: 9px;
+    padding: 12px;
+  }
+  .ls-scenario label {
+    width: 100%;
+  }
+  .ls-scenario .input {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    font-size: 12px;
+  }
+  .ls-scenario .button {
+    width: 100%;
+    margin: 0;
+  }
+  .ls-toolbar {
+    gap: 9px;
+  }
+  .ls-pin-option {
+    width: 100%;
+  }
+  .ls-bottom {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .ls-bottom .button {
+    width: 100%;
+  }
+  .ls-reset {
+    justify-content: center;
+    padding: 10px;
+  }
+  .ls-bottom > p {
+    font-size: 11px;
+  }
+}

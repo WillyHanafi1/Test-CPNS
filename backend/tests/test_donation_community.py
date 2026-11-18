@@ -48,6 +48,7 @@ async def test_overview_counts_confirmed_real_donations_and_includes_top_support
     assert [(row['full_name'], row['total_amount'], row['donation_count'], row['message']) for row in data['top_supporters']] == [
         ('Admin User', 16000, 2, 'Semangat pejuang NIP!'),
         ('Test User', 5000, 1, 'Bismillah lulus CPNS tahun ini!'),
+        ('Anonim', 1000, 1, 'Semangat!'),
     ]
     anonymous = [row for row in data['recent_supporters'] if row['is_anonymous']]
     assert len(anonymous) == 1 and anonymous[0]['full_name'] == 'Pendukung anonim'
@@ -103,7 +104,9 @@ async def test_anonymous_only_and_empty_period_are_honest_and_zero_target_is_saf
     await donation(db_session, test_user, is_anonymous=True)
     data = (await client.get(BASE + '/overview')).json()
     assert data['stats']['total_amount'] == 5000 and data['stats']['percentage'] == 0
-    assert data['top_supporters'] == []
+    assert len(data['top_supporters']) == 1
+    assert data['top_supporters'][0]['full_name'] == 'Anonim'
+    assert data['top_supporters'][0]['is_anonymous'] is True
     assert data['recent_supporters'][0]['full_name'] == 'Pendukung anonim'
 
 
@@ -123,11 +126,39 @@ async def test_owner_can_hide_a_donation_without_changing_money_or_pro(client, d
     await db_session.refresh(test_user)
     assert (row.amount, row.payment_status, utc(row.paid_at), test_user.is_pro) == before
     data = (await client.get(BASE + '/overview')).json()
-    assert data['top_supporters'] == [] and data['stats']['total_amount'] == 5000
+    assert data['top_supporters'][0]['full_name'] == 'Anonim'
+    assert data['top_supporters'][0]['is_anonymous'] is True
+    assert data['stats']['total_amount'] == 5000
+    assert test_user.email not in json.dumps(data) and 'Test User' not in json.dumps(data['top_supporters'])
     audit = (await db_session.scalars(select(AuditEvent).where(AuditEvent.action == 'donation.visibility'))).all()
     assert len(audit) == 1 and audit[0].actor_id == test_user.id
     mine = (await client.get('/api/v1/transactions/my-transactions')).json()
     assert mine[0]['is_anonymous'] is True
+
+
+async def test_anonymous_can_lead_without_combining_accounts_or_exposing_named_messages(client, db_session, test_user, admin_user):
+    start, _ = month_bounds()
+    await donation(db_session, test_user, 30000, is_anonymous=True, message='Pesan anonim awal', paid_at=start + timedelta(hours=1))
+    await donation(db_session, test_user, 20000, is_anonymous=True, message='Pesan anonim terbaru', paid_at=start + timedelta(hours=3))
+    await donation(db_session, test_user, 5000, is_anonymous=True, message=None, paid_at=start + timedelta(hours=4))
+    await donation(db_session, test_user, 5000, message='Pesan publik terpisah', paid_at=start + timedelta(hours=5))
+    await donation(db_session, admin_user, 40000, is_anonymous=True, message='Anonim akun berbeda')
+    await donation(db_session, admin_user, 10000, message='Pesan publik admin')
+    response = await client.get(BASE + '/top?period=month&limit=10')
+    assert response.status_code == 200
+    rows = response.json()
+    assert [(row['full_name'], row['total_amount'], row['message'], row['is_anonymous']) for row in rows] == [
+        ('Anonim', 55000, 'Pesan anonim terbaru', True),
+        ('Anonim', 40000, 'Anonim akun berbeda', True),
+        ('Admin User', 10000, 'Pesan publik admin', False),
+        ('Test User', 5000, 'Pesan publik terpisah', False),
+    ]
+    assert rows[0]['rank'] == 1 and rows[0]['donation_count'] == 3
+    limited = (await client.get(BASE + '/top?period=month&limit=1')).json()
+    assert limited == rows[:1]
+    for user in (test_user, admin_user):
+        assert user.email not in json.dumps(rows) and str(user.id) not in json.dumps(rows)
+    assert all(set(row) == {'full_name', 'total_amount', 'donation_count', 'rank', 'message', 'is_anonymous'} for row in rows)
 
 
 async def test_visibility_cannot_be_changed_by_another_user_or_for_a_pro_order(client, db_session, test_user, admin_user):

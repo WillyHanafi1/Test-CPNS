@@ -40,45 +40,51 @@ async def statistics(db, period='month', now=None):
 
 
 async def top_supporters(db, period='all', limit=10, now=None):
-    base_filters = [*conditions(period, now), UserTransaction.is_anonymous.is_(False)]
+    base_filters = conditions(period, now)
+    # Keep anonymous and named contributions in separate visibility buckets.
+    supporter_key = UserTransaction.user_id
+    anonymous = UserTransaction.is_anonymous.is_not(False)
     total = func.sum(UserTransaction.amount)
     rows = (await db.execute(select(
-        UserTransaction.user_id,
+        supporter_key.label('supporter_key'),
+        anonymous.label('anonymous'),
         UserProfile.full_name,
         total.label('total_amount'),
         func.count(UserTransaction.id).label('donation_count')
     ).outerjoin(UserProfile, UserProfile.user_id == UserTransaction.user_id)
       .where(*base_filters)
-      .group_by(UserTransaction.user_id, UserProfile.full_name)
-      .order_by(total.desc(), func.min(payment_time()).asc(), UserTransaction.user_id.asc())
+      .group_by(supporter_key, anonymous, UserProfile.full_name)
+      .order_by(total.desc(), func.min(payment_time()).asc(), supporter_key.asc(), anonymous.asc())
       .limit(limit))).all()
     if not rows:
         return []
-    user_ids = [row.user_id for row in rows if row.user_id is not None]
+    supporter_keys = [row.supporter_key for row in rows]
     latest_messages = {}
-    if user_ids:
+    if supporter_keys:
         msg_rows = (await db.execute(select(
-            UserTransaction.user_id, UserTransaction.message
+            supporter_key, anonymous, UserTransaction.message
         ).where(
             *base_filters,
-            UserTransaction.user_id.in_(user_ids),
+            supporter_key.in_(supporter_keys),
             UserTransaction.message.is_not(None),
             func.trim(UserTransaction.message) != ''
         ).order_by(payment_time().desc(), UserTransaction.id.desc()))).all()
-        for uid, msg in msg_rows:
-            if uid not in latest_messages and msg and msg.strip():
-                latest_messages[uid] = msg.strip()
+        for key, is_anonymous, msg in msg_rows:
+            visibility_key = (key, bool(is_anonymous))
+            if visibility_key not in latest_messages and msg and msg.strip():
+                latest_messages[visibility_key] = msg.strip()
     result, previous, rank = [], None, 0
     for index, row in enumerate(rows, 1):
         amount = int(row.total_amount)
         if amount != previous:
             rank = index
         result.append({
-            'full_name': public_name(row.full_name),
+            'full_name': 'Anonim' if row.anonymous else public_name(row.full_name),
+            'is_anonymous': bool(row.anonymous),
             'total_amount': amount,
             'donation_count': row.donation_count,
             'rank': rank,
-            'message': latest_messages.get(row.user_id),
+            'message': latest_messages.get((row.supporter_key, bool(row.anonymous))),
         })
         previous = amount
     return result

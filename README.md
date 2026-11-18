@@ -27,6 +27,8 @@ python scripts/ops/development.py web
 
 Buka `http://localhost:3107`. Akun sintetis: `demo@example.com` dan `admin@example.com`, password preview **PreviewOnly123!**. Gunakan hanya pada database preview lokal. Seed berisi tiga simulasi sintetis untuk menguji infrastruktur, bukan materi pembelajaran siap terbit.
 
+Untuk membandingkan leaderboard tanpa menjalankan backend, jalankan `node node_modules/next/dist/bin/next dev --port 3107` dari folder `frontend`, lalu buka [10 format papan donasi](http://localhost:3107/donasi/desain). Tema mengikuti aplikasi yang sudah ada. Preview memuat 20 transaksi fiktif, statistik, pesan bergaya chat, opsi pin, dan skenario pergantian bulan/tahun. Panduan: [Studio leaderboard lokal](docs/donation-design-studio.md).
+
 `docker-compose.yml` juga menyediakan profil `app` untuk backend/frontend/worker/beat development. Konfigurasi ini hanya menggunakan PostgreSQL/Redis development. Container tidak melakukan migrasi otomatis. Helper seed memakai `create_all` hanya pada database bernama `tocpns_dev` di loopback; ini bukan pengganti Alembic untuk production.
 
 ## Verifikasi

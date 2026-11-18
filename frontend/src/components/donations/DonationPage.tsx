@@ -5,12 +5,9 @@ import { BookOpen, Heart, RefreshCw, Server, Wrench } from "lucide-react";
 import { ErrorPanel, Loading } from "@/components/AppShell";
 import { DonationPeriod, donationAmount } from "@/lib/donations";
 import DonationForm from "./DonationForm";
-import {
-  DonationProgress,
-  RecentList,
-  SupporterList,
-  useDonations,
-} from "./DonationDisplay";
+import { useDonations } from "./DonationDisplay";
+
+import DonationCommunity from "./DonationCommunity";
 
 function DonationQueryForm() {
   const params = useSearchParams();
@@ -20,7 +17,7 @@ function DonationQueryForm() {
 
 export default function DonationPage() {
   const [period, setPeriod] = useState<DonationPeriod>("month");
-  const { data, error, loading, refreshing, reload } = useDonations(period);
+  const { data, error, loading, refreshing, reload } = useDonations(period, 20);
   return (
     <div className="donation-page">
       <div className="donation-page-heading">
@@ -39,102 +36,54 @@ export default function DonationPage() {
         </p>
       </div>
       <div className="donation-layout">
-        <aside className="panel donation-form-panel">
+        <aside id="donation-form" className="panel donation-form-panel">
           <Suspense fallback={<Loading label="Menyiapkan formulir donasi…" />}>
             <DonationQueryForm />
           </Suspense>
         </aside>
         <div className="donation-data-column stack">
-          <section className="panel stack" aria-label="Dukungan komunitas">
-            <div className="between donation-controls">
-              <div
-                className="donation-periods"
-                role="group"
-                aria-label="Periode dukungan"
-              >
-                <button
-                  type="button"
-                  className="filter"
-                  aria-pressed={period === "month"}
-                  onClick={() => setPeriod("month")}
-                >
-                  Bulan ini
-                </button>
-                <button
-                  type="button"
-                  className="filter"
-                  aria-pressed={period === "all"}
-                  onClick={() => setPeriod("all")}
-                >
-                  Semua waktu
-                </button>
-              </div>
+          <div className="between donation-controls">
+            <div
+              className="donation-periods"
+              role="group"
+              aria-label="Periode dukungan"
+            >
               <button
-                className="button button-small button-quiet"
-                aria-label="Muat ulang dukungan"
-                disabled={loading || refreshing}
-                onClick={reload}
+                type="button"
+                className="filter"
+                aria-pressed={period === "month"}
+                onClick={() => setPeriod("month")}
               >
-                <RefreshCw
-                  size={16}
-                  className={refreshing ? "animate-spin" : ""}
-                />
+                Bulan ini
+              </button>
+              <button
+                type="button"
+                className="filter"
+                aria-pressed={period === "all"}
+                onClick={() => setPeriod("all")}
+              >
+                Semua waktu
               </button>
             </div>
-            {loading ? (
-              <Loading label="Memuat dukungan komunitas…" />
-            ) : (
-              <>
-                {error && <ErrorPanel message={error} retry={reload} />}
-                {data && (
-                  <DonationProgress
-                    stats={data.stats}
-                    periodLabel={data.period_label}
-                  />
-                )}
-              </>
-            )}
-          </section>
-          <section className="panel" aria-labelledby="donation-board-title">
-            <div>
-              <p className="eyebrow">TERIMA KASIH SUDAH IKUT MERAWAT</p>
-              <h2 id="donation-board-title">Papan dukungan</h2>
-              <p className="muted donation-small">
-                Peringkat total donasi publik per akun beserta pesan terbaru
-                mereka. Semua nominal sama berartinya.
-              </p>
-            </div>
-            {loading ? (
-              <Loading />
-            ) : data ? (
-              <SupporterList rows={data.top_supporters} />
-            ) : (
-              <p className="donation-empty muted">
-                Daftar belum tersedia. Kamu bisa mencoba muat ulang di atas.
-              </p>
-            )}
-            <p className="muted donation-small donation-board-note">
-              Nama dan pesan ditampilkan sesuai pilihan pendukung. Donasi anonim
-              ikut total dan tampil di daftar pesan terbaru tanpa membuka nama.
-            </p>
-          </section>
-          <section className="panel" aria-labelledby="donation-recent-title">
-            <p className="eyebrow">PESAN & DOA KOMUNITAS</p>
-            <h2 id="donation-recent-title">Dukungan terbaru</h2>
-            <p className="muted donation-small">
-              Besar atau kecil, setiap dukungan dan pesan semangat punya tempat
-              di sini.
-            </p>
-            {loading ? (
-              <Loading />
-            ) : data ? (
-              <RecentList rows={data.recent_supporters} />
-            ) : (
-              <p className="donation-empty muted">
-                Dukungan terbaru belum dapat dimuat.
-              </p>
-            )}
-          </section>
+            <button
+              type="button"
+              className="button button-small button-quiet"
+              aria-label="Muat ulang dukungan"
+              disabled={loading || refreshing}
+              onClick={reload}
+            >
+              <RefreshCw
+                size={16}
+                className={refreshing ? "animate-spin" : ""}
+              />
+            </button>
+          </div>
+          {error && <ErrorPanel message={error} retry={reload} />}
+          {loading ? (
+            <Loading label="Memuat dukungan komunitas…" />
+          ) : (
+            data && <DonationCommunity data={data} format="overlay" />
+          )}
         </div>
       </div>
       <section

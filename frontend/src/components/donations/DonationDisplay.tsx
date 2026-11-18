@@ -1,5 +1,13 @@
 "use client";
-import { Award, Crown, Heart, MessageSquareQuote, Sparkles, UsersRound } from "lucide-react";
+import { useEffect } from "react";
+import {
+  Award,
+  Crown,
+  Heart,
+  MessageSquareQuote,
+  Sparkles,
+  UsersRound,
+} from "lucide-react";
 import { useResource } from "@/lib/useResource";
 import {
   DonationOverview,
@@ -17,6 +25,18 @@ export function useDonations(period: DonationPeriod = "month", limit = 10) {
     `/transactions/donations/overview?period=${period}&limit=${limit}`,
   );
   const valid = state.data && validDonationOverview(state.data);
+  const reload = state.reload;
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === "visible") reload();
+    };
+    const interval = window.setInterval(refresh, 30000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [reload]);
   return {
     ...state,
     data: valid ? state.data : null,

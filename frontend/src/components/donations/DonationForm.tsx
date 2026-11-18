@@ -1,5 +1,11 @@
 "use client";
-import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowUpRight,
@@ -28,8 +34,10 @@ const subscribeToHydration = () => () => {};
 
 export default function DonationForm({
   initialAmount = 5000,
+  demo = false,
 }: {
   initialAmount?: number;
+  demo?: boolean;
 }) {
   const { user: sessionUser, loading: sessionLoading } = useAuth();
   const hydrated = useSyncExternalStore(
@@ -37,8 +45,8 @@ export default function DonationForm({
     () => true,
     () => false,
   );
-  const user = hydrated ? sessionUser : null;
-  const loading = !hydrated || sessionLoading;
+  const user = !demo && hydrated ? sessionUser : null;
+  const loading = !demo && (!hydrated || sessionLoading);
   const router = useRouter();
   const id = useId();
   const [preset, setPreset] = useState(initialAmount);
@@ -49,9 +57,11 @@ export default function DonationForm({
   const [showName, setShowName] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [demoReceipt, setDemoReceipt] = useState("");
   const submitting = useRef(false);
 
   useEffect(() => {
+    if (demo) return;
     const draft = loadDonationDraft();
     if (!draft) return;
     Promise.resolve().then(() => {
@@ -62,14 +72,16 @@ export default function DonationForm({
         setShowName(draft.showName);
       }
     });
-  }, []);
+  }, [demo]);
 
   const amount = custom.trim() ? donationAmount(custom) : preset;
   const activeTier = donationTier(amount || preset || 5000);
   const previewName = showName
     ? user
       ? supporterName(user.full_name)
-      : "Nama Profilmu"
+      : demo
+        ? "Namamu di sini"
+        : "Nama Profilmu"
     : "Pendukung anonim";
 
   return (
@@ -80,9 +92,16 @@ export default function DonationForm({
         event.preventDefault();
         if (submitting.current || loading) return;
         setError("");
+        setDemoReceipt("");
         if (!amount) {
           setError(
             "Masukkan nominal bulat mulai Rp 1.000, misalnya 5000 atau 5.000.",
+          );
+          return;
+        }
+        if (demo) {
+          setDemoReceipt(
+            `Simulasi berhasil: ${rupiah(amount)} dari ${showName ? "Namamu di sini" : "Pendukung anonim"}. Tidak ada pembayaran atau data yang dikirim.`,
           );
           return;
         }
@@ -129,8 +148,9 @@ export default function DonationForm({
         <p className="eyebrow">DUKUNG SESUAI KEMAMPUANMU</p>
         <h2>Kirim dukungan & pesan semangat.</h2>
         <p className="muted donation-small">
-          Pesan dan namamu langsung tampil di papan dukungan setelah pembayaran
-          terverifikasi.
+          {demo
+            ? "Coba pilih nominal dan titip pesan. Ini simulasi, tanpa pembayaran atau pengiriman data."
+            : "Pesan dan namamu langsung tampil di papan dukungan setelah pembayaran terverifikasi."}
         </p>
       </div>
       <fieldset disabled={busy}>
@@ -159,6 +179,7 @@ export default function DonationForm({
           id={`${id}-amount`}
           className="input"
           inputMode="numeric"
+          name="amount"
           autoComplete="off"
           value={custom}
           placeholder="Contoh: 5.000 atau 15000"
@@ -187,6 +208,7 @@ export default function DonationForm({
             id={`${id}-message`}
             className="input"
             rows={2}
+            name="message"
             maxLength={150}
             value={message}
             disabled={busy}
@@ -212,6 +234,7 @@ export default function DonationForm({
             <input
               id={`${id}-name`}
               type="checkbox"
+              name="showName"
               checked={showName}
               disabled={busy}
               aria-describedby={`${id}-privacy-help`}
@@ -268,6 +291,11 @@ export default function DonationForm({
           {error}
         </p>
       )}
+      {demoReceipt && (
+        <p className="notice" role="status">
+          {demoReceipt}
+        </p>
+      )}
       <div className="stack" style={{ gap: 12 }}>
         <button
           className="button donation-submit"
@@ -285,13 +313,15 @@ export default function DonationForm({
             ? "Menyiapkan pembayaran…"
             : loading
               ? "Memeriksa akun…"
-              : user
-                ? amount
-                  ? `Lanjutkan · ${rupiah(amount)}`
-                  : "Periksa nominal"
-                : "Masuk & lanjutkan donasi"}
+              : demo
+                ? `Coba dukungan · ${rupiah(amount || 0)}`
+                : user
+                  ? amount
+                    ? `Lanjutkan · ${rupiah(amount)}`
+                    : "Periksa nominal"
+                  : "Masuk & lanjutkan donasi"}
         </button>
-        {!user && !loading && (
+        {!user && !loading && !demo && (
           <p className="muted donation-small">
             Masuk dengan Google atau email agar donasi dan pesanmu tercatat.
             Nominal serta pesan yang kamu isi tetap tersimpan.
@@ -299,7 +329,9 @@ export default function DonationForm({
         )}
         <p className="muted donation-small inline">
           <LockKeyhole size={14} aria-hidden="true" />
-          Pembayaran melalui DOKU · Sekali bayar
+          {demo
+            ? "Mode contoh · Tidak memproses pembayaran"
+            : "Pembayaran melalui DOKU · Sekali bayar"}
         </p>
         <p className="muted donation-small">
           Donasi sukarela dan terpisah dari keanggotaan Pro.
