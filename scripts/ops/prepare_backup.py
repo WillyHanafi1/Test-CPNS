@@ -15,7 +15,8 @@ ROOT = Path(__file__).resolve().parents[2]
 REQUIRED = ('.production.env', '.server-notes/images.env', '.secrets/application.env',
             '.secrets/operations.env', '.secrets/backup.key')
 OPTIONAL = ('.server-notes/images.previous.env', '.secrets/cloudflare-token',
-            '.secrets/backup-database.env', '.secrets/postgres-root-ca.crt')
+            '.secrets/backup-database.env', '.secrets/postgres-root-ca.crt',
+            '.server-notes/operations.override.yml')
 
 
 def database_environment(url):

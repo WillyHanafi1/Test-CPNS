@@ -18,9 +18,9 @@
   `c3d9e25b4a60`, 17 tabel aplikasi, 17 pengguna, 2.567 soal, dan 83 sesi ujian.
   Restore memerlukan extension `uuid-ossp`/`pgcrypto` pada schema `extensions`.
 - Timer backup harian 02:40 WIB dengan jitter maksimal lima menit dan monitor
-  setiap menit sudah diaktifkan. Status operasi tanpa masalah berhasil dibuktikan
-  sebelum uji donasi; receipt QRIS yang tertahan harus diproses ulang sesudah
-  deployment perbaikan kanal.
+  setiap menit sudah diaktifkan. Status operasi setelah perbaikan adalah `healthy`
+  dengan `issues: []`. Receipt QRIS berhasil diproses ulang setelah deployment;
+  pembayaran tetap satu entri, waktu bayar tidak berubah, dan tidak memberikan Pro.
 
 ## Bug webhook QRIS
 
@@ -56,11 +56,15 @@ Rujukan: [contoh notifikasi Non-SNAP DOKU](https://developers.doku.com/get-start
 - Installer melepaskan unit kompatibilitas privat ketika source yang sudah
   diperbaiki dipasang. Jangan menjalankan unit kompatibilitas bersamaan dengan
   unit normal.
+- Konfigurasi override opsional yang disertakan dalam arsip juga disiapkan
+  ownership/permission-nya. Regression test Linux untuk file root-owned dijalankan
+  di CI menggunakan fixture disposable.
 
 ## Validasi
 
 - Backend setelah hotfix kanal: 131 passed, 4 skipped pada SQLite lokal; skip
   mencakup pengujian khusus PostgreSQL yang dijalankan CI.
+- CI PostgreSQL: 135 passed tanpa skip; rehearsal migrasi juga lulus.
 - Tes pembayaran setelah hotfix kanal: 37 passed, 1 skipped.
 - Unit test script operasi: 12 passed.
 - Frontend: 15 contract tests, 8 Vitest tests, TypeScript, dan 6 Playwright E2E
@@ -70,6 +74,8 @@ Rujukan: [contoh notifikasi Non-SNAP DOKU](https://developers.doku.com/get-start
 - Build frontend production menghasilkan 27 halaman statis. Audit dependency
   production frontend tidak menemukan advisori pada saat pemeriksaan.
 - Pemeriksaan kebocoran nilai konfigurasi privat dan whitespace lulus.
+- CI dan Deploy commit `cf3f7bc` sukses. Seluruh delapan container sehat;
+  backup normal tanpa unit kompatibilitas berhasil untuk database dan konfigurasi.
 
 Pemilik memberikan izin tetap untuk commit/push `main` pada sesi ini;
 `AGENTS.md` diselaraskan. Source tidak dikerjakan di branch lain.

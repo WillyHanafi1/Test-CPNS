@@ -81,6 +81,8 @@ jobs:
         run: |
           for script in scripts/ops/deploy-ujian.sh scripts/ops/ci-ssh-deploy.sh; do bash -n "$script"; done
           python -m unittest discover -s scripts/ops/tests -p 'test_*.py'
+      - name: Check Linux backup permissions with disposable fixtures
+        run: sudo "$(command -v python)" infra/verification/backup_permissions.py
 
   frontend:
     name: Frontend tests and build

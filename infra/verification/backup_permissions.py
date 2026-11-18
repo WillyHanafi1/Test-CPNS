@@ -10,12 +10,16 @@ import sys
 import tempfile
 import unittest
 
-spec = importlib.util.spec_from_file_location('prepare_backup', '/checks/scripts/ops/prepare_backup.py')
+checks = (Path('/checks') if Path('/checks/scripts/ops/prepare_backup.py').is_file()
+          else Path(__file__).resolve().parents[2])
+prepare_script = checks / 'scripts/ops/prepare_backup.py'
+backup_script = checks / ('backup.py' if checks == Path('/checks') else 'backend/ops/backup.py')
+spec = importlib.util.spec_from_file_location('prepare_backup', prepare_script)
 helper = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(helper)
 
 
-@unittest.skipUnless(os.name == 'posix' and os.geteuid() == 0, 'Requires an isolated Linux root container')
+@unittest.skipUnless(os.name == 'posix' and os.geteuid() == 0, 'Requires Linux root; all files are disposable fixtures')
 class BackupPermissions(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix='ujian-backup-permissions-')
@@ -40,6 +44,9 @@ class BackupPermissions(unittest.TestCase):
         manual.write_bytes(b'operator archive')
         manual.chmod(0o600)
         originals = {name: (self.root / name).read_bytes() for name in helper.REQUIRED}
+        compatibility = self.root / '.server-notes/operations.override.yml'
+        compatibility.write_bytes(b'services: {}\n')
+        compatibility.chmod(0o600)
         helper.prepare(self.root, 1000, 1000)
         for name in helper.REQUIRED:
             path = self.root / name
@@ -47,10 +54,12 @@ class BackupPermissions(unittest.TestCase):
             self.assertEqual((path.stat().st_uid, path.stat().st_gid), (1000, 1000))
             self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
         self.assertEqual(stat.S_IMODE(storage.stat().st_mode), 0o700)
+        self.assertEqual(compatibility.stat().st_uid, 1000)
+        self.assertEqual(compatibility.read_bytes(), b'services: {}\n')
         self.assertEqual(manual.stat().st_uid, 0)
         env = {**os.environ, 'BACKUP_KEY_FILE': str(self.root / '.secrets/backup.key'),
                'BACKUP_DIRECTORY': str(storage), 'BACKUP_STORAGE': 'local'}
-        run = subprocess.run([sys.executable, '/checks/backup.py', 'capture', 'database'],
+        run = subprocess.run([sys.executable, str(backup_script), 'capture', 'database'],
             input=b'PGDMP synthetic backup', capture_output=True, env=env, user=1000, group=1000, extra_groups=[])
         self.assertEqual(run.returncode, 0, run.stderr.decode())
         result = json.loads(metadata.read_text())
