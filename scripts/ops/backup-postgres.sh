@@ -4,6 +4,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 umask 077
 image="$(sed -n 's/^POSTGRES_BACKUP_IMAGE=//p' .server-notes/images.env | tr -d '\r')"
 case "$image" in *@sha256:*) ;; *) printf 'Set a compatible, digest-pinned POSTGRES_BACKUP_IMAGE first.\n' >&2; exit 2;; esac
+python3 scripts/ops/prepare_backup.py --database-only
 mkdir -p .server-notes/backups
 chmod 700 .server-notes/backups
 exec 9>/tmp/ujian-backup.lock

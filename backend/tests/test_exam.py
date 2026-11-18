@@ -59,6 +59,39 @@ class TestAutosave:
         assert save_resp.status_code == 200
         assert save_resp.json()["status"] == "saved"
 
+    async def test_legacy_autosave_validates_option_belongs_to_question(
+        self, client: AsyncClient, test_user, test_package_with_questions, db_session
+    ):
+        from datetime import datetime, timedelta, timezone
+        from sqlalchemy import select
+        from backend.models.models import ExamSession, Question
+
+        questions = (
+            await db_session.scalars(
+                select(Question).where(Question.package_id == test_package_with_questions.id).limit(2)
+            )
+        ).all()
+        assert len(questions) == 2
+        session = ExamSession(
+            user_id=test_user.id,
+            package_id=test_package_with_questions.id,
+            status="ongoing",
+            start_time=datetime.now(timezone.utc),
+            end_time=datetime.now(timezone.utc) + timedelta(minutes=60),
+        )
+        db_session.add(session)
+        await db_session.commit()
+        await db_session.refresh(session)
+
+        cookies = await login_and_get_cookies(client, "testuser@example.com", "TestPassword123")
+        resp = await client.post(
+            f"/api/v1/exam/autosave/{session.id}",
+            json={"question_id": str(questions[0].id), "option_id": str(uuid.uuid4())},
+            cookies=cookies,
+        )
+        assert resp.status_code == 400
+        assert "Pilihan tidak sesuai" in resp.json()["detail"]
+
 
 class TestFinishExam:
     async def test_finish_exam_returns_result(self, client: AsyncClient, test_user, test_package_with_questions):

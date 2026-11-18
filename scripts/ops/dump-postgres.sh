@@ -3,7 +3,11 @@ set -eu
 umask 077
 export PGDATABASE="$(printf '%s' "$DATABASE_URL" | sed 's/^postgresql+asyncpg:/postgresql:/')"
 unset DATABASE_URL
-export PGSSLMODE=verify-full PGSSLROOTCERT=/etc/ssl/certs/ca-certificates.crt PGCONNECT_TIMEOUT=15
+# pg_dump resolves a default user before libpq expands the PGDATABASE URI.
+# Numeric container users need a fallback; the URI still supplies the actual DB user.
+export PGUSER="${PGUSER:-postgres}"
+export PGSSLMODE=verify-full PGCONNECT_TIMEOUT=15
+export PGSSLROOTCERT="${PGSSLROOTCERT:-/run/secrets/postgres_root_ca}"
 export PGOPTIONS='-c default_transaction_read_only=on'
 if [ "${BACKUP_STDOUT:-0}" = 1 ]; then
     temporary="$(mktemp /tmp/ujian-dump.XXXXXX)"

@@ -1,5 +1,9 @@
 # Catatan handoff 18 November 2026
 
+> Catatan awal di bawah merupakan riwayat. Pembaruan hasil verifikasi, perbaikan
+> pembayaran, dan aktivasi backup ada pada
+> [catatan tindak lanjut operasi](operations-followup-2026-11-18.md).
+
 - Production terakhir yang diverifikasi menjalankan commit `1723b43` dan schema `d8e4a91b2201`; backend, frontend, gateway, worker, scheduler, Redis, dan tunnel sehat.
 - Backup privat, restore schema aplikasi, dan rehearsal migrasi tersebut berhasil. Verifikasi migrasi production mempertahankan 17.451 baris data lama.
 - Perubahan source dan catatan lain yang disertakan bersama handoff ini **belum diuji ulang secara menyeluruh**. Pemilik meminta seluruh pekerjaan terbaru segera di-push sebelum komputer dimatikan. Validasi berikutnya diserahkan ke CI.

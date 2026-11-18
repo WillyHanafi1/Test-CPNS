@@ -126,6 +126,67 @@ def test_object_collision_never_deletes_an_existing_backup(monkeypatch):
     assert store.call.call_count == 1
 
 
+@pytest.mark.parametrize('key,bearer', [('sb_secret_synthetic', False), ('legacy-jwt', True)])
+def test_backup_storage_accepts_modern_secret_keys_without_using_them_as_bearer_tokens(monkeypatch, key, bearer):
+    monkeypatch.setenv('BACKUP_SUPABASE_URL', 'https://storage.example')
+    monkeypatch.setenv('BACKUP_SUPABASE_KEY', key)
+    store = backup.Storage()
+    assert store.headers['apikey'] == key
+    assert ('Authorization' in store.headers) is bearer
+
+
+def test_operations_tmpfs_options_remain_a_single_mount():
+    import yaml
+    config = yaml.safe_load((Path(__file__).parents[2] / 'compose.production.yml').read_text())
+    assert 'build' not in config['services']['backup-store']
+    for name, size in [('database-backup', 64), ('backup-store', 96)]:
+        assert config['services'][name]['tmpfs'] == [f'/tmp:size={size}m,mode=1777']
+
+
+def load_setup():
+    path = Path(__file__).parents[2] / 'scripts/ops/setup-operations.py'
+    spec = importlib.util.spec_from_file_location('setup_operations', path)
+    helper = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(helper)
+    return helper
+
+
+def test_backup_setup_rerun_preserves_recovery_key_and_existing_credentials(tmp_path):
+    helper = load_setup()
+    (tmp_path / 'infra').mkdir()
+    (tmp_path / 'infra/operations.env.example').write_text('BACKUP_STORAGE=supabase\nBACKUP_SUPABASE_KEY=\n')
+    config = helper.initialize(tmp_path)
+    key = (tmp_path / '.secrets/backup.key').read_bytes()
+    assert len(base64.urlsafe_b64decode(key.strip())) == 32
+    helper.write_private(config, 'BACKUP_STORAGE=supabase\nBACKUP_SUPABASE_KEY=synthetic-existing\n')
+    helper.initialize(tmp_path)
+    assert (tmp_path / '.secrets/backup.key').read_bytes() == key
+    assert 'synthetic-existing' in config.read_text()
+
+
+def test_backup_setup_rejects_invalid_existing_key_without_rotating_it(tmp_path):
+    helper = load_setup()
+    (tmp_path / '.secrets').mkdir()
+    key = tmp_path / '.secrets/backup.key'
+    key.write_bytes(b'invalid')
+    with pytest.raises(ValueError):
+        helper.initialize(tmp_path)
+    assert key.read_bytes() == b'invalid'
+
+
+def test_backup_setup_refuses_public_storage_and_does_not_change_its_permissions(monkeypatch):
+    from unittest.mock import Mock
+    helper = load_setup()
+    response = Mock()
+    response.__enter__ = Mock(return_value=io.StringIO('{"public": true}'))
+    response.__exit__ = Mock(return_value=False)
+    request = Mock(return_value=response)
+    monkeypatch.setattr(helper, 'urlopen', request)
+    with pytest.raises(ValueError, match='private'):
+        helper.configure_bucket('https://storage.example', 'sb_secret_synthetic', 'backups')
+    assert request.call_count == 1
+
+
 async def test_operations_detects_stale_worker_and_failed_scoring_without_exposing_participants(client, db_session, test_user, test_package_with_questions):
     session = ExamSession(user_id=test_user.id, package_id=test_package_with_questions.id, status='processing',
         start_time=datetime.now(timezone.utc), end_time=datetime.now(timezone.utc))
@@ -197,3 +258,10 @@ def test_monitor_clears_old_host_faults_instead_of_feeding_them_back_from_redis(
     result = monitor.collect()
     assert [issue['code'] for issue in result['issues']] == ['worker_heartbeat']
     assert result['host']['issues'] == []
+    for kind in ('database', 'configuration'):
+        (backup_root / ('latest-' + kind + '.json')).write_text(json.dumps({
+            'created_at': datetime.now(timezone.utc).isoformat(), 'destination': 'local', 'verified': True}))
+    monkeypatch.setattr(monitor, 'run', Mock(side_effect=[' '.join(services), json.dumps(rows), '{"issues": []}']))
+    result = monitor.collect()
+    assert result['status'] == 'attention'
+    assert {issue['code'] for issue in result['issues']} == {'backup_fallback_database', 'backup_fallback_configuration'}

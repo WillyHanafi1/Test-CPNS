@@ -2,38 +2,30 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Authentication and Landing Flow', () => {
   test('should load the landing page successfully and render major elements', async ({ page }) => {
-    // Navigate to the landing page
     await page.goto('/');
 
-    // Validate that the main title exists and contains expected text
     const title = page.locator('h1');
     await expect(title).toBeVisible();
-    await expect(title).toContainText('Lolos CPNS');
+    await expect(title).toContainText('Latihan terarah.');
 
-    // Validate that CTA button exists
-    const ctaButton = page.locator('button', { hasText: 'Coba Tryout Gratis' });
-    await expect(ctaButton).toBeVisible();
+    const ctaLink = page.getByRole('link', { name: 'Coba paket gratis' });
+    await expect(ctaLink).toBeVisible();
 
-    // Verify catalog link is visible
-    const catalogButton = page.locator('button', { hasText: 'Lihat Katalog Soal' });
-    await expect(catalogButton).toBeVisible();
+    const membershipLink = page.getByRole('link', { name: 'Lihat keanggotaan' });
+    await expect(membershipLink).toBeVisible();
   });
 
   test('should navigate to login page and render form controls', async ({ page }) => {
-    // Navigate directly to the login page
     await page.goto('/login');
 
-    // Confirm that we are on the login page URL
     await expect(page).toHaveURL(/\/login/);
 
-    // Verify the page title (h3 CardTitle "Welcome Back")
-    const cardTitle = page.locator('h3', { hasText: 'Welcome Back' });
-    await expect(cardTitle).toBeVisible();
+    const heading = page.locator('h1', { hasText: 'Masuk ke ruang latihan.' });
+    await expect(heading).toBeVisible();
 
-    // Verify input fields for login
     const emailInput = page.locator('input[type="email"]');
     const passwordInput = page.locator('input[type="password"]');
-    const submitButton = page.locator('button', { hasText: 'Sign In' });
+    const submitButton = page.getByRole('button', { name: 'Masuk', exact: true });
 
     await expect(emailInput).toBeVisible();
     await expect(passwordInput).toBeVisible();

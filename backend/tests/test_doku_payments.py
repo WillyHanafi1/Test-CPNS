@@ -159,9 +159,10 @@ def notification(provider, *, status='SUCCESS', amount=50000, channel='QRIS', ta
     return data, body, headers
 
 
-async def test_webhook_grants_pro_once_and_never_downgrades_paid_order(provider, client, test_user, db_session):
+@pytest.mark.parametrize('channel', ['QRIS', 'QRIS_DOKU'])
+async def test_webhook_grants_pro_once_and_never_downgrades_paid_order(provider, client, test_user, db_session, channel):
     row = await seed_payment(provider, db_session, test_user)
-    _, body, headers = notification(provider)
+    _, body, headers = notification(provider, channel=channel)
     for _ in range(2):
         response = await client.post(NOTIFICATION_PATH, content=body, headers=headers)
         assert response.status_code == 200, response.text
@@ -177,7 +178,9 @@ async def test_webhook_grants_pro_once_and_never_downgrades_paid_order(provider,
 
 
 @pytest.mark.parametrize('amount,channel,environment,expected', [(1, 'QRIS', 'sandbox', 'http_400'),
-    (50000, 'QRIS', 'production', 'http_409'), (50000, 'VIRTUAL_ACCOUNT_BJB', 'sandbox', 'DOKU_PAYMENT_CHANNEL_MISMATCH')])
+    (1, 'QRIS_DOKU', 'sandbox', 'http_400'), (50000, 'QRIS', 'production', 'http_409'),
+    (50000, 'VIRTUAL_ACCOUNT_BJB', 'sandbox', 'DOKU_PAYMENT_CHANNEL_MISMATCH'),
+    (50000, 'QRIS_UNKNOWN', 'sandbox', 'DOKU_PAYMENT_CHANNEL_MISMATCH')])
 async def test_webhook_cannot_grant_wrong_amount_environment_or_channel(provider, client, test_user, db_session,
                                                                       amount, channel, environment, expected):
     await seed_payment(provider, db_session, test_user, environment=environment)
@@ -188,6 +191,46 @@ async def test_webhook_cannot_grant_wrong_amount_environment_or_channel(provider
     assert event.status == 'review' and event.last_error == expected
     await db_session.refresh(test_user)
     assert not test_user.is_pro
+
+
+async def test_real_qris_donation_notification_is_processed_once_without_granting_pro(provider, client, test_user, db_session):
+    from backend.models.models import AuditEvent
+    row = await seed_payment(provider, db_session, test_user)
+    row.transaction_type = 'donation'
+    row.amount = 5000
+    row.duration_days = None
+    row.payment_request_body = provider.build_checkout_body(row.order_id, 5000,
+        [{'price': 5000, 'quantity': 1}], {'email': test_user.email})
+    await db_session.commit()
+    paid = datetime.now(timezone.utc) - timedelta(seconds=5)
+    _, body, headers = notification(provider, amount=5000, channel='QRIS_DOKU', paid_at=paid.isoformat())
+    for _ in range(2):
+        response = await client.post(NOTIFICATION_PATH, content=body, headers=headers)
+        assert response.status_code == 200, response.text
+    await db_session.refresh(row)
+    await db_session.refresh(test_user)
+    events = (await db_session.scalars(select(PaymentEvent))).all()
+    audits = (await db_session.scalars(select(AuditEvent).where(AuditEvent.action == 'payment.status'))).all()
+    assert row.payment_status == 'success' and payments.utc(row.paid_at) == paid
+    assert row.granted_at is None and not test_user.is_pro and test_user.pro_expires_at is None
+    assert len(events) == len(audits) == 1
+    assert events[0].status == 'processed' and events[0].last_error is None
+    assert events[0].payload['channel']['id'] == 'QRIS_DOKU'
+
+
+async def test_qris_doku_webhook_cannot_pay_an_order_that_did_not_offer_qris(provider, client, test_user, db_session):
+    row = await seed_payment(provider, db_session, test_user)
+    body = json.loads(row.payment_request_body)
+    body['payment']['payment_method_types'] = ['VIRTUAL_ACCOUNT_BNI']
+    row.payment_request_body = json.dumps(body)
+    await db_session.commit()
+    _, body, headers = notification(provider, channel='QRIS_DOKU')
+    assert (await client.post(NOTIFICATION_PATH, content=body, headers=headers)).status_code == 200
+    event = await db_session.scalar(select(PaymentEvent))
+    assert event.status == 'review' and event.last_error == 'DOKU_PAYMENT_CHANNEL_MISMATCH'
+    await db_session.refresh(row)
+    await db_session.refresh(test_user)
+    assert row.payment_status == 'pending' and not test_user.is_pro
 
 
 async def test_signed_failed_channel_keeps_checkout_pending(provider, client, test_user, db_session):

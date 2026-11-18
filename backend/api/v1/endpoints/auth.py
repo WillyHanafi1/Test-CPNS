@@ -306,7 +306,7 @@ async def google_login(
         try:
             idinfo = await asyncio.wait_for(asyncio.to_thread(verify_google_claims, payload.token),
                                            timeout=GOOGLE_VERIFY_TIMEOUT_SECONDS)
-        except (TimeoutError, TransportError):
+        except (TimeoutError, asyncio.TimeoutError, TransportError):
             raise HTTPException(503, 'Google sedang lambat atau belum tersedia. Silakan coba masuk kembali.')
         
         # [CLEANUP] Redundant audience check removed as it's already verified in verify_oauth2_token above.

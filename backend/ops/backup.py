@@ -21,6 +21,14 @@ CHUNK = 65536
 KINDS = {'database', 'configuration'}
 
 
+def _sha256_file(handle):
+    """Compute SHA-256 hex digest from a binary stream without requiring Python 3.11+."""
+    digest = hashlib.sha256()
+    while chunk := handle.read(CHUNK):
+        digest.update(chunk)
+    return digest.hexdigest()
+
+
 def encryption_key():
     key = base64.urlsafe_b64decode(Path(os.getenv('BACKUP_KEY_FILE', '/run/secrets/backup_key')).read_bytes().strip())
     if len(key) != 32:
@@ -42,7 +50,7 @@ def encrypt(source, destination, key, max_bytes):
         raise ValueError('Refusing an empty backup')
     destination.write(cipher.finalize() + cipher.tag)
     destination.seek(0)
-    digest = hashlib.file_digest(destination, 'sha256').hexdigest()
+    digest = _sha256_file(destination)
     destination.seek(0)
     return total, digest
 
@@ -68,7 +76,10 @@ class Storage:
         self.base = os.environ['BACKUP_SUPABASE_URL'].rstrip('/') + '/storage/v1'
         self.bucket = os.getenv('BACKUP_BUCKET', 'tocpns-backups')
         key = os.environ['BACKUP_SUPABASE_KEY']
-        self.headers = {'apikey': key, 'Authorization': 'Bearer ' + key}
+        self.headers = {'apikey': key}
+        # New Supabase secret keys are opaque API keys, not bearer JWTs.
+        if not key.startswith('sb_secret_'):
+            self.headers['Authorization'] = 'Bearer ' + key
 
     def call(self, method, path, **kwargs):
         response = requests.request(method, self.base + path, headers=self.headers,
@@ -145,9 +156,9 @@ def save_local(file, kind, name, root):
     finally:
         temporary.unlink(missing_ok=True)
     file.seek(0)
-    expected = hashlib.file_digest(file, 'sha256').hexdigest()
+    expected = _sha256_file(file)
     with target.open('rb') as written:
-        if hashlib.file_digest(written, 'sha256').hexdigest() != expected:
+        if _sha256_file(written) != expected:
             raise RuntimeError('Local backup checksum mismatch')
     matches = sorted(local_archives(root, kind),
                      key=lambda p: (p.name == target.name, p.stat().st_mtime_ns, p.name), reverse=True)
@@ -208,7 +219,8 @@ def configuration_archive():
     output = io.BytesIO()
     root = Path('/backup-config')
     names = ('public.env', 'manifests/images.env', 'manifests/images.previous.env', 'secrets/application.env',
-             'secrets/operations.env', 'secrets/cloudflare-token')
+             'secrets/operations.env', 'secrets/cloudflare-token', 'secrets/postgres-root-ca.crt',
+             'manifests/operations.override.yml')
     with tarfile.open(fileobj=output, mode='w:gz') as archive:
         for name in names:
             path = root / name

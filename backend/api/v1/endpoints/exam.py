@@ -1,16 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Body, Query, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Body, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 import uuid
 import logging
 import traceback
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 
 from backend.db.session import get_async_session
-from backend.models.models import Package, Question, ExamSession, User, Answer
+from backend.models.models import Package, Question, QuestionOption, ExamSession, User
 from backend.api.v1.endpoints.auth import get_current_user
 from backend.core.redis_service import redis_service
 from backend.core.rate_limiter import limiter, authenticated_limit_key
@@ -461,11 +461,11 @@ async def get_my_stats(
     query = select(
         func.count(ExamSession.id).label("total"),
         func.max(ExamSession.total_score).label("best_score"),
-        func.count(case((ExamSession.is_passed == True, 1))).label("passed")
+        func.count(case((ExamSession.is_passed.is_(True), 1))).label("passed")
     ).where(
         ExamSession.user_id == current_user.id,
         ExamSession.status == "finished",
-        ExamSession.is_preview == False
+        ExamSession.is_preview.is_(False)
     )
     
     result = await db.execute(query)

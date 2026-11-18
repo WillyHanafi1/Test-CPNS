@@ -161,11 +161,43 @@ tetap memerlukan token dan route yang benar.
 - Google Login: tambahkan origin domain HTTPS pada OAuth client.
 - SMTP/reset password terkirim dan link memakai domain baru.
 - Ujian, autosave, submit, nilai, riwayat, dan leaderboard.
-- DOKU notification URL: `https://tocpns.my.id/api/v1/transactions/webhook`;
+- DOKU notification URL: `https://tocpns.my.id/api/payments/doku/notifications`;
   uji callback/idempotensi dan samakan environment sebelum memakai uang nyata.
 - AI diuji setelah GOOGLE_API_KEY production tersedia.
 
 ## Backup, pemantauan, rollback
+
+Setup backup satu kali (image PostgreSQL harus sesuai versi server):
+
+```sh
+sudo python3 scripts/ops/setup-operations.py --supabase --postgres-image postgres:17-alpine
+sudo bash scripts/ops/backup-ujian.sh
+sudo bash scripts/ops/install-operations.sh
+```
+
+Setup mempertahankan kunci pemulihan yang sudah ada. Simpan salinan
+`.secrets/backup.key` di luar server. Kunci Supabase diisi lewat input tersembunyi;
+secret key `sb_secret_...` dan legacy `service_role` didukung. Bucket harus privat.
+`prepare_backup.py` membuat environment libpq privat tanpa password pada argumen
+proses, memakai session pooler Supabase port 5432 dan TLS `verify-full`. Simpan
+CA database dari Supabase Database Settings di `.secrets/postgres-root-ca.crt`;
+CA dari rehearsal yang tersimpan sebelumnya digunakan otomatis bila tersedia.
+
+Monitoring dapat dipasang lebih dahulu dengan
+`sudo bash scripts/ops/install-operations.sh --monitor-only`. Backup lokal tetap
+ditandai perlu perhatian sampai salinan off-host otomatis terverifikasi.
+Periksa status atau jalankan backup terjadwal secara manual:
+
+```sh
+sudo systemctl start ujian-backup.service
+sudo systemctl status ujian-backup.timer ujian-monitor.timer
+sudo bash scripts/ops/compose.sh exec -T backend python -m backend.ops.status
+```
+
+Untuk rehearsal restore schema aplikasi dari Supabase pada PostgreSQL kosong,
+siapkan schema `extensions` beserta extension `uuid-ossp` dan `pgcrypto` terlebih
+dahulu, lalu restore schema `public` dari arsip yang sudah diautentikasi AES-GCM.
+Gunakan database disposable tanpa akses jaringan production.
 
 Redis memakai AOF everysec dan noeviction untuk melindungi jawaban/antrean.
 AOF everysec masih memiliki jendela kehilangan sekitar satu detik saat crash.

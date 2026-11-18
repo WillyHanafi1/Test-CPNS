@@ -9,11 +9,6 @@ x-logging: &logging
 
 x-backend: &backend
   image: ujian-backend:${RELEASE_TAG:-prepared}
-  build:
-    context: ./backend
-    dockerfile: Dockerfile.production
-    args:
-      PYTHON_IMAGE: ${PYTHON_IMAGE:?Base image digest is required}
   env_file:
     - path: ./.secrets/application.env
       format: raw
@@ -47,12 +42,17 @@ services:
     env_file:
       - path: ./.secrets/application.env
         format: raw
+      # Generated privately by prepare_backup.py; libpq needs separate PG fields.
+      - path: ./.secrets/backup-database.env
+        required: false
+        format: raw
     entrypoint: [sh, /ops/dump-postgres.sh]
     volumes:
       - ./scripts/ops/dump-postgres.sh:/ops/dump-postgres.sh:ro
       - ./.server-notes/backups:/backups
+      - ./.secrets/postgres-root-ca.crt:/run/secrets/postgres_root_ca:ro
     read_only: true
-    tmpfs: [/tmp:size=64m,mode=1777]
+    tmpfs: ['/tmp:size=64m,mode=1777']
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
     networks: [application]
@@ -61,6 +61,7 @@ services:
 
   backup-store:
     <<: *backend
+    # Reuse an application image; a scheduled backup must never start a build.
     profiles: [operations]
     # A read-only script mount also allows backup before the new application/schema is released.
     entrypoint: [python, /ops/backup.py]
@@ -82,7 +83,7 @@ services:
       - ./.server-notes:/backup-config/manifests:ro
     mem_limit: 192m
     # Restore authenticates the ciphertext before releasing plaintext (two RAM files).
-    tmpfs: [/tmp:size=96m,mode=1777]
+    tmpfs: ['/tmp:size=96m,mode=1777']
     cpus: 0.25
     restart: 'no'
 
@@ -106,6 +107,11 @@ services:
 
   backend:
     <<: *backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.production
+      args:
+        PYTHON_IMAGE: ${PYTHON_IMAGE:?Base image digest is required}
     mem_limit: 512m
     cpus: 0.75
     networks:

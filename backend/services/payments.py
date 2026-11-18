@@ -140,7 +140,12 @@ async def apply_provider_status(db, payload):
     status = payment_status(payload)
     if status == 'success' and transaction.payment_request_body:
         methods = json.loads(transaction.payment_request_body)['payment']['payment_method_types']
-        if payload.get('channel', {}).get('id') not in methods:
+        channel = payload.get('channel', {}).get('id')
+        # DOKU Checkout/status uses QRIS; its QRIS webhook uses QRIS_DOKU.
+        # Preserve the provider's original receipt and normalize only for this comparison.
+        if channel == 'QRIS_DOKU':
+            channel = 'QRIS'
+        if channel not in methods:
             raise DokuError('DOKU_PAYMENT_CHANNEL_MISMATCH')
     await fulfill_transaction(db, order_id, status, exact_amount(payload['order']['amount']),
                               environment=settings.DOKU_ENVIRONMENT, client_id=settings.DOKU_CLIENT_ID,

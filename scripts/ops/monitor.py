@@ -69,8 +69,8 @@ def collect():
                              'verified': backup.get('verified', False)}
             if age > 36 * 3600 or not backup.get('verified'):
                 raise ValueError('stale')
-            if backup.get('destination') == 'local' and backup.get('remote_issue'):
-                issues.append({'code': 'backup_fallback_' + kind, 'message': 'Backup tersimpan lokal; upload Supabase perlu diperiksa.'})
+            if backup.get('destination') != 'supabase':
+                issues.append({'code': 'backup_fallback_' + kind, 'message': 'Backup tersimpan lokal; backup off-host otomatis belum terverifikasi.'})
             elif backup.get('remote_issue'):
                 issues.append({'code': 'backup_retention_' + kind, 'message': 'Backup tersimpan di Supabase; retensinya perlu diperiksa.'})
         except (OSError, ValueError, KeyError):
