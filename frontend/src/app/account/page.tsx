@@ -22,8 +22,9 @@ export default function Account() {
   const { user, loading, logout } = useAuth();
   const { preference, setPreference } = useTheme();
   const router = useRouter();
+  const [page, setPage] = useState(0);
   const transactions = useResource<Transaction[]>(
-    "/transactions/my-transactions",
+    `/transactions/my-transactions?limit=20&offset=${page * 20}`,
     !!user,
   );
   const [message, setMessage] = useState("");
@@ -132,6 +133,25 @@ export default function Account() {
                 </div>
               ))
             )}
+            <div className="between">
+              <button
+                className="button button-small button-secondary"
+                disabled={page === 0 || transactions.loading}
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+              >
+                Sebelumnya
+              </button>
+              <span className="muted">Halaman {page + 1}</span>
+              <button
+                className="button button-small button-secondary"
+                disabled={
+                  transactions.loading || (transactions.data?.length || 0) < 20
+                }
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Berikutnya
+              </button>
+            </div>
           </section>
         </div>
         <aside className="panel stack">
@@ -152,6 +172,13 @@ export default function Account() {
             Pilihan tersimpan di browser ini dan berlaku di seluruh halaman.
           </p>
           <hr style={{ borderColor: "var(--line)" }} />
+          <h2>Keamanan akun</h2>
+          <Link className="button button-secondary" href="/forgot-password">
+            Ubah kata sandi melalui email
+          </Link>
+          <p className="muted">
+            Mengganti kata sandi akan mengakhiri sesi masuk lama.
+          </p>
           <h2>Bantuan dan masukan</h2>
           <Link className="button button-secondary" href="/faq">
             Buka panduan

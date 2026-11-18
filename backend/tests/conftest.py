@@ -21,6 +21,13 @@ if _project_root not in sys.path:
 # Set env vars BEFORE importing backend.config (pydantic_settings reads them at import)
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 os.environ["REDIS_URL"] = "redis://localhost:6379/0"
+os.environ["DOKU_CLIENT_ID"] = ""
+os.environ["DOKU_SECRET_KEY"] = ""
+os.environ["DOKU_ENVIRONMENT"] = "sandbox"
+os.environ["DOKU_ENABLED"] = "true"
+os.environ["DOKU_PAYMENT_METHODS"] = "QRIS,VIRTUAL_ACCOUNT_BNI"
+os.environ["DOKU_WEBHOOK_PROFILE"] = "non-snap"
+os.environ["DOKU_NOTIFICATION_URL"] = "https://tocpns.my.id/api/payments/doku/notifications"
 os.environ.setdefault("SECRET_KEY", "test-secret-key-for-pytest-only")
 os.environ.setdefault("CORS_ORIGINS", "http://localhost:3000")
 

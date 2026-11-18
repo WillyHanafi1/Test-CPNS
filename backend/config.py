@@ -1,7 +1,15 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import model_validator
+from pydantic import Field, model_validator
 import os
 import warnings
+
+DOKU_SUPPORTED_METHODS = frozenset({
+    "QRIS", "VIRTUAL_ACCOUNT_BANK_MANDIRI", "VIRTUAL_ACCOUNT_BNI", "VIRTUAL_ACCOUNT_BRI",
+    "VIRTUAL_ACCOUNT_BCA", "VIRTUAL_ACCOUNT_DOKU", "VIRTUAL_ACCOUNT_BANK_PERMATA",
+    "VIRTUAL_ACCOUNT_BANK_SYARIAH_MANDIRI", "VIRTUAL_ACCOUNT_BANK_CIMB", "VIRTUAL_ACCOUNT_BANK_DANAMON",
+    "VIRTUAL_ACCOUNT_BTN", "VIRTUAL_ACCOUNT_BNC", "VIRTUAL_ACCOUNT_BSS", "VIRTUAL_ACCOUNT_BJB",
+    "VIRTUAL_ACCOUNT_MAYBANK", "VIRTUAL_ACCOUNT_SINARMAS",
+})
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "CPNS Platform"
@@ -52,6 +60,33 @@ class Settings(BaseSettings):
     DOKU_CLIENT_ID: str = os.getenv("DOKU_CLIENT_ID", "")
     DOKU_SECRET_KEY: str = os.getenv("DOKU_SECRET_KEY", "")
     DOKU_ENVIRONMENT: str = os.getenv("DOKU_ENVIRONMENT", "sandbox")
+    DOKU_ENABLED: bool = True
+    DOKU_WEBHOOK_PROFILE: str = "non-snap"
+    DOKU_PAYMENT_METHODS: str = "QRIS,VIRTUAL_ACCOUNT_DOKU,VIRTUAL_ACCOUNT_BNI"
+    DOKU_CHECKOUT_DUE_MINUTES: int = Field(default=60, ge=5, le=1440)
+    DOKU_EXPIRY_TIMEZONE: str = "Asia/Jakarta"
+    DOKU_NOTIFICATION_URL: str = ""
+
+    @property
+    def doku_notification_url(self) -> str:
+        return self.DOKU_NOTIFICATION_URL or f"{self.FRONTEND_URL.rstrip('/')}/api/payments/doku/notifications"
+
+    @property
+    def doku_payment_methods(self) -> list[str]:
+        return list(dict.fromkeys(method.strip() for method in self.DOKU_PAYMENT_METHODS.split(',') if method.strip()))
+
+    @property
+    def doku_checkout_available(self) -> bool:
+        from urllib.parse import urlsplit
+        target = urlsplit(self.doku_notification_url)
+        return bool(self.DOKU_ENABLED and self.DOKU_CLIENT_ID and self.DOKU_SECRET_KEY
+                    and self.DOKU_ENVIRONMENT in {"sandbox", "production"}
+                    and self.DOKU_WEBHOOK_PROFILE == "non-snap" and self.doku_payment_methods
+                    and set(self.doku_payment_methods) <= DOKU_SUPPORTED_METHODS
+                    and target.hostname and not target.username and not target.password
+                    and target.path == "/api/payments/doku/notifications"
+                    and not target.query and not target.fragment
+                    and target.scheme in ({"https"} if self.DOKU_ENVIRONMENT == "production" else {"http", "https"}))
     
     # Vertex AI
     VERTEX_PROJECT_ID: str = os.getenv("VERTEX_PROJECT_ID", "")

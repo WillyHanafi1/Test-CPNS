@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+.operations-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 16px; }
+.metric-value { font-size: 2rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.payment-steps { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 10px; color: var(--muted); font-size: .875rem; }
+.payment-steps li { display: flex; align-items: center; gap: 6px; }
+.payment-steps [aria-current="step"] { color: var(--ink); font-weight: 600; }
+.transaction-id { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+
 html {
   scroll-behavior: smooth;
 }

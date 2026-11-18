@@ -13,6 +13,7 @@ import {
   Menu,
   MessageSquare,
   ArrowUpRight,
+  Activity,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -27,6 +28,7 @@ const navigation = [
   { name: "Pengguna", icon: Users, href: "/admin/users" },
   { name: "Masukan", icon: MessageSquare, href: "/admin/feedback" },
   { name: "Analitik", icon: BarChart3, href: "/admin/analytics" },
+  { name: "Operasi", icon: Activity, href: "/admin/operations" },
 ];
 
 export default function AdminLayout({

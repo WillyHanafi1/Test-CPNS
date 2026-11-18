@@ -2,7 +2,7 @@
 name: ujian-verify
 x-test-backend: &backend
   image: ujian-backend:${RELEASE_TAG:-prepared}
-  environment:
+  environment: &verification-environment
     DATABASE_URL: postgresql+asyncpg://ujian_verify:verification-only@postgres:5432/ujian_verify
     REDIS_URL: redis://redis:6379/0
     SECRET_KEY: verification-only-key-never-use-in-production-123456
@@ -53,6 +53,7 @@ services:
     volumes:
       - ./smoke.py:/checks/smoke.py:ro
       - ./load.py:/checks/load.py:ro
+      - ./payment_isolation.py:/checks/payment_isolation.py:ro
     healthcheck:
       test: [CMD, python, -c, "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8001/health',timeout=5)"]
       interval: 5s
@@ -60,8 +61,25 @@ services:
       retries: 15
   worker:
     <<: *backend
-    command: [celery, -A, backend.core.celery_app.celery_app, worker, --loglevel=WARNING, --concurrency=1]
+    command: [celery, -A, backend.core.celery_app.celery_app, worker, --queues=celery, --loglevel=WARNING, --concurrency=1]
     mem_limit: 384m
+  payment-worker:
+    <<: *backend
+    command: [celery, -A, backend.core.celery_app.celery_app, worker, --queues=payments, --loglevel=WARNING, --concurrency=1]
+    mem_limit: 256m
+  payment-outage-worker:
+    <<: *backend
+    profiles: [faults]
+    entrypoint: [python, /checks/payment_outage_worker.py]
+    environment:
+      <<: *verification-environment
+      DOKU_ENABLED: 'true'
+      DOKU_CLIENT_ID: synthetic-isolation-merchant
+      DOKU_SECRET_KEY: synthetic-isolation-secret
+      DOKU_ENVIRONMENT: sandbox
+    volumes:
+      - ./payment_outage_worker.py:/checks/payment_outage_worker.py:ro
+    mem_limit: 256m
   beat:
     <<: *backend
     command: [celery, -A, backend.core.celery_app.celery_app, beat, --loglevel=WARNING, --schedule=/tmp/celerybeat-schedule, --pidfile=/tmp/celerybeat.pid]

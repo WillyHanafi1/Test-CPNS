@@ -11,7 +11,17 @@ compose config --quiet
 compose up -d --no-build --wait --wait-timeout 180
 compose exec -T backend python /checks/smoke.py
 if [ "${RUN_LOAD_CHECK:-0}" = 1 ]; then
-    compose exec -T backend python /checks/load.py
+    compose exec -T -e LOAD_SOAK_SECONDS="${LOAD_SOAK_SECONDS:-0}" backend python /checks/load.py
+fi
+if [ "${RUN_PAYMENT_OUTAGE_CHECK:-0}" = 1 ]; then
+    compose stop payment-worker
+    compose --profile faults up -d --no-deps payment-outage-worker
+    compose exec -T -e DOKU_ENABLED=true -e DOKU_CLIENT_ID=synthetic-isolation-merchant \
+        -e DOKU_SECRET_KEY=synthetic-isolation-secret -e DOKU_ENVIRONMENT=sandbox \
+        backend python /checks/payment_isolation.py
+    compose --profile faults stop --timeout 20 payment-outage-worker
+    compose --profile faults rm -f payment-outage-worker
+    compose up -d --no-deps payment-worker
 fi
 if compose exec -T backend python -m backend.ops.check_schema; then
     printf 'FAIL: missing schema revision was accepted.\n' >&2

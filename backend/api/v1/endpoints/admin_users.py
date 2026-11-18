@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr
 from datetime import datetime
 
 from backend.db.session import get_async_session
-from backend.models.models import User, UserProfile, ExamSession, UserTransaction
+from backend.models.models import User, UserProfile, ExamSession, UserTransaction, AuditEvent
 from backend.api.v1.endpoints.auth import get_current_admin
 from backend.core.utils import sanitize_search
 import logging
@@ -175,8 +175,13 @@ async def update_user_admin(
         raise HTTPException(status_code=404, detail="User not found")
     
     update_data = user_in.model_dump(exclude_unset=True)
+    before = {key: getattr(user, key) for key in update_data}
+    if any(key in update_data and update_data[key] != getattr(user, key) for key in ('role', 'is_active')):
+        user.auth_version += 1
     for key, value in update_data.items():
         setattr(user, key, value)
+    db.add(AuditEvent(actor_id=admin.id, action='admin.user_update', entity_id=str(user_id),
+        details={'before': before, 'after': update_data}))
     
     await db.commit()
     await db.refresh(user)

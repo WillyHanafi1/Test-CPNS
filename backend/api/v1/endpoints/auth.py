@@ -2,16 +2,18 @@ from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from typing import Optional
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, update
 from datetime import timedelta
 import uuid
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 import hashlib
 import logging
+import asyncio
+from functools import partial
+from google.auth.exceptions import TransportError
 
-logger = logging.getLogger("backend.api.v1.endpoints.auth")
 
 from backend.db.session import get_async_session
 from backend.models.models import User, UserProfile
@@ -23,7 +25,7 @@ from backend.core.security import (
     get_password_hash, 
     create_access_token, 
     create_reset_token,
-    verify_reset_token,
+    decode_reset_token,
     ACCESS_TOKEN_EXPIRE_MINUTES, 
     ALGORITHM, 
     SECRET_KEY
@@ -34,12 +36,30 @@ from backend.core.rate_limiter import limiter
 import jwt
 from jwt import InvalidTokenError as JWTError
 
+logger = logging.getLogger("backend.api.v1.endpoints.auth")
+GOOGLE_VERIFY_TIMEOUT_SECONDS = 10
+
+
+def verify_google_claims(token):
+    transport = google_requests.Request()
+    try:
+        return id_token.verify_oauth2_token(token, partial(transport, timeout=(3, 5)), app_settings.GOOGLE_CLIENT_ID)
+    finally:
+        transport.session.close()
+
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 
 class ResetPasswordRequest(BaseModel):
     token: str
     new_password: str
+
+    @field_validator('new_password')
+    @classmethod
+    def usable_password(cls, value):
+        if len(value) < 8 or len(value.encode('utf-8')) > 72:
+            raise ValueError('Gunakan minimal 8 karakter dan maksimal 72 byte.')
+        return value
 
 class GoogleLoginRequest(BaseModel):
     token: str
@@ -71,6 +91,8 @@ async def get_current_user(
     
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get('type') not in (None, 'access'):
+            raise HTTPException(401, 'Token tidak berlaku untuk sesi masuk.')
         email: str = payload.get("sub")
         if email is None:
             raise HTTPException(status_code=401, detail="Invalid token")
@@ -87,6 +109,8 @@ async def get_current_user(
         raise HTTPException(status_code=401, detail="User not found or deleted")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account is inactive")
+    if payload.get('version', 0) != user.auth_version:
+        raise HTTPException(401, "Sesi berakhir. Silakan masuk kembali.")
     request.state.authenticated_user_id = str(user.id)
     return user
 
@@ -165,7 +189,7 @@ async def login(
     
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.email}, expires_delta=access_token_expires
+        data={"sub": user.email, "version": user.auth_version}, expires_delta=access_token_expires
     )
 
     # Set HttpOnly Cookie
@@ -230,7 +254,7 @@ async def forgot_password(
     user = result.scalar_one_or_none()
     
     if user:
-        reset_token = create_reset_token(user.email)
+        reset_token = create_reset_token(user.email, user.auth_version)
         frontend_url = app_settings.FRONTEND_URL
         reset_link = f"{frontend_url}/reset-password?token={reset_token}"
         
@@ -248,26 +272,23 @@ async def reset_password(
     db: AsyncSession = Depends(get_async_session)
 ):
     """Reset password using a valid reset token."""
-    email = verify_reset_token(payload.token)
-    if not email:
+    claims = decode_reset_token(payload.token)
+    if not claims:
         raise HTTPException(status_code=400, detail="Invalid or expired reset token")
 
-    result = await db.execute(select(User).where(User.email == email))
+    result = await db.execute(select(User).where(User.email == claims['sub']))
     user = result.scalar_one_or_none()
     
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # [SECURITY] Prevent reset token reuse — single-use enforcement
-    hashed_reset_token = hashlib.sha256(payload.token.encode()).hexdigest()
-    if await redis_service.redis.exists(f"reset_used:{hashed_reset_token}"):
-        raise HTTPException(status_code=400, detail="Token reset ini sudah pernah digunakan. Silakan minta ulang.")
-
-    user.hashed_password = get_password_hash(payload.new_password)
+    changed = await db.execute(update(User).where(User.id == user.id, User.auth_version == claims['version'])
+        .values(hashed_password=get_password_hash(payload.new_password), auth_version=User.auth_version + 1)
+        .execution_options(synchronize_session=False))
+    if changed.rowcount != 1:
+        await db.rollback()
+        raise HTTPException(400, "Tautan reset sudah digunakan atau kedaluwarsa. Silakan minta tautan baru.")
     await db.commit()
-    
-    # Mark token as used (block for 15 minutes — the token's natural TTL)
-    await redis_service.redis.setex(f"reset_used:{hashed_reset_token}", 900, "1")
     
     return {"message": "Password has been reset successfully."}
 
@@ -282,11 +303,11 @@ async def google_login(
     """Authenticate with Google ID Token."""
     try:
         # Verify Google Token
-        idinfo = id_token.verify_oauth2_token(
-            payload.token, 
-            google_requests.Request(), 
-            app_settings.GOOGLE_CLIENT_ID
-        )
+        try:
+            idinfo = await asyncio.wait_for(asyncio.to_thread(verify_google_claims, payload.token),
+                                           timeout=GOOGLE_VERIFY_TIMEOUT_SECONDS)
+        except (TimeoutError, TransportError):
+            raise HTTPException(503, 'Google sedang lambat atau belum tersedia. Silakan coba masuk kembali.')
         
         # [CLEANUP] Redundant audience check removed as it's already verified in verify_oauth2_token above.
 
@@ -334,10 +355,12 @@ async def google_login(
                 user.auth_provider = "google"
                 await db.commit()
             
+        if not user.is_active:
+            raise HTTPException(403, 'Akun belum aktif. Hubungi bantuan untuk pemeriksaan.')
         # Create session
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = create_access_token(
-            data={"sub": user.email}, expires_delta=access_token_expires
+            data={"sub": user.email, "version": user.auth_version}, expires_delta=access_token_expires
         )
 
         response.set_cookie(
@@ -359,6 +382,8 @@ async def google_login(
             "pro_expires_at": user.pro_expires_at
         }
 
+    except HTTPException:
+        raise
     except ValueError as ve:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(ve))
     except Exception as e:

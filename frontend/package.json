@@ -9,7 +9,11 @@
     "lint": "eslint",
     "test:unit": "node --import tsx --test tests/*.test.mts",
     "typecheck": "tsc --noEmit",
-    "lint:participant": "eslint src/app src/components/AppShell.tsx src/components/Modal.tsx src/components/PackageCard.tsx src/context/AuthContext.tsx src/features src/store/useExamStore.ts src/lib/api.ts src/lib/useResource.ts --ignore-pattern **/admin/** src/components/ThemeToggle.tsx src/context/ThemeContext.tsx src/lib/theme.ts src/components/DonationModal.tsx"
+    "lint:participant": "eslint src/app src/components/AppShell.tsx src/components/Modal.tsx src/components/PackageCard.tsx src/context/AuthContext.tsx src/features src/store/useExamStore.ts src/lib/api.ts src/lib/useResource.ts --ignore-pattern **/admin/** src/components/ThemeToggle.tsx src/context/ThemeContext.tsx src/lib/theme.ts src/components/DonationModal.tsx",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",

@@ -15,10 +15,19 @@ export async function api<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
-  let response: Response;
+  const controller = new AbortController();
+  let timedOut = false;
+  const abort = () => controller.abort();
+  if (options.signal?.aborted) controller.abort();
+  options.signal?.addEventListener("abort", abort, { once: true });
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, 15000);
   try {
-    response = await fetch(`${API_URL}/api/v1${path}`, {
+    const response = await fetch(`${API_URL}/api/v1${path}`, {
       ...options,
+      signal: controller.signal,
       credentials: "include",
       cache: "no-store",
       headers: {
@@ -29,26 +38,64 @@ export async function api<T>(
         ...options.headers,
       },
     });
+    const data =
+      response.status === 204
+        ? {}
+        : await response.json().catch((error) => {
+            if (controller.signal.aborted) throw error;
+            if (response.ok)
+              throw new ApiError(
+                response.status,
+                "invalid_response",
+                "Respons belum dapat dikonfirmasi. Silakan coba lagi.",
+              );
+            return {};
+          });
+    if (!response.ok) {
+      const detail = data.detail;
+      throw new ApiError(
+        response.status,
+        typeof detail === "object" ? detail?.code : "",
+        typeof detail === "string"
+          ? detail
+          : detail?.message || "Permintaan belum berhasil. Silakan coba lagi.",
+      );
+    }
+    return data as T;
   } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") throw error;
+    if (error instanceof ApiError) throw error;
+    if (options.signal?.aborted) throw error;
     throw new ApiError(
       0,
-      "network_unavailable",
-      "Koneksi belum tersedia. Periksa jaringan dan coba lagi.",
+      timedOut ? "request_timeout" : "network_unavailable",
+      timedOut
+        ? "Respons membutuhkan waktu lebih lama. Periksa koneksi, lalu coba lagi."
+        : "Koneksi belum tersedia. Periksa jaringan dan coba lagi.",
     );
+  } finally {
+    clearTimeout(timer);
+    options.signal?.removeEventListener("abort", abort);
   }
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const detail = data.detail;
-    throw new ApiError(
-      response.status,
-      typeof detail === "object" ? detail?.code : "",
-      typeof detail === "string"
-        ? detail
-        : detail?.message || "Permintaan belum berhasil. Silakan coba lagi.",
+}
+
+export function rememberPayment(orderId: string, ownerId: string) {
+  try {
+    sessionStorage.setItem(`payment_order:${ownerId}`, orderId);
+  } catch {
+    /* Callback already contains the order ID. */
+  }
+}
+
+export function recalledPayment(ownerId: string) {
+  try {
+    return (
+      sessionStorage.getItem(`payment_order:${ownerId}`) ||
+      sessionStorage.getItem("payment_order") ||
+      ""
     );
+  } catch {
+    return "";
   }
-  return data as T;
 }
 
 export function safeReturn(value: string | null) {

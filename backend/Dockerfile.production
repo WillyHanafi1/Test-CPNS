@@ -15,11 +15,11 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends libpq5 \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 10001 ujian && useradd --uid 10001 --gid ujian --no-create-home ujian
-COPY --from=builder /wheels /wheels
 COPY --from=builder /build/requirements.production.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir --upgrade pip==26.2 \
+RUN --mount=from=builder,source=/wheels,target=/wheels,ro \
+    pip install --no-cache-dir --upgrade pip==26.2 \
     && pip install --no-cache-dir --no-index --find-links=/wheels -r /tmp/requirements.txt \
-    && pip check && rm -rf /wheels /tmp/requirements.txt
+    && pip check && rm -f /tmp/requirements.txt
 COPY --chown=10001:10001 . /app/backend/
 USER 10001:10001
 EXPOSE 8001

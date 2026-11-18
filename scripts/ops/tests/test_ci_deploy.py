@@ -51,7 +51,7 @@ case "$*" in
   'build --builder ujian-ci frontend') [[ "${FAIL_MODE:-}" != build ]] ;;
   'run --rm --no-deps backend python -m backend.ops.check_schema')
     [[ "${FAIL_MODE:-}" != schema || "$tag" != candidate ]] ;;
-  'up -d --no-build --wait --wait-timeout 180 backend frontend gateway worker beat')
+  'up -d --no-build --wait --wait-timeout 180 backend frontend gateway worker payment-worker beat')
     [[ "${FAIL_MODE:-}" != startup || "$tag" != candidate ]] ;;
   'exec -T gateway wget '*) [[ "${FAIL_MODE:-}" != health || "$tag" != candidate ]] ;;
 esac

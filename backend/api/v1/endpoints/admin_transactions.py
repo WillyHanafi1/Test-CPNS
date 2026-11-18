@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 import logging
 
 from backend.db.session import get_async_session
-from backend.models.models import UserTransaction, User
+from backend.models.models import UserTransaction, User, PaymentEvent, AuditEvent
 from backend.api.v1.endpoints.auth import get_current_admin
 from backend.api.v1.endpoints.transactions_api import fulfill_transaction
 from backend.core.utils import sanitize_search
@@ -126,6 +126,7 @@ logger = logging.getLogger("admin.audit")
 async def update_transaction_status_admin(
     transaction_id: uuid.UUID,
     new_status: Literal["pending", "success", "failed"],
+    reason: Optional[str] = Query(None, max_length=200),
     db: AsyncSession = Depends(get_async_session),
     admin: User = Depends(get_current_admin)
 ):
@@ -138,17 +139,37 @@ async def update_transaction_status_admin(
     
     # Use the shared fulfillment logic
     if transaction.order_id:
-        await fulfill_transaction(db, transaction.order_id, new_status)
+        await fulfill_transaction(db, transaction.order_id, new_status, actor_id=admin.id, reason=reason)
     else:
         # Fallback for transactions without order_id (legacy)
-        transaction.payment_status = new_status
+        transaction.payment_status = old_status if old_status == 'success' else new_status
+        if old_status != 'success' and new_status == 'success' and transaction.paid_at is None:
+            transaction.paid_at = datetime.now(timezone.utc)
         # If success, set access_expires_at (example: 1 year from now)
         if new_status == "success" and not transaction.access_expires_at:
             transaction.access_expires_at = datetime.now(timezone.utc) + timedelta(days=365)
+        db.add(AuditEvent(actor_id=admin.id, action='admin.payment_status', entity_id=str(transaction.id),
+            details={'before': old_status, 'requested': new_status, 'after': transaction.payment_status,
+                     'reason': (reason or '').strip()}))
         await db.commit()
-    
+    await db.refresh(transaction)
     logger.info(
-        f"ADMIN_ACTION: Transaction {transaction_id} status changed from {old_status} to {new_status} by Admin {admin.email} (ID: {admin.id})"
+        f"ADMIN_ACTION: Transaction {transaction_id} status from {old_status} to {transaction.payment_status} by Admin {admin.id}"
     )
     
-    return {"message": "Transaction status updated", "new_status": new_status}
+    return {"message": "Status transaksi diperbarui", "new_status": transaction.payment_status}
+
+
+@router.get("/{transaction_id}/events")
+async def transaction_events(transaction_id: uuid.UUID, db: AsyncSession = Depends(get_async_session),
+                             admin: User = Depends(get_current_admin)):
+    transaction = await db.get(UserTransaction, transaction_id)
+    if not transaction:
+        raise HTTPException(404, 'Transaksi tidak ditemukan.')
+    events = (await db.scalars(select(PaymentEvent).where(PaymentEvent.order_id == transaction.order_id)
+        .order_by(PaymentEvent.created_at.desc()).limit(50))).all()
+    audit = (await db.scalars(select(AuditEvent).where(AuditEvent.entity_id == (transaction.order_id or str(transaction.id)))
+        .order_by(AuditEvent.created_at.desc()).limit(50))).all()
+    return {'provider_events': [{'id': e.id, 'status': e.status, 'attempts': e.attempts,
+        'last_error': e.last_error, 'created_at': e.created_at, 'processed_at': e.processed_at} for e in events],
+        'audit': [{'action': e.action, 'details': e.details, 'created_at': e.created_at} for e in audit]}

@@ -30,6 +30,13 @@ interface Auth {
   refreshSession: () => Promise<void>;
 }
 const Context = createContext<Auth | undefined>(undefined);
+function notifyOtherTabs() {
+  try {
+    localStorage.setItem("tocpns-auth-event", String(Date.now()));
+  } catch {
+    /* Session cookies still work when storage is blocked. */
+  }
+}
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -65,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       body: data,
     });
     await refreshSession();
-    localStorage.setItem("tocpns-auth-event", String(Date.now()));
+    notifyOtherTabs();
     router.replace(
       body.role === "admin"
         ? "/admin"
@@ -75,9 +82,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     const { useExamStore } = await import("@/store/useExamStore");
     const state = useExamStore.getState();
-    const tabKeys = Object.keys(localStorage).filter((k) =>
-      k.startsWith("tocpns-exam-v2:"),
-    );
+    let tabKeys: string[] = [];
+    try {
+      tabKeys = Object.keys(localStorage).filter((k) =>
+        k.startsWith("tocpns-exam-v2:"),
+      );
+    } catch {
+      /* Use the in-memory pending state below. */
+    }
     const otherPending = tabKeys.some((k) => {
       try {
         const saved = JSON.parse(localStorage.getItem(k) || "{}").state;
@@ -107,9 +119,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           localStorage.removeItem(k);
       } catch {}
     });
-    localStorage.removeItem("user_info");
+    try {
+      localStorage.removeItem("user_info");
+    } catch {
+      /* Optional legacy cache. */
+    }
     setUser(null);
-    localStorage.setItem("tocpns-auth-event", String(Date.now()));
+    notifyOtherTabs();
     router.push("/login");
   };
   const register = async (

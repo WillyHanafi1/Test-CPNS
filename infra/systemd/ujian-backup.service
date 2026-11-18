@@ -1,0 +1,13 @@
+[Unit]
+Description=Encrypted Ujian database and configuration backup
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/rusunawa/@docker/Ujian
+ExecStart=/usr/bin/bash scripts/ops/backup-ujian.sh
+TimeoutStartSec=15min
+Nice=10
+IOSchedulingClass=idle
+UMask=0077

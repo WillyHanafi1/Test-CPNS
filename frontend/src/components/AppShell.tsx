@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import {
   BookOpen,
   Home,
@@ -33,6 +33,18 @@ export default function AppShell({
 }) {
   const path = usePathname();
   const { user } = useAuth();
+  const [offline, setOffline] = useState(false);
+  useEffect(() => {
+    const update = () => setOffline(!navigator.onLine);
+    update();
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
+  const active = (href: string) => path === href || path.startsWith(href + "/");
   const navigation = user
     ? links
     : [
@@ -58,7 +70,7 @@ export default function AppShell({
               <Link
                 key={href}
                 href={href}
-                aria-current={path === href ? "page" : undefined}
+                aria-current={active(href) ? "page" : undefined}
               >
                 {title}
               </Link>
@@ -77,6 +89,12 @@ export default function AppShell({
         </div>
       </header>
       <main id="main-content" className="app-main">
+        {offline && (
+          <p className="notice notice-warning" role="status">
+            Kamu sedang offline. Periksa koneksi sebelum mengirim atau
+            memperbarui data.
+          </p>
+        )}
         {title && (
           <div className="page-heading">
             <div>
@@ -102,9 +120,9 @@ export default function AppShell({
             <Link
               key={href}
               href={href}
-              aria-current={path === href ? "page" : undefined}
+              aria-current={active(href) ? "page" : undefined}
             >
-              <Icon size={20} />
+              <Icon size={20} aria-hidden="true" />
               <span>{title}</span>
             </Link>
           ))}

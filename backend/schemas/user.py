@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, model_validator, ConfigDict
+from pydantic import BaseModel, EmailStr, model_validator, field_validator, ConfigDict
 from typing import Optional
 import uuid
 from datetime import datetime
@@ -9,6 +9,13 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
     full_name: str
+
+    @field_validator('password')
+    @classmethod
+    def usable_password(cls, value):
+        if len(value) < 8 or len(value.encode('utf-8')) > 72:
+            raise ValueError('Gunakan minimal 8 karakter dan maksimal 72 byte.')
+        return value
 
 class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None

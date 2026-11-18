@@ -1,7 +1,8 @@
 from datetime import datetime, timedelta, timezone
-from typing import Any, Union
+from typing import Union
 import jwt
 import bcrypt
+import uuid
 from backend.config import settings
 
 # JWT Settings
@@ -23,6 +24,7 @@ def get_password_hash(password: str) -> str:
 
 def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None) -> str:
     to_encode = data.copy()
+    to_encode.setdefault('type', 'access')
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
@@ -31,19 +33,24 @@ def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-def create_reset_token(email: str) -> str:
+def create_reset_token(email: str, auth_version: int = 0) -> str:
     """Generate a short-lived token (15 mins) for password reset."""
     expire = datetime.now(timezone.utc) + timedelta(minutes=15)
-    to_encode = {"sub": email, "type": "reset", "exp": expire}
+    to_encode = {"sub": email, "type": "reset", "version": auth_version, "jti": uuid.uuid4().hex, "exp": expire}
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-def verify_reset_token(token: str) -> Union[str, None]:
+def decode_reset_token(token: str) -> dict | None:
     """Verify the reset token and return the email if valid."""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        if payload.get("type") != "reset":
+        if payload.get("type") != "reset" or not isinstance(payload.get("version"), int):
             return None
-        return payload.get("sub")
+        return payload if payload.get("sub") else None
     except Exception:
         return None
+
+
+def verify_reset_token(token: str) -> Union[str, None]:
+    payload = decode_reset_token(token)
+    return payload['sub'] if payload else None
 

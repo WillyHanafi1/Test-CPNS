@@ -23,12 +23,12 @@ export function useResource<T>(path: string, enabled = true) {
       })
       .catch((error) => {
         if (!controller.signal.aborted)
-          setState({
+          setState((previous) => ({
             path: resourceKey,
             generation,
-            data: null,
+            data: previous.path === resourceKey ? previous.data : null,
             error: error.message || "Koneksi belum tersedia.",
-          });
+          }));
       });
     return () => controller.abort();
   }, [path, resourceKey, enabled, generation]);
@@ -40,7 +40,12 @@ export function useResource<T>(path: string, enabled = true) {
   return {
     data: state.path === resourceKey ? state.data : null,
     error: current ? state.error : "",
-    loading: enabled && !current,
+    loading:
+      enabled &&
+      !current &&
+      (state.path !== resourceKey || state.data === null),
+    refreshing:
+      enabled && !current && state.path === resourceKey && state.data !== null,
     reload,
     setData,
   };

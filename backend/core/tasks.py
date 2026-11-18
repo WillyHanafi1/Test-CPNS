@@ -258,7 +258,7 @@ async def async_auto_finish_expired():
                 select(ExamSession)
                 .where(
                     ExamSession.status.in_(["ongoing", "processing"]),
-                    ExamSession.end_time != None,
+                    ExamSession.end_time.is_not(None),
                     ExamSession.end_time < cutoff_time
                 )
             )
@@ -416,22 +416,44 @@ def repair_question_bias_task(question_id: str):
 
 async def async_reconcile_jobs():
     engine = create_async_engine(settings.DATABASE_URL, poolclass=NullPool,
-                                 connect_args={"statement_cache_size": 0})
+        connect_args={"statement_cache_size": 0} if settings.DATABASE_URL.startswith('postgresql') else {})
     factory = async_sessionmaker(engine, expire_on_commit=False)
     try:
         async with factory() as db:
             jobs = (await db.execute(select(ExamJob.session_id, ExamSession.user_id, User.email)
                 .join(ExamSession, ExamSession.id == ExamJob.session_id)
                 .join(User, User.id == ExamSession.user_id)
-                .where(ExamJob.status == "pending").limit(50))).all()
+                .where(ExamJob.status == "pending",
+                    (ExamJob.next_attempt_at.is_(None)) | (ExamJob.next_attempt_at <= datetime.now(timezone.utc)))
+                .order_by(ExamJob.created_at).limit(50))).all()
         for sid, uid, email in jobs:
-            result = await async_run_scoring(str(sid), str(uid), email)
+            async with factory() as db:
+                job = await db.scalar(select(ExamJob).where(ExamJob.session_id == sid).with_for_update())
+                now = datetime.now(timezone.utc)
+                if not job or job.status != 'pending' or (job.next_attempt_at and durable.utc(job.next_attempt_at) > now):
+                    continue
+                job.attempts += 1
+                job.next_attempt_at = now + timedelta(seconds=min(900, 10 * 2 ** min(job.attempts - 1, 7)))
+                await db.commit()
+            try:
+                result = await async_run_scoring(str(sid), str(uid), email)
+            except Exception as exc:
+                result = {'status': 'error', 'code': type(exc).__name__}
             if result.get("status") in ("success", "skipped"):
                 async with factory() as db:
                     job = await db.scalar(select(ExamJob).where(ExamJob.session_id == sid))
                     job.status = "completed"
                     job.completed_at = datetime.now(timezone.utc)
+                    job.next_attempt_at, job.last_error = None, None
                     await db.commit()
+            else:
+                async with factory() as db:
+                    job = await db.scalar(select(ExamJob).where(ExamJob.session_id == sid).with_for_update())
+                    if job and job.status != 'completed':
+                        job.last_error = result.get('code', 'scoring_failed')[:100]
+                        if job.attempts >= 8:
+                            job.status = 'failed'
+                        await db.commit()
     finally:
         await engine.dispose()
 
@@ -439,3 +461,84 @@ async def async_reconcile_jobs():
 @celery_app.task(name="backend.core.tasks.reconcile_exam_jobs")
 def reconcile_exam_jobs():
     return run_async_task(async_reconcile_jobs)()
+
+
+async def async_reconcile_payments():
+    from backend.models.models import UserTransaction
+    from backend.services.payments import reconcile_transaction
+    from sqlalchemy import or_
+    if not settings.doku_checkout_available:
+        return
+    engine = create_async_engine(settings.DATABASE_URL, poolclass=NullPool,
+        connect_args={"statement_cache_size": 0} if settings.DATABASE_URL.startswith('postgresql') else {})
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with factory() as db:
+            now = datetime.now(timezone.utc)
+            order_ids = (await db.scalars(select(UserTransaction.order_id).where(
+                UserTransaction.payment_status == 'pending',
+                UserTransaction.payment_environment == settings.DOKU_ENVIRONMENT,
+                UserTransaction.payment_client_id == settings.DOKU_CLIENT_ID,
+                UserTransaction.created_at < now - timedelta(seconds=90),
+                or_(UserTransaction.payment_checked_at.is_(None),
+                    UserTransaction.payment_checked_at < now - timedelta(minutes=5)))
+                .order_by(UserTransaction.payment_checked_at.asc().nullsfirst(), UserTransaction.created_at)
+                .limit(25))).all()
+            await db.commit()
+            deadline = asyncio.get_running_loop().time() + 25
+            for order_id in order_ids:
+                if asyncio.get_running_loop().time() >= deadline:
+                    break  # Leave the rest pending for the next scheduled batch.
+                await reconcile_transaction(db, order_id)
+    finally:
+        await engine.dispose()
+
+
+@celery_app.task(name="backend.core.tasks.reconcile_payments", soft_time_limit=45, time_limit=60)
+def reconcile_payments():
+    return run_async_task(async_reconcile_payments)()
+
+
+@celery_app.task(name="backend.core.tasks.operational_heartbeat")
+def operational_heartbeat():
+    async def record():
+        client = aioredis.from_url(settings.REDIS_URL, socket_connect_timeout=3, socket_timeout=3)
+        try:
+            await client.setex('ujian:worker_heartbeat', 180, datetime.now(timezone.utc).isoformat())
+        finally:
+            await client.aclose()
+    return run_async_task(record)()
+
+
+@celery_app.task(name="backend.core.tasks.payment_worker_heartbeat")
+def payment_worker_heartbeat():
+    async def record():
+        client = aioredis.from_url(settings.REDIS_URL, socket_connect_timeout=3, socket_timeout=3)
+        try:
+            await client.setex('ujian:payment_worker_heartbeat', 180, datetime.now(timezone.utc).isoformat())
+        finally:
+            await client.aclose()
+    return run_async_task(record)()
+
+
+async def async_process_payment_events():
+    from backend.models.models import PaymentEvent
+    from backend.services.payments import process_payment_event
+    engine = create_async_engine(settings.DATABASE_URL, poolclass=NullPool,
+        connect_args={"statement_cache_size": 0} if settings.DATABASE_URL.startswith('postgresql') else {})
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with factory() as db:
+            ids = (await db.scalars(select(PaymentEvent.id).where(PaymentEvent.status == 'pending',
+                (PaymentEvent.next_attempt_at.is_(None)) | (PaymentEvent.next_attempt_at <= datetime.now(timezone.utc)))
+                .order_by(PaymentEvent.created_at).limit(25))).all()
+            await db.commit()
+            for event_id in ids:
+                await process_payment_event(db, event_id)
+    finally:
+        await engine.dispose()
+
+
+@celery_app.task(name="backend.core.tasks.process_payment_events", soft_time_limit=30, time_limit=45)
+def process_payment_events():
+    return run_async_task(async_process_payment_events)()

@@ -12,6 +12,7 @@ class User(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     hashed_password: Mapped[str] = mapped_column(String(255))
+    auth_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     role: Mapped[str] = mapped_column(String(20), default="participant")  # admin, participant
     auth_provider: Mapped[str] = mapped_column(String(20), default="local")  # local, google
@@ -198,6 +199,9 @@ class ExamJob(Base):
     status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    next_attempt_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_error: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
 
 class Answer(Base):
@@ -233,6 +237,12 @@ class UserTransaction(Base):
     duration_days: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     granted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     payment_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # For DOKU Checkout Link
+    payment_environment: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    payment_client_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    payment_request_body: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    payment_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    payment_checked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    paid_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
     message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # For donation message
     is_anonymous: Mapped[bool] = mapped_column(Boolean, default=False)
     access_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -251,6 +261,38 @@ class UserTransaction(Base):
 
     user: Mapped["User"] = relationship(back_populates="transactions")
     package: Mapped["Package"] = relationship(back_populates="transactions")
+
+
+class PaymentEvent(Base):
+    """Small provider receipt ledger. No raw body, bank details, or provider secrets."""
+    __tablename__ = "payment_events"
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    environment: Mapped[str] = mapped_column(String(20))
+    client_id: Mapped[str] = mapped_column(String(100))
+    request_id: Mapped[str] = mapped_column(String(128))
+    body_hash: Mapped[str] = mapped_column(String(64))
+    order_id: Mapped[str] = mapped_column(String(100), index=True)
+    payload: Mapped[dict] = mapped_column(JSON)
+    status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    last_error: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    next_attempt_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    processed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    __table_args__ = (
+        UniqueConstraint("environment", "client_id", "request_id", "body_hash", name="uq_payment_event_receipt"),
+        Index("ix_payment_events_retry", "status", "next_attempt_at"),
+    )
+
+
+class AuditEvent(Base):
+    __tablename__ = "audit_events"
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    actor_id: Mapped[Optional[uuid.UUID]] = mapped_column(nullable=True)
+    action: Mapped[str] = mapped_column(String(80), index=True)
+    entity_id: Mapped[str] = mapped_column(String(100), index=True)
+    details: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
 class ChatSession(Base):

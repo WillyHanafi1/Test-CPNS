@@ -5,7 +5,7 @@ import { Check } from "lucide-react";
 import AppShell, { Loading, ErrorPanel } from "@/components/AppShell";
 import { useAuth } from "@/context/AuthContext";
 import { useResource } from "@/lib/useResource";
-import { api, dateLabel } from "@/lib/api";
+import { api, dateLabel, rememberPayment } from "@/lib/api";
 type Offer = {
   price: number;
   duration_days: number;
@@ -97,7 +97,7 @@ export default function Upgrade() {
                       `/transactions/upgrade-pro?callback_url=${encodeURIComponent(window.location.origin + "/payment/success")}`,
                       { method: "POST" },
                     );
-                    sessionStorage.setItem("payment_order", d.order_id);
+                    rememberPayment(d.order_id, user.id);
                     window.location.assign(d.redirect_url);
                   } catch (e) {
                     setPayError(

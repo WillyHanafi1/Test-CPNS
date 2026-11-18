@@ -16,6 +16,7 @@ from backend.api.v1.endpoints.admin_transactions import router as admin_transact
 from backend.api.v1.endpoints.admin_analytics import router as admin_analytics_router
 from backend.api.v1.endpoints.admin_feedback import router as admin_feedback_router
 from backend.api.v1.endpoints.transactions_api import router as transactions_router
+from backend.api.v1.endpoints.transactions_api import doku_webhook
 from backend.api.v1.endpoints.user_api import router as user_router
 from backend.api.v1.endpoints.analytics import router as analytics_router
 from backend.api.v1.endpoints.membership import router as membership_router
@@ -85,6 +86,7 @@ app.include_router(admin_transactions_router, prefix="/api/v1")
 app.include_router(admin_analytics_router, prefix="/api/v1")
 app.include_router(admin_feedback_router, prefix="/api/v1")
 app.include_router(transactions_router, prefix="/api/v1")
+app.add_api_route("/api/payments/doku/notifications", doku_webhook, methods=["POST"], tags=["transactions"])
 app.include_router(public_stats_router, prefix="/api/v1")
 app.include_router(user_router, prefix="/api/v1")
 app.include_router(analytics_router, prefix="/api/v1")

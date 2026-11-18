@@ -1,4 +1,5 @@
 "use client";
+import PaymentAudit from "@/components/admin/PaymentAudit";
 import AdminDialog from "@/components/admin/AdminDialog";
 
 import React, { useState, useEffect } from "react";
@@ -467,6 +468,8 @@ export default function TransactionsAdmin() {
                     </span>
                   </div>
                 </div>
+
+                <PaymentAudit id={selectedTransaction.id} />
 
                 <div className="flex space-x-3 pt-2">
                   <Button

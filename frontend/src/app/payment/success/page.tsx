@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import AppShell, { Loading, ErrorPanel } from "@/components/AppShell";
 import { useResource } from "@/lib/useResource";
 import { useAuth } from "@/context/AuthContext";
-import { dateLabel } from "@/lib/api";
+import { dateLabel, recalledPayment } from "@/lib/api";
 function Status() {
   const params = useSearchParams();
   const router = useRouter();
@@ -15,10 +15,10 @@ function Status() {
   useEffect(() => {
     Promise.resolve().then(() =>
       setOrder(
-        params.get("order_id") || sessionStorage.getItem("payment_order") || "",
+        params.get("order_id") || (user ? recalledPayment(user.id) : ""),
       ),
     );
-  }, [params]);
+  }, [params, user]);
   useEffect(() => {
     if (!authLoading && !user)
       router.replace(
@@ -30,6 +30,10 @@ function Status() {
     is_pro: boolean;
     expires_at: string | null;
     order_id: string;
+    transaction_type: string;
+    amount: number;
+    payment_url: string | null;
+    payment_expires_at: string | null;
   }>(`/transactions/status/${encodeURIComponent(order)}`, !!order && !!user);
   useEffect(() => {
     if (data?.status === "success") {
@@ -49,7 +53,7 @@ function Status() {
       title="Status pembayaran"
       description="Kami memeriksa catatan transaksi di server."
     >
-      {authLoading || loading ? (
+      {authLoading || (loading && !data) ? (
         <Loading label="Memverifikasi transaksi…" />
       ) : error ? (
         <ErrorPanel message={error} retry={reload} />
@@ -63,6 +67,15 @@ function Status() {
         </section>
       ) : (
         <section className="panel stack" style={{ maxWidth: 650 }}>
+          <ol className="payment-steps" aria-label="Progres pembayaran">
+            <li>✓ Pesanan dibuat</li>
+            <li aria-current={data?.status === "pending" ? "step" : undefined}>
+              2. Pembayaran
+            </li>
+            <li aria-current={data?.status === "success" ? "step" : undefined}>
+              3. Terverifikasi
+            </li>
+          </ol>
           <span
             className={`badge ${data?.status === "success" ? "badge-green" : "badge-amber"}`}
           >
@@ -74,22 +87,46 @@ function Status() {
           </span>
           <h2>
             {data?.status === "success"
-              ? "Pembayaran berhasil diverifikasi."
+              ? data.transaction_type === "donation"
+                ? "Terima kasih atas dukunganmu."
+                : "Pembayaran berhasil diverifikasi."
               : data?.status === "pending"
                 ? "Pembayaran masih menunggu konfirmasi."
                 : "Pembayaran belum berhasil."}
           </h2>
           <p className="muted">
             {data?.status === "success"
-              ? data.is_pro
-                ? `Pro aktif ${data.expires_at ? "sampai " + dateLabel(data.expires_at) : "tanpa batas waktu"}.`
-                : "Transaksi tercatat berhasil. Periksa detail akses melalui akun."
+              ? data.transaction_type === "donation"
+                ? "Dukunganmu sudah tercatat. Terima kasih telah membantu ruang latihan ini tetap berjalan."
+                : data.is_pro
+                  ? `Pro aktif ${data.expires_at ? "sampai " + dateLabel(data.expires_at) : "tanpa batas waktu"}.`
+                  : "Transaksi tercatat berhasil. Periksa detail akses melalui akun."
               : "Kembali dari halaman penyedia pembayaran tidak otomatis berarti pembayaran berhasil. Periksa kembali atau lanjutkan melalui riwayat transaksi."}
           </p>
-          <p className="muted" style={{ fontSize: 13 }}>
+          {data?.amount && (
+            <p>
+              <strong>Rp {data.amount.toLocaleString("id-ID")}</strong> ·{" "}
+              {data.transaction_type === "donation"
+                ? "Dukungan komunitas"
+                : "Keanggotaan Pro"}
+            </p>
+          )}
+          {slow && data?.status === "pending" && (
+            <p className="notice" role="status">
+              Konfirmasi membutuhkan waktu lebih lama. Kamu boleh menutup
+              halaman ini dan memeriksa lewat Akun. Hindari membayar ulang
+              sebelum statusnya jelas.
+            </p>
+          )}
+          <p className="muted transaction-id" style={{ fontSize: 13 }}>
             ID: {order}
           </p>
           <div className="inline">
+            {data?.status === "pending" && data.payment_url && (
+              <a className="button" href={data.payment_url} rel="noreferrer">
+                Lanjutkan pembayaran
+              </a>
+            )}
             {data?.status === "success" ? (
               <Link className="button" href="/catalog">
                 Buka paket soal

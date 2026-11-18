@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily encrypted Ujian backup
+
+[Timer]
+OnCalendar=*-*-* 02:40:00 Asia/Jakarta
+RandomizedDelaySec=5min
+Persistent=true
+Unit=ujian-backup.service
+
+[Install]
+WantedBy=timers.target

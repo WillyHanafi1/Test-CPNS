@@ -37,10 +37,10 @@ async def test_checkout_uses_provider_contract_and_reuses_pending_order(client, 
     await login_and_get_cookies(client, test_user.email, 'TestPassword123')
     calls = []
     # Explicit signature catches accidental arguments unsupported by the provider adapter.
-    def provider(order_id, amount, item_details, customer_details, callback_url=None):
+    def provider(order_id, amount, item_details, customer_details, callback_url=None, **kwargs):
         calls.append(order_id)
         assert f'order_id={order_id}' in callback_url
-        return {'token':'synthetic', 'redirect_url':'https://checkout.example.com/synthetic'}
+        return {'token':'synthetic', 'redirect_url':'https://sandbox.doku.com/synthetic'}
     with patch.object(settings, 'DOKU_CLIENT_ID', 'synthetic'), patch.object(settings, 'DOKU_SECRET_KEY', 'synthetic'), patch('backend.api.v1.endpoints.transactions_api.doku_service.create_transaction', provider):
         first = await client.post('/api/v1/transactions/upgrade-pro')
         second = await client.post('/api/v1/transactions/upgrade-pro')

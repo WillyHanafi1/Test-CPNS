@@ -1,15 +1,17 @@
+import uuid
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, cast, Date, case
+from sqlalchemy import select, func, and_, case
 from datetime import datetime, timedelta, timezone
 from typing import List, Dict
 from pydantic import BaseModel
 
 from backend.db.session import get_async_session
-from backend.models.models import User, UserTransaction, ExamSession, Package, Question, ExamJob, ExamResponse
+from backend.models.models import User, UserTransaction, ExamSession, Package, Question, ExamJob
 from backend.api.v1.endpoints.auth import get_current_admin
 from backend.core.constants import PASSING_GRADE
 from backend.core.redis_service import redis_service
+from backend.services.revenue import BUSINESS_TIMEZONE, payment_time, reporting_date
 
 router = APIRouter(prefix="/admin/analytics", tags=["admin-analytics"])
 
@@ -17,22 +19,41 @@ router = APIRouter(prefix="/admin/analytics", tags=["admin-analytics"])
 @router.get("/infrastructure")
 async def infrastructure_status(db: AsyncSession = Depends(get_async_session),
                                 admin: User = Depends(get_current_admin)):
-    """Aggregate operational signals, without participant IDs or payment credentials."""
-    from backend.services.exams import utc
-    now = datetime.now(timezone.utc)
-    jobs = (await db.execute(select(func.count(ExamJob.id), func.min(ExamJob.created_at))
-        .where(ExamJob.status == "pending"))).one()
-    overdue = await db.scalar(select(func.count(ExamSession.id)).where(
-        ExamSession.status == "ongoing", ExamSession.end_time < now))
-    legacy = await db.scalar(select(func.count(ExamSession.id)).where(
-        ExamSession.status.in_(["ongoing", "processing"]), ExamSession.revision_id.is_(None),
-        ExamSession.is_preview.is_(False)))
-    latest_save = await db.scalar(select(func.max(ExamResponse.saved_at)))
-    return {"observed_at": now, "pending_scoring_jobs": jobs[0],
-            "oldest_pending_seconds": max(0, int((now - utc(jobs[1])).total_seconds())) if jobs[1] else 0,
-            "overdue_ongoing_sessions": overdue or 0, "legacy_unfinished_sessions": legacy or 0,
-            "last_acknowledged_answer_at": latest_save,
-            "notice": "Sinyal database; tidak membuktikan worker, backup, atau layanan pembayaran sehat."}
+    from backend.services.operations import status
+    return await status(db)
+
+
+@router.post("/infrastructure/retry/{kind}/{job_id}")
+async def retry_operation(kind: str, job_id: uuid.UUID, db: AsyncSession = Depends(get_async_session),
+                          admin: User = Depends(get_current_admin)):
+    from fastapi import HTTPException
+    from backend.models.models import PaymentEvent, AuditEvent
+    if kind not in {'scoring', 'payment'}:
+        raise HTTPException(400, 'Jenis pekerjaan tidak dikenali.')
+    model = ExamJob if kind == 'scoring' else PaymentEvent
+    job = await db.scalar(select(model).where(model.id == job_id).with_for_update())
+    if not job:
+        raise HTTPException(404, 'Pekerjaan tidak ditemukan.')
+    if job.status in {'completed', 'processed', 'ignored'}:
+        return {'message': 'Pekerjaan sudah selesai.'}
+    previous = job.status
+    job.status, job.attempts, job.next_attempt_at, job.last_error = 'pending', 0, None, None
+    db.add(AuditEvent(actor_id=admin.id, action='operations.retry', entity_id=str(job_id),
+        details={'kind': kind, 'before': previous}))
+    await db.commit()
+    return {'message': 'Pekerjaan dijadwalkan untuk diperiksa ulang.'}
+
+
+@router.get("/infrastructure/queue")
+async def operation_queue(db: AsyncSession = Depends(get_async_session), admin: User = Depends(get_current_admin)):
+    from backend.models.models import PaymentEvent
+    rows = []
+    for kind, model, states in [('scoring', ExamJob, ['failed', 'pending']), ('payment', PaymentEvent, ['review', 'pending'])]:
+        jobs = (await db.scalars(select(model).where(model.status.in_(states)).order_by(model.created_at).limit(25))).all()
+        rows.extend({'id': job.id, 'kind': kind, 'status': job.status, 'attempts': job.attempts,
+            'created_at': job.created_at, 'last_error': job.last_error} for job in jobs)
+    return {'items': rows}
+
 
 class OverviewStats(BaseModel):
     total_users: int
@@ -199,25 +220,27 @@ async def get_revenue_trends(
     db: AsyncSession = Depends(get_async_session),
     admin: User = Depends(get_current_admin)
 ):
-    cache_key = f"admin:analytics:rev_trends:{days}"
+    cache_key = f"admin:analytics:rev_trends:paid-v1:{days}"
     cached = await redis_service.get_cache(cache_key)
     if cached:
         return cached
 
-    start_date = datetime.now(timezone.utc) - timedelta(days=days)
+    start_date = (datetime.now(BUSINESS_TIMEZONE).replace(hour=0, minute=0, second=0, microsecond=0)
+                  - timedelta(days=days - 1)).astimezone(timezone.utc)
+    day = reporting_date(db)
     
     # Daily Revenue (Exclude donations for consistent package analytics)
     stmt = (
-        select(cast(UserTransaction.created_at, Date), func.sum(UserTransaction.amount))
+        select(day, func.sum(UserTransaction.amount))
         .where(
             and_(
                 UserTransaction.payment_status == "success", 
-                UserTransaction.created_at >= start_date,
+                payment_time() >= start_date,
                 UserTransaction.transaction_type != "donation"
             )
         )
-        .group_by(cast(UserTransaction.created_at, Date))
-        .order_by(cast(UserTransaction.created_at, Date))
+        .group_by(day)
+        .order_by(day)
     )
     result = await db.execute(stmt)
     daily = [{"label": str(row[0]), "value": float(row[1])} for row in result.all()]

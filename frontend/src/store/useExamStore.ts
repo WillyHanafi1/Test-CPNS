@@ -177,13 +177,30 @@ export const useExamStore = create<ExamState>()(
     {
       name: "tocpns-exam-v2",
       storage: createJSONStorage(() => ({
-        getItem: (name) => localStorage.getItem(`${name}:${writerId()}`),
-        setItem: (name, value) => {
-          const key = `${name}:${writerId()}`;
-          if (localStorage.getItem(key) !== value)
-            localStorage.setItem(key, value);
+        getItem: (name) => {
+          try {
+            return localStorage.getItem(`${name}:${writerId()}`);
+          } catch {
+            return null;
+          }
         },
-        removeItem: (name) => localStorage.removeItem(`${name}:${writerId()}`),
+        setItem: (name, value) => {
+          try {
+            const key = `${name}:${writerId()}`;
+            if (localStorage.getItem(key) !== value)
+              localStorage.setItem(key, value);
+          } catch {
+            if (typeof window !== "undefined")
+              window.dispatchEvent(new Event("exam-storage-unavailable"));
+          }
+        },
+        removeItem: (name) => {
+          try {
+            localStorage.removeItem(`${name}:${writerId()}`);
+          } catch {
+            /* Online saving remains available. */
+          }
+        },
       })),
       partialize: (s) => ({
         ownerId: s.ownerId,
@@ -200,13 +217,19 @@ export const useExamStore = create<ExamState>()(
 );
 
 let flushing: Promise<void> | null = null;
+let memoryWriter: string | undefined;
 export function writerId() {
-  let id = sessionStorage.getItem("exam_writer");
-  if (!id) {
-    id = crypto.randomUUID();
-    sessionStorage.setItem("exam_writer", id);
+  try {
+    let id = sessionStorage.getItem("exam_writer");
+    if (!id) {
+      id = crypto.randomUUID();
+      sessionStorage.setItem("exam_writer", id);
+    }
+    return id;
+  } catch {
+    memoryWriter ||= crypto.randomUUID();
+    return memoryWriter;
   }
-  return id;
 }
 export function flushAnswers(): Promise<void> {
   if (flushing) return flushing;

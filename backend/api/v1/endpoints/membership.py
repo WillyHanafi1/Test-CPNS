@@ -10,7 +10,8 @@ router = APIRouter(prefix="/membership", tags=["membership"])
 async def offer():
     return {"id": "pro-365", "name": "Pro", "price": settings.PRO_PRICE, "currency": "IDR",
             "duration_days": 365, "environment": settings.DOKU_ENVIRONMENT,
-            "checkout_available": bool(settings.DOKU_CLIENT_ID and settings.DOKU_SECRET_KEY)}
+            "checkout_available": settings.doku_checkout_available,
+            "payment_methods": settings.doku_payment_methods}
 
 
 @router.get("/me")

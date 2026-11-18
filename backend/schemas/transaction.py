@@ -18,6 +18,7 @@ class SupporterResponse(BaseModel):
     amount: int
     message: Optional[str]
     created_at: datetime
+    paid_at: Optional[datetime] = None
     is_anonymous: bool
 
 class TopSupporter(BaseModel):

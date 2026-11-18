@@ -1,0 +1,52 @@
+# Penguatan keandalan dan operasi hemat storage
+
+Lingkup: infrastruktur, fitur, keamanan akun/pembayaran, monitoring, backup, dan UX. Isi/kualitas soal tidak diubah. Tetap lokal di `main`, tanpa push/deploy aplikasi. Workflow CI dan kebijakan cleanup image milik pekerjaan CI lain tidak ditimpa.
+
+## Implementasi selesai lokal — diperbarui 18 November 2026
+
+Lanjutan audit: empat temuan permission backup, isolasi worker pembayaran, verifikasi Google, dan tanggal laporan telah ditangani pada [laporan perbaikan 18 November](four-infrastructure-fixes-2026-11-18.md). Head kandidat sekarang `c3d9e25b4a60`; angka dan schema pada bukti pengujian sebelumnya di bawah merupakan catatan historis.
+
+- Reset password atomik memakai `users.auth_version`: seluruh sesi dan reset link lama tidak berlaku sesudah perubahan password. Dua permintaan reset bersamaan hanya mengizinkan satu commit. Token reset tidak dapat dipakai sebagai sesi masuk. Password minimal delapan karakter tanpa syarat kombinasi yang rumit.
+- Leaderboard lama/baru/my-rank berbagi query database berdasarkan revisi dan pseudonim, tanpa email publik. Peringkat sendiri tersedia walaupun di luar 50 besar.
+- Receipt webhook DOKU disimpan ringkas di database; duplicate delivery aman, konflik/mismatch masuk review, retry punya backoff. Tidak menyimpan body mentah/bank detail. Perubahan status/operator dan identitas admin dicatat bersama perubahan pembayaran. Status sukses tidak diturunkan oleh notifikasi atau permintaan admin berikutnya. Link invoice merchant/lingkungan lama tidak ditawarkan untuk melanjutkan pembayaran.
+- Scoring mempunyai attempts/backoff dan dapat dijadwalkan ulang oleh admin. Heartbeat worker/Beat tiap 30 detik, panel `/admin/operations`, dan timer pemeriksaan host ringan.
+- Log Docker 2 × 2 MB per container dengan kompresi. Hasil task Celery yang tidak digunakan tidak disimpan. Wheel builder tidak disalin ke layer image runtime; dependency development/Vertex SDK berat dikeluarkan dari runtime.
+- Bucket privat `tocpns-backups` telah dibuat pada proyek Supabase yang cocok dengan database Ujian. Upload/download/hash, penolakan akses publik, dan penghapusan file uji telah diverifikasi. Credential privat di `.secrets/operations.env`; kunci AES-256-GCM di `.secrets/backup.key` (diabaikan Git).
+- Backup database/config terenkripsi lewat tmpfs/RAM, upload Supabase + checksum, retensi maksimal tujuh dengan anggaran 256 MB per jenis. Jika upload gagal: maksimal dua salinan lokal per jenis dan anggaran 96 MB. Batas satu arsip 40 MB. Setelah Supabase pulih dan salinan baru terverifikasi, fallback milik mekanisme ini dihapus; arsip manual tidak disentuh. Metadata status lokal hanya beberapa KB. Kunci enkripsi harus disimpan terpisah; bucket pada proyek Supabase yang sama tidak melindungi dari penghapusan seluruh proyek.
+- UX: refresh tidak mengosongkan layar, timeout API tidak dianggap ACK, status offline, donasi redirect tanpa SDK popup tambahan, status pembayaran/donasi dibedakan, tombol lanjut invoice valid, riwayat transaksi berpaginasi, akses operasi admin.
+
+## Bukti verifikasi
+
+- Backend PostgreSQL: **113 tes lulus**, termasuk webhook bersamaan, reset password bersamaan, kehilangan cache, jawaban berulang/berkonflik, scoring setelah kegagalan worker, backoff, audit admin, backup terenkripsi, retensi/fallback, dan pemulihan status monitor. SQLite pada pemeriksaan sebelumnya: 102 lulus, tiga kasus khusus PostgreSQL dilewati; beberapa tes tambahan kemudian dijalankan dalam suite PostgreSQL.
+- Rehearsal schema production `667ecbb432df → f4c7b91a026e`: sukses dalam 1,75 detik pada PostgreSQL lokal sekali pakai; data user legacy tetap utuh. Migrasi production belum dijalankan.
+- Backup end-to-end: **pg_dump sintetis 40.440 byte → AES-256-GCM → Supabase privat → download/checksum → dekripsi → pg_restore ke database baru**, data legacy dan head schema terverifikasi. Objek uji dihapus setelah pengujian. Bukti privat: `.server-notes/backup-recovery-verification.json`. Ini tidak diklaim sebagai restore produksi.
+- Frontend: **15 tes Node + delapan Vitest lulus**, TypeScript dan production build lulus. ESLint pada alur peserta dan komponen operasi yang diubah: nol error, tiga peringatan gambar ujian. Lint seluruh admin lama masih memiliki utang teknis; tidak disamarkan sebagai sudah bersih.
+- Browser Chromium: **empat skenario lulus** (progres pembayaran di mobile, konfirmasi donasi berbeda dari Pro, operasi/retry admin desktop-mobile, storage browser diblokir). Screenshot diperiksa di `.server-notes/ui-qa/`.
+- Image backend production berhasil dibangun; import aplikasi/task serta enkripsi/dekripsi berhasil di container tanpa jaringan. Dependency pytest/Ruff/Vertex SDK tidak ikut runtime. Dockerfile memakai mount wheel build agar arsip instalasi tidak tertinggal sebagai layer runtime.
+- Beban lokal terisolasi memakai image backend production (batas 0,75 CPU/512 MB), PostgreSQL, Redis, worker, dan Beat: burst 10/25/50 peserta seluruhnya berhasil; autosave p95 masing-masing 175/695/1.331 ms. Dilanjutkan **50 peserta selama 120 detik, 400 autosave tambahan, 400 baris jawaban unik dibaca kembali dan diverifikasi**, lalu 50/50 sesi selesai dinilai oleh worker. Bukti privat `.server-notes/reliability-load-verification.log`. Jalur ini langsung ke backend dalam Docker, bukan melalui CDN/gateway/latensi Supabase production.
+- Compose semua profil dapat divalidasi tanpa menampilkan secret; pemeriksaan Ruff perubahan backend dan `git diff --check` lulus. Credential/key tetap di file yang diabaikan Git.
+
+Harness `infra/verification/load.py` mendukung soak sampai dua jam, interval default 15 detik. Dengan image kandidat yang telah disiapkan, jalankan `RUN_LOAD_CHECK=1 LOAD_SOAK_SECONDS=6000 bash scripts/ops/verify-images.sh` pada lingkungan disposable untuk simulasi sepanjang 100 menit. Database/target sengaja dibatasi ke jaringan verifikasi agar tidak membebani production secara tidak sengaja. Pengujian 100 menit belum dijalankan dalam sesi ini.
+
+## Aktivasi pada rilis
+
+1. Ikuti [runbook rilis](redesign-release-runbook.md), termasuk backup sebelum migrasi, drain sesi legacy, schema head `c3d9e25b4a60`, dan smoke test. Pengaturan CI milik pekerjaan lain tetap dipertahankan; schema gate tidak menjalankan migrasi otomatis.
+2. Pasang `.secrets/operations.env` dan `.secrets/backup.key` lokal ke direktori privat server melalui kanal privat, permission 600. Simpan salinan kunci enkripsi **di luar server dan bucket**; kunci tidak dimasukkan ke arsip konfigurasi. Service-role key hanya dipakai job backup, bukan frontend. Tidak ada nilai credential di dokumen ini.
+3. Pastikan `POSTGRES_BACKUP_IMAGE` dipin digest dan kompatibel dengan major database serta jalur koneksi `pg_dump`. Jalankan `sudo bash scripts/ops/backup-ujian.sh`. Script backup dipasang read-only ke image backend yang sudah tersedia, sehingga tidak memerlukan schema baru untuk menjalankan backup pertama.
+4. Periksa `.server-notes/backups/latest-database.json` dan `latest-configuration.json`: `destination=supabase`, `encrypted=true`, `verified=true`, `remote_issue=null`. Bila Supabase bermasalah, hasil lokal tetap terenkripsi dan dibatasi. Ukuran di atas 40 MB memunculkan kegagalan, bukan backup terpotong yang dianggap sukses; sesuaikan batas RAM/arsip bersama jika database bertumbuh.
+5. Setelah backend baru, worker, dan Beat sehat, jalankan `sudo bash scripts/ops/install-operations.sh`. Backup harian pukul 02:40 WIB (jitter maksimal lima menit); monitor tiap menit. Periksa `systemctl list-timers 'ujian-*'` serta `journalctl -u ujian-backup.service -u ujian-monitor.service --since today`. Panel admin Operasi menerima metadata host lewat Redis; aplikasi tidak mendapat Docker socket.
+6. `MONITOR_WEBHOOK_URL` opsional dan saat ini kosong. Tanpa tujuan itu, status tersedia di panel admin/journal; notifikasi keluar belum aktif. Bila disetel, monitor mengirim hanya perubahan masalah/pemulihan dan pengingat setelah cooldown. Tidak ada pesan dikirim ke pihak lain selama pengerjaan.
+
+## Pemulihan
+
+Unduh objek `.enc` melalui akses Storage terautentikasi, cocokkan SHA-256 ciphertext dengan metadata privat, lalu sediakan kunci AES yang disimpan terpisah. Dengan konfigurasi key yang sama, `backup-store decrypt` membaca ciphertext dari stdin dan menulis plaintext ke stdout **setelah tag GCM lolos verifikasi**. Gunakan direktori RAM seperti `/dev/shm` untuk penampungan dump sementara dengan permission 600; kapasitas harus cukup. Service menyediakan tmpfs 96 MB untuk ciphertext dan plaintext, batas arsip 40 MB.
+
+Pulihkan database dengan `pg_restore --no-owner --no-acl --exit-on-error` hanya ke database baru yang terisolasi; periksa head schema, jumlah users/transaksi/sesi/jawaban dan alur login/hasil sebelum cutover. Pulihkan arsip konfigurasi secara privat setelah memeriksa isinya. Arsip konfigurasi hanya mencakup public env, manifest image aktif/sebelumnya, application env, operations env, dan token tunnel. Master key, SSH/password server, snapshot source, log, dan image Docker tidak diarsipkan.
+
+Backup ini mencakup database dan konfigurasi penting. File objek Storage/aset di luar database tidak otomatis tercakup `pg_dump`; pemulihannya memerlukan salinan terpisah bila digunakan. Source aplikasi tetap berasal dari Git. Backup di proyek Supabase yang sama melindungi dari kehilangan server Docker, tetapi tidak dari kehilangan seluruh akun/proyek Supabase; salinan pada penyedia kedua dapat ditambahkan jika dibutuhkan.
+
+## Batas pembuktian
+
+Semua perubahan aplikasi tetap lokal di `main`; belum dipush atau dideploy. Timer/konfigurasi backup baru belum dipasang di server. Uji pembayaran production penuh sampai settlement dan pengiriman notifikasi ke domain CPNS belum dilakukan. Koneksi status production dari server sumber merchant sudah lolos signature tanpa membuat invoice/pembayaran baru. Uji beban penuh sepanjang durasi ujian dan gangguan jaringan provider nyata belum dibuktikan; hasil lokal tidak boleh dianggap kapasitas produksi yang dijamin.
+
+Disk server tidak dapat nol: image/container aktif, satu image rollback, Redis AOF, serta log terbatasi tetap diperlukan. Saat Supabase sehat, arsip backup baru tidak memakai disk persisten server. Log delapan container utama dibatasi sekitar 32 MB sebelum overhead; hasil task Celery yang tidak digunakan tidak disimpan. Worker pembayaran memakai image backend yang sama. Batas cache/image deployment dikelola workflow CI tersendiri.

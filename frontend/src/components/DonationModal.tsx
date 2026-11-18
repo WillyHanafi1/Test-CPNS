@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import Script from "next/script";
+import { rememberPayment } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import Modal from "@/components/Modal";
 import { Heart, Loader2 } from "lucide-react";
@@ -72,20 +72,10 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
 
       const data = await response.json();
 
-      // DOKU Checkout Overlay (Popup Mode)
-      if (data.redirect_url) {
-        const checkoutWindow = window as Window & {
-          loadJokulCheckout?: (url: string) => void;
-        };
-        if (typeof checkoutWindow.loadJokulCheckout === "function") {
-          checkoutWindow.loadJokulCheckout(data.redirect_url);
-        } else {
-          // Fallback to redirect if script not loaded
-          window.location.href = data.redirect_url;
-        }
-      } else {
-        toast.error("Gagal memuat link pembayaran");
-      }
+      if (!data.redirect_url)
+        throw new Error("Link pembayaran belum tersedia. Silakan coba lagi.");
+      rememberPayment(data.order_id, user.id);
+      window.location.assign(data.redirect_url);
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Terjadi kesalahan sistem",
@@ -160,14 +150,6 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
       <p className="muted" style={{ fontSize: 12 }}>
         Pembayaran dilanjutkan melalui DOKU.
       </p>
-      <Script
-        src={
-          process.env.NEXT_PUBLIC_DOKU_ENVIRONMENT === "production"
-            ? "https://jokul.doku.com/jokul-checkout-js/v1/jokul-checkout-1.0.0.js"
-            : "https://sandbox.doku.com/jokul-checkout-js/v1/jokul-checkout-1.0.0.js"
-        }
-        strategy="lazyOnload"
-      />
     </Modal>
   );
 }

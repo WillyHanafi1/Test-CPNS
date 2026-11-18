@@ -20,6 +20,8 @@ function Ranking() {
     chosen === params.get("package_id") ? params.get("revision_id") : null;
   const ranking = useResource<{
     notice: string;
+    current_user: { rank: number; score: number } | null;
+    total_participants: number;
     rows: {
       rank: number;
       name: string;
@@ -70,6 +72,15 @@ function Ranking() {
           ) : (
             <section className="panel stack">
               <p className="muted">{ranking.data?.notice}</p>
+              {ranking.data?.current_user && (
+                <div className="notice">
+                  <strong>Peringkatmu #{ranking.data.current_user.rank}</strong>
+                  <p>
+                    {ranking.data.current_user.score} poin dari{" "}
+                    {ranking.data.total_participants} peserta pada versi ini.
+                  </p>
+                </div>
+              )}
               {!ranking.data?.rows.length ? (
                 <EmptyState title="Belum ada hasil pada versi ini." />
               ) : (

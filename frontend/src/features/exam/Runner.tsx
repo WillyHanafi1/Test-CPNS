@@ -33,8 +33,24 @@ export default function Runner({ id }: { id: string }) {
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [online, setOnline] = useState(true);
+  const [storageWarning, setStorageWarning] = useState(false);
   const [zoom, setZoom] = useState<string | null>(null);
   const submitting = useRef(false);
+  useEffect(() => {
+    const unavailable = () => setStorageWarning(true);
+    const beforeLeave = (event: BeforeUnloadEvent) => {
+      if (Object.keys(useExamStore.getState().pending).length) {
+        event.preventDefault();
+        event.returnValue = "";
+      }
+    };
+    window.addEventListener("exam-storage-unavailable", unavailable);
+    window.addEventListener("beforeunload", beforeLeave);
+    return () => {
+      window.removeEventListener("exam-storage-unavailable", unavailable);
+      window.removeEventListener("beforeunload", beforeLeave);
+    };
+  }, []);
   useEffect(() => {
     if (authLoading) return;
     if (!ownerId) {
@@ -238,6 +254,12 @@ export default function Runner({ id }: { id: string }) {
       </header>
       <main className="exam-layout">
         <div className="exam-reading stack">
+          {storageWarning && (
+            <p className="notice notice-warning" role="status">
+              Penyimpanan browser tidak tersedia. Tetap buka halaman ini sampai
+              semua jawaban tersimpan ke server.
+            </p>
+          )}
           {error && <ErrorPanel message={error} />}{" "}
           {state.saveAuthRequired && (
             <div className="notice notice-warning">

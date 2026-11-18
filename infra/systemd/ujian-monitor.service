@@ -1,0 +1,11 @@
+[Unit]
+Description=Lightweight Ujian health and backup checks
+After=docker.service network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/rusunawa/@docker/Ujian
+ExecStart=/usr/bin/python3 scripts/ops/monitor.py
+TimeoutStartSec=120
+Nice=10
+UMask=0077

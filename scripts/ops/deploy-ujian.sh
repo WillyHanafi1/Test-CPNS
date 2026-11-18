@@ -9,7 +9,7 @@ start_app() {
     compose config --quiet || return
     compose up -d --no-build --wait --wait-timeout 60 redis || return
     compose run --rm --no-deps backend python -m backend.ops.check_schema || return
-    compose up -d --no-build --wait --wait-timeout 180 backend frontend gateway worker beat || return
+    compose up -d --no-build --wait --wait-timeout 180 backend frontend gateway worker payment-worker beat || return
     compose exec -T gateway wget -q -O /dev/null --header 'Host: tocpns.my.id' http://127.0.0.1:8080/health || return
     compose exec -T gateway wget -q -O /dev/null --header 'Host: tocpns.my.id' http://127.0.0.1:8080/ || return
 }
