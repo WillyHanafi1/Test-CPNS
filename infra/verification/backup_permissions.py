@@ -25,6 +25,11 @@ class BackupPermissions(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory(prefix='ujian-backup-permissions-')
         self.root = Path(self.temporary.name)
         self.root.chmod(0o755)
+        # The runner's checkout can be private to its own UID. Exercise the
+        # backup program from the disposable fixture, as the container does.
+        self.backup_script = self.root / 'backup-program.py'
+        self.backup_script.write_bytes(backup_script.read_bytes())
+        self.backup_script.chmod(0o444)
         for name in ('.secrets', '.server-notes', '.server-notes/backups'):
             (self.root / name).mkdir(mode=0o700)
         for name in helper.REQUIRED:
@@ -59,7 +64,7 @@ class BackupPermissions(unittest.TestCase):
         self.assertEqual(manual.stat().st_uid, 0)
         env = {**os.environ, 'BACKUP_KEY_FILE': str(self.root / '.secrets/backup.key'),
                'BACKUP_DIRECTORY': str(storage), 'BACKUP_STORAGE': 'local'}
-        run = subprocess.run([sys.executable, str(backup_script), 'capture', 'database'],
+        run = subprocess.run([sys.executable, str(self.backup_script), 'capture', 'database'],
             input=b'PGDMP synthetic backup', capture_output=True, env=env, user=1000, group=1000, extra_groups=[])
         self.assertEqual(run.returncode, 0, run.stderr.decode())
         result = json.loads(metadata.read_text())
