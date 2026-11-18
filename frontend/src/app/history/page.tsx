@@ -25,6 +25,22 @@ export default function History() {
     <AppShell
       title="Riwayat latihan"
       description="Lihat kembali hasilmu dan pelajari pembahasan setiap percobaan."
+      action={
+        <div className="inline">
+          <Link
+            className="button button-small button-secondary"
+            href="/analytics"
+          >
+            Perkembangan & topik
+          </Link>
+          <Link
+            className="button button-small button-secondary"
+            href="/leaderboard"
+          >
+            Peringkat
+          </Link>
+        </div>
+      }
     >
       {authLoading || loading ? (
         <Loading />

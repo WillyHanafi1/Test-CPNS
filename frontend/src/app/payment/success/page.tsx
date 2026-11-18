@@ -6,6 +6,7 @@ import AppShell, { Loading, ErrorPanel } from "@/components/AppShell";
 import { useResource } from "@/lib/useResource";
 import { useAuth } from "@/context/AuthContext";
 import { dateLabel, recalledPayment } from "@/lib/api";
+import { whatsappHref } from "@/lib/contact";
 function Status() {
   const params = useSearchParams();
   const router = useRouter();
@@ -61,9 +62,14 @@ function Status() {
         <section className="panel stack">
           <h2>Pilih transaksi yang ingin diperiksa.</h2>
           <p className="muted">Tidak ada ID transaksi pada halaman ini.</p>
-          <Link className="button" href="/account">
-            Buka riwayat transaksi
-          </Link>
+          <div className="inline">
+            <Link className="button" href="/account">
+              Buka riwayat transaksi
+            </Link>
+            <Link className="button button-secondary" href="/support">
+              Kontak & dukungan
+            </Link>
+          </div>
         </section>
       ) : (
         <section className="panel stack" style={{ maxWidth: 650 }}>
@@ -128,16 +134,27 @@ function Status() {
               </a>
             )}
             {data?.status === "success" ? (
-              <Link
-                className="button"
-                href={
-                  data.transaction_type === "donation" ? "/donasi" : "/catalog"
-                }
-              >
-                {data.transaction_type === "donation"
-                  ? "Lihat dukungan komunitas"
-                  : "Buka paket soal"}
-              </Link>
+              <>
+                <Link
+                  className="button"
+                  href={
+                    data.transaction_type === "donation"
+                      ? "/donasi"
+                      : "/catalog"
+                  }
+                >
+                  {data.transaction_type === "donation"
+                    ? "Lihat dukungan komunitas"
+                    : "Buka paket soal"}
+                </Link>
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  onClick={() => window.print()}
+                >
+                  Cetak bukti
+                </button>
+              </>
             ) : (
               <button
                 className="button"
@@ -153,6 +170,24 @@ function Status() {
               Riwayat transaksi
             </Link>
           </div>
+          <p className="muted" style={{ fontSize: 13 }}>
+            Ada kendala verifikasi?{" "}
+            <a
+              href={whatsappHref(
+                `Halo Admin TOCPNS, mohon bantu periksa transaksi saya dengan ID: ${order}`,
+              )}
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: "var(--accent)" }}
+            >
+              Chat WhatsApp Admin
+            </a>{" "}
+            atau buka{" "}
+            <Link href="/support" style={{ color: "var(--accent)" }}>
+              halaman bantuan
+            </Link>
+            .
+          </p>
         </section>
       )}
     </AppShell>

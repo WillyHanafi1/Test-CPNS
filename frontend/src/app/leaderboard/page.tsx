@@ -1,5 +1,6 @@
 "use client";
 import { Suspense, useState, useEffect } from "react";
+import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import AppShell, {
   Loading,
@@ -41,6 +42,22 @@ function Ranking() {
     <AppShell
       title="Peringkat latihan"
       description="Bandingkan percobaan terbaik pada versi paket yang sama."
+      action={
+        <div className="inline">
+          <Link
+            className="button button-small button-secondary"
+            href="/analytics"
+          >
+            Perkembangan & topik
+          </Link>
+          <Link
+            className="button button-small button-secondary"
+            href="/history"
+          >
+            Semua riwayat
+          </Link>
+        </div>
+      }
     >
       {packages.loading || authLoading ? (
         <Loading />

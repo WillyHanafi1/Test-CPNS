@@ -132,6 +132,12 @@ function Form() {
             Daftar gratis
           </Link>
         </p>
+        <p className="muted" style={{ fontSize: 13 }}>
+          Kendala masuk akun?{" "}
+          <Link href="/support" style={{ color: "var(--accent)" }}>
+            Hubungi bantuan
+          </Link>
+        </p>
       </div>
     </AppShell>
   );

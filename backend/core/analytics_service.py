@@ -34,6 +34,7 @@ class AnalyticsService:
 
     async def get_weak_points(self, db, user_id, limit=3):
         rows = await self.get_topic_mastery(db, user_id)
-        return sorted([row for row in rows if row["total_answered"] >= 5], key=lambda row: row["mastery_percentage"])[:limit]
+        pool = [row for row in rows if row["total_answered"] >= 5] or [row for row in rows if row["total_answered"] >= 1]
+        return sorted(pool, key=lambda row: row["mastery_percentage"])[:limit]
 
 analytics_service = AnalyticsService()

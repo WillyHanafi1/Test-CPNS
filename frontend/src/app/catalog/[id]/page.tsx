@@ -164,6 +164,13 @@ export default function PackageDetail() {
                   Lihat hasil sebelumnya
                 </Link>
               )}
+              <Link
+                className="muted"
+                style={{ fontSize: 13 }}
+                href={`/leaderboard?package_id=${encodeURIComponent(p.id)}`}
+              >
+                Lihat peringkat paket ini →
+              </Link>
             </aside>
           </div>
         </>

@@ -132,8 +132,10 @@ export default function AppShell({
       <footer className="app-footer">
         <span>TOCPNS · Latihan dengan lebih tenang.</span>
         <Link href="/faq">Bantuan</Link>
-        <Link href="/support">Dukungan</Link>
+        <Link href="/support">Kontak & Dukungan</Link>
         <Link href="/donasi">Donasi</Link>
+        <Link href="/terms">Ketentuan</Link>
+        <Link href="/privacy">Privasi</Link>
       </footer>
       {user && (
         <nav className="mobile-nav" aria-label="Navigasi ponsel">

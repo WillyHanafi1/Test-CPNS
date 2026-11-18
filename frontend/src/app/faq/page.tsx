@@ -1,5 +1,11 @@
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
+import {
+  SUPPORT_EMAIL,
+  SUPPORT_WHATSAPP_DISPLAY,
+  whatsappHref,
+} from "@/lib/contact";
+
 export default function Help() {
   return (
     <AppShell
@@ -14,23 +20,27 @@ export default function Help() {
           ],
           [
             "Apa yang termasuk dalam Pro?",
-            "Seluruh paket peserta yang terbit dan siap dalam cakupan keanggotaan selama masa aktif. Jadwal dan aturan percobaan tryout tetap berlaku.",
+            "Seluruh paket peserta yang terbit dan siap dalam cakupan keanggotaan selama masa aktif (365 hari sejak pembayaran terverifikasi). Tidak ada tagihan berulang otomatis. Jadwal dan aturan percobaan tryout terjadwal tetap berlaku.",
           ],
           [
-            "Bagaimana jika koneksi terputus?",
-            "Pilihan yang belum mendapat konfirmasi ditandai sebagai tertunda dan dicoba lagi ketika koneksi pulih. Waktu tetap berjalan; jawaban yang belum diterima sebelum deadline tidak dapat dinilai.",
+            "Bagaimana jika koneksi terputus saat ujian?",
+            "Pilihan yang belum mendapat konfirmasi ditandai sebagai tertunda dan dicoba lagi ketika koneksi pulih. Waktu tetap berjalan di server; jawaban yang belum diterima sebelum batas waktu berakhir tidak dapat dinilai.",
           ],
           [
-            "Apakah hasil latihan berarti lulus seleksi?",
-            "Hasil hanya menggambarkan performa simulasi berdasarkan aturan latihan yang ditampilkan. Keputusan seleksi resmi tidak ditentukan oleh aplikasi.",
+            "Apakah hasil latihan berarti lulus seleksi resmi?",
+            "Hasil hanya menggambarkan performa simulasi berdasarkan acuan latihan yang ditampilkan (misal TWK 65 · TIU 80 · TKP 166). Keputusan seleksi resmi sepenuhnya ditentukan oleh panitia seleksi nasional/BKN.",
           ],
           [
-            "Di mana pembahasan tersedia?",
-            "Buka Riwayat, pilih sesi yang selesai, lalu Pembahasan. Hasil latihan sendiri tetap dapat dibaca sesudah masa Pro berakhir.",
+            "Di mana pembahasan dan analisis kelemahan topik tersedia?",
+            "Buka Riwayat, pilih sesi yang selesai, lalu tekan Pembahasan. Untuk melihat grafik perkembangan nilai dan sub-topik yang perlu diperkuat, buka halaman Perkembangan dari Beranda atau Riwayat. Hasil latihan sendiri tetap dapat dibaca sesudah masa Pro berakhir.",
           ],
           [
-            "Bagaimana pembayaran diverifikasi?",
-            "Status transaksi diperiksa di server. Kembali dari halaman pembayaran tidak otomatis berarti transaksi berhasil. Bila pembayaran masih sandbox, transaksi bukan pembayaran sungguhan.",
+            "Bagaimana pembayaran diverifikasi dan bagaimana jika tertunda?",
+            "Status transaksi diperiksa langsung di server melalui DOKU. Kembali dari halaman pembayaran tidak otomatis berarti transaksi berhasil. Jika status masih menunggu atau mengalami kendala, buka Riwayat Transaksi di Akun atau hubungi kami dengan menyertakan ID Transaksi (Order ID).",
+          ],
+          [
+            "Bagaimana jika lupa kata sandi atau kesulitan masuk akun?",
+            "Gunakan tautan Lupa kata sandi pada halaman Masuk untuk menerima tautan pemulihan melalui email, atau masuk menggunakan akun Google yang terdaftar. Jika masih terkendala, hubungi WhatsApp atau Email dukungan kami tanpa perlu masuk akun.",
           ],
         ].map(([title, description]) => (
           <details className="panel" key={title}>
@@ -42,14 +52,33 @@ export default function Help() {
             </p>
           </details>
         ))}
-        <section className="notice">
-          <p>
-            Untuk kendala soal, gunakan Laporkan masalah pada pembahasan. Untuk
-            masukan lain, buka halaman Akun.
-          </p>
-          <Link href="/account" className="button button-secondary">
-            Buka akun
-          </Link>
+        <section className="panel stack">
+          <div>
+            <h2>Masih butuh bantuan?</h2>
+            <p className="muted" style={{ marginTop: 6 }}>
+              Untuk kendala soal, gunakan tombol{" "}
+              <strong>Laporkan masalah soal</strong> pada halaman Pembahasan.
+              Untuk kendala akun, transaksi, atau pertanyaan lain, hubungi kami
+              langsung melalui WhatsApp ({SUPPORT_WHATSAPP_DISPLAY}) atau email (
+              {SUPPORT_EMAIL}).
+            </p>
+          </div>
+          <div className="inline">
+            <Link href="/support" className="button">
+              Kontak & dukungan
+            </Link>
+            <a
+              href={whatsappHref("Halo Admin TOCPNS, saya ingin bertanya...")}
+              target="_blank"
+              rel="noreferrer"
+              className="button button-secondary"
+            >
+              Chat WhatsApp
+            </a>
+            <Link href="/account" className="button button-secondary">
+              Buka akun
+            </Link>
+          </div>
         </section>
       </div>
     </AppShell>

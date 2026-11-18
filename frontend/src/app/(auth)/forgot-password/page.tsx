@@ -59,9 +59,14 @@ export default function Forgot() {
             </button>
           </form>
         )}
-        <Link className="muted" href="/login">
-          ← Kembali ke masuk
-        </Link>
+        <div className="between">
+          <Link className="muted" href="/login">
+            ← Kembali ke masuk
+          </Link>
+          <Link className="muted" href="/support" style={{ fontSize: 13 }}>
+            Butuh bantuan admin?
+          </Link>
+        </div>
       </section>
     </AppShell>
   );

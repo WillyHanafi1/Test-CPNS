@@ -120,7 +120,15 @@ export default function Upgrade() {
             )}
             <p className="muted" style={{ fontSize: 13 }}>
               Aktivasi mengikuti verifikasi pembayaran di server. Paket
-              terjadwal tetap mengikuti jadwalnya.
+              terjadwal tetap mengikuti jadwalnya. Baca{" "}
+              <Link href="/terms" style={{ color: "var(--accent)" }}>
+                ketentuan layanan
+              </Link>{" "}
+              atau{" "}
+              <Link href="/support" style={{ color: "var(--accent)" }}>
+                hubungi bantuan
+              </Link>{" "}
+              jika ada pertanyaan.
             </p>
           </aside>
         </div>

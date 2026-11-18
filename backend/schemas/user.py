@@ -51,5 +51,42 @@ class UserProfile(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+class UserProfileUpdate(BaseModel):
+    full_name: str
+    phone_number: Optional[str] = None
+    target_instansi: Optional[str] = None
+
+    @field_validator('full_name')
+    @classmethod
+    def clean_full_name(cls, value: str) -> str:
+        cleaned = (value or '').strip()
+        if not cleaned or len(cleaned) > 100:
+            raise ValueError('Nama lengkap wajib diisi (maksimal 100 karakter).')
+        return cleaned
+
+    @field_validator('phone_number')
+    @classmethod
+    def clean_phone_number(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        cleaned = value.strip()
+        if not cleaned:
+            return None
+        if len(cleaned) > 20:
+            raise ValueError('Nomor telepon maksimal 20 karakter.')
+        return cleaned
+
+    @field_validator('target_instansi')
+    @classmethod
+    def clean_target_instansi(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        cleaned = value.strip()
+        if not cleaned:
+            return None
+        if len(cleaned) > 255:
+            raise ValueError('Target instansi maksimal 255 karakter.')
+        return cleaned
+
 class UserWithProfile(User):
     profile: Optional[UserProfile] = None

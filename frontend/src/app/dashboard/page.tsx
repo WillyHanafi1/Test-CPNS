@@ -15,10 +15,11 @@ export default function Dashboard() {
     "/exam/sessions/me",
     !!user,
   );
-  const stats = useResource<{ total_sessions: number }>(
-    "/exam/sessions/me/stats",
-    !!user,
-  );
+  const stats = useResource<{
+    total_sessions: number;
+    best_score?: number;
+    total_passed?: number;
+  }>("/exam/sessions/me/stats", !!user);
   useEffect(() => {
     if (!authLoading && !user) router.replace("/login?next=/dashboard");
   }, [authLoading, user, router]);
@@ -99,12 +100,20 @@ export default function Dashboard() {
                     {latest.package_title} · {dateLabel(latest.start_time)}
                   </p>
                   <Scores scores={latest} />
-                  <Link
-                    className="button button-secondary"
-                    href={`/session/${latest.id}/result`}
-                  >
-                    Lihat hasil lengkap
-                  </Link>
+                  <div className="inline">
+                    <Link
+                      className="button button-secondary"
+                      href={`/session/${latest.id}/result`}
+                    >
+                      Lihat hasil lengkap
+                    </Link>
+                    <Link
+                      className="button button-secondary"
+                      href={`/session/${latest.id}/review`}
+                    >
+                      Pembahasan
+                    </Link>
+                  </div>
                 </>
               ) : (
                 <div className="empty-state">
@@ -115,18 +124,43 @@ export default function Dashboard() {
             </section>
             <aside className="panel stack">
               <h2>Perjalanan latihan</h2>
-              <div>
-                <strong style={{ fontSize: 36 }}>
-                  {stats.data?.total_sessions ?? "—"}
-                </strong>
-                <p className="muted">latihan selesai</p>
+              <div className="between">
+                <div>
+                  <strong style={{ fontSize: 34 }}>
+                    {stats.data?.total_sessions ?? "—"}
+                  </strong>
+                  <p className="muted" style={{ fontSize: 13 }}>
+                    latihan selesai
+                  </p>
+                </div>
+                {!!stats.data?.best_score && (
+                  <div>
+                    <strong style={{ fontSize: 34 }}>
+                      {stats.data.best_score}
+                    </strong>
+                    <p className="muted" style={{ fontSize: 13 }}>
+                      skor terbaik
+                    </p>
+                  </div>
+                )}
               </div>
               <p className="muted">
-                Pembahasan tersedia untuk setiap sesi yang selesai. Mulai dari
-                jawaban yang belum tepat.
+                Lihat perkembangan nilai, sub-topik yang perlu diperkuat, atau
+                bandingkan hasil pada peringkat latihan.
               </p>
-              <Link className="button button-secondary" href="/catalog">
-                Temukan paket berikutnya
+              <div className="inline">
+                <Link className="button button-small" href="/analytics">
+                  Perkembangan & topik
+                </Link>
+                <Link
+                  className="button button-small button-secondary"
+                  href="/leaderboard"
+                >
+                  Peringkat
+                </Link>
+              </div>
+              <Link className="muted" href="/catalog">
+                Temukan paket berikutnya →
               </Link>
               {user.is_pro && (
                 <p className="muted inline" style={{ fontSize: 13 }}>

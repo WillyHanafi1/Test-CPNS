@@ -10,6 +10,12 @@ import Modal from "@/components/Modal";
 import DonationVisibility from "@/components/donations/DonationVisibility";
 import { useTheme } from "@/context/ThemeContext";
 import { ThemePreference } from "@/lib/theme";
+import {
+  FEEDBACK_CATEGORIES,
+  FeedbackCategory,
+  whatsappHref,
+} from "@/lib/contact";
+
 type Transaction = {
   id: string;
   order_id: string;
@@ -20,8 +26,9 @@ type Transaction = {
   payment_url?: string;
   is_anonymous?: boolean;
 };
+
 export default function Account() {
-  const { user, loading, logout } = useAuth();
+  const { user, loading, logout, refreshSession } = useAuth();
   const { preference, setPreference } = useTheme();
   const router = useRouter();
   const [page, setPage] = useState(0);
@@ -29,30 +36,158 @@ export default function Account() {
     `/transactions/my-transactions?limit=20&offset=${page * 20}`,
     !!user,
   );
+
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [fullName, setFullName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [targetInstansi, setTargetInstansi] = useState("");
+  const [profileBusy, setProfileBusy] = useState(false);
+  const [profileNotice, setProfileNotice] = useState("");
+  const [profileError, setProfileError] = useState("");
+
+  const [category, setCategory] = useState<FeedbackCategory>("suggestion");
   const [message, setMessage] = useState("");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [receipt, setReceipt] = useState<Transaction | null>(null);
+
   useEffect(() => {
     if (!loading && !user) router.replace("/login?next=/account");
   }, [loading, user, router]);
+
   if (loading || !user)
     return (
       <AppShell>
         <Loading />
       </AppShell>
     );
+
   return (
     <AppShell
       title="Akunmu"
-      description="Keanggotaan, transaksi, dan bantuan dalam satu tempat."
+      description="Profil, keanggotaan, transaksi, dan bantuan dalam satu tempat."
     >
       <div className="two-column">
         <div className="stack">
           <section className="panel stack">
-            <h2>{user.full_name || "Profil peserta"}</h2>
-            <p className="muted">{user.email}</p>
+            <div className="between">
+              <div>
+                <h2>{user.full_name || "Profil peserta"}</h2>
+                <p className="muted">{user.email}</p>
+              </div>
+              <button
+                type="button"
+                className="button button-small button-secondary"
+                onClick={() => {
+                  if (!editingProfile) {
+                    setFullName(user.full_name || "");
+                    setPhoneNumber(user.phone_number || "");
+                    setTargetInstansi(user.target_instansi || "");
+                  }
+                  setEditingProfile((v) => !v);
+                  setProfileNotice("");
+                  setProfileError("");
+                }}
+              >
+                {editingProfile ? "Tutup" : "Ubah profil"}
+              </button>
+            </div>
+            {(user.phone_number || user.target_instansi) && !editingProfile && (
+              <div className="inline muted" style={{ fontSize: 13 }}>
+                {user.phone_number && <span>HP/WA: {user.phone_number}</span>}
+                {user.phone_number && user.target_instansi && <span>·</span>}
+                {user.target_instansi && (
+                  <span>Target: {user.target_instansi}</span>
+                )}
+              </div>
+            )}
+            {profileNotice && !editingProfile && (
+              <p className="notice" role="status">
+                {profileNotice}
+              </p>
+            )}
+            {editingProfile && (
+              <form
+                className="stack"
+                style={{
+                  paddingTop: 12,
+                  borderTop: "1px solid var(--line)",
+                }}
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setProfileBusy(true);
+                  setProfileNotice("");
+                  setProfileError("");
+                  try {
+                    await api("/user/me/profile", {
+                      method: "PUT",
+                      body: JSON.stringify({
+                        full_name: fullName,
+                        phone_number: phoneNumber || null,
+                        target_instansi: targetInstansi || null,
+                      }),
+                    });
+                    await refreshSession();
+                    setEditingProfile(false);
+                    setProfileNotice("Profil berhasil diperbarui.");
+                  } catch (e) {
+                    setProfileError(
+                      e instanceof Error
+                        ? e.message
+                        : "Profil belum berhasil disimpan.",
+                    );
+                  } finally {
+                    setProfileBusy(false);
+                  }
+                }}
+              >
+                <label className="field">
+                  Nama lengkap
+                  <input
+                    className="input"
+                    required
+                    maxLength={100}
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                  />
+                </label>
+                <label className="field">
+                  Nomor HP / WhatsApp (opsional)
+                  <input
+                    className="input"
+                    type="tel"
+                    maxLength={20}
+                    placeholder="Contoh: 0812-3456-7890"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                  />
+                </label>
+                <label className="field">
+                  Target instansi (opsional)
+                  <input
+                    className="input"
+                    maxLength={255}
+                    placeholder="Contoh: Kementerian Keuangan / Pemprov..."
+                    value={targetInstansi}
+                    onChange={(e) => setTargetInstansi(e.target.value)}
+                  />
+                </label>
+                {profileError && <ErrorPanel message={profileError} />}
+                <div className="inline">
+                  <button className="button button-small" disabled={profileBusy}>
+                    {profileBusy ? "Menyimpan…" : "Simpan profil"}
+                  </button>
+                  <button
+                    type="button"
+                    className="button button-small button-secondary"
+                    onClick={() => setEditingProfile(false)}
+                  >
+                    Batal
+                  </button>
+                </div>
+              </form>
+            )}
             <div className="notice">
               <div>
                 <strong>{user.is_pro ? "Pro aktif" : "Akun gratis"}</strong>
@@ -67,6 +202,7 @@ export default function Account() {
               </Link>
             </div>
           </section>
+
           <section className="panel stack">
             <div className="between">
               <h2>Riwayat transaksi</h2>
@@ -164,6 +300,7 @@ export default function Account() {
             </div>
           </section>
         </div>
+
         <aside className="panel stack">
           <h2>Tampilan</h2>
           <label className="field">
@@ -171,7 +308,9 @@ export default function Account() {
             <select
               className="input"
               value={preference}
-              onChange={(e) => setPreference(e.target.value as ThemePreference)}
+              onChange={(e) =>
+                setPreference(e.target.value as ThemePreference)
+              }
             >
               <option value="system">Ikuti perangkat</option>
               <option value="dark">Gelap</option>
@@ -189,10 +328,19 @@ export default function Account() {
           <p className="muted">
             Mengganti kata sandi akan mengakhiri sesi masuk lama.
           </p>
+          <hr style={{ borderColor: "var(--line)" }} />
           <h2>Bantuan dan masukan</h2>
-          <Link className="button button-secondary" href="/faq">
-            Buka panduan
-          </Link>
+          <div className="inline">
+            <Link className="button button-small button-secondary" href="/faq">
+              Panduan (FAQ)
+            </Link>
+            <Link
+              className="button button-small button-secondary"
+              href="/support"
+            >
+              Kontak admin
+            </Link>
+          </div>
           <form
             className="stack"
             onSubmit={async (e) => {
@@ -204,7 +352,7 @@ export default function Account() {
                 await api("/user/feedback", {
                   method: "POST",
                   body: JSON.stringify({
-                    category: "suggestion",
+                    category,
                     content: message,
                     path_context: "/account",
                   }),
@@ -221,13 +369,30 @@ export default function Account() {
             }}
           >
             <label className="field">
-              Kirim masukan
+              Kategori masukan
+              <select
+                className="input"
+                value={category}
+                onChange={(e) =>
+                  setCategory(e.target.value as FeedbackCategory)
+                }
+              >
+                {FEEDBACK_CATEGORIES.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              Pesan masukan
               <textarea
                 className="input"
                 rows={4}
-                minLength={10}
+                minLength={5}
                 maxLength={3000}
                 required
+                placeholder="Sampaikan saran, kendala teknis, atau pertanyaan transaksi…"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
               />
@@ -256,8 +421,8 @@ export default function Account() {
         onClose={() => setReceipt(null)}
       >
         {receipt && (
-          <>
-            <p>
+          <div className="stack" style={{ gap: 14 }}>
+            <p className="transaction-id">
               <strong>{receipt.order_id}</strong>
             </p>
             <p>
@@ -273,14 +438,33 @@ export default function Account() {
                   : "Tidak berhasil"}
             </p>
             <p className="muted">
-              Status ini berasal dari catatan transaksi akunmu.
+              Status ini berasal dari catatan transaksi akunmu di server.
             </p>
-            {receipt.payment_status === "pending" && receipt.payment_url && (
-              <a className="button" href={receipt.payment_url} rel="noreferrer">
-                Lanjutkan pembayaran
+            <div className="inline">
+              {receipt.payment_status === "pending" && receipt.payment_url && (
+                <a className="button" href={receipt.payment_url} rel="noreferrer">
+                  Lanjutkan pembayaran
+                </a>
+              )}
+              <button
+                type="button"
+                className="button button-small button-secondary"
+                onClick={() => window.print()}
+              >
+                Cetak bukti
+              </button>
+              <a
+                className="button button-small button-secondary"
+                href={whatsappHref(
+                  `Halo Admin TOCPNS, mohon bantu periksa transaksi saya dengan ID: ${receipt.order_id}`,
+                )}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Tanya admin
               </a>
-            )}
-          </>
+            </div>
+          </div>
         )}
       </Modal>
     </AppShell>

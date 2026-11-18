@@ -159,17 +159,18 @@ export function ResultView({ id }: { id: string }) {
               >
                 Latihan kembali
               </Link>
+              <Link className="muted" href="/analytics">
+                Lihat perkembangan & penguasaan topik →
+              </Link>
+              <Link
+                className="muted"
+                href={`/leaderboard?package_id=${encodeURIComponent(data.package_id)}${data.revision_id ? `&revision_id=${encodeURIComponent(data.revision_id)}` : ""}`}
+              >
+                Peringkat latihan paket ini →
+              </Link>
               <Link className="muted" href="/history">
                 Lihat semua riwayat
               </Link>
-              {data.revision_id && (
-                <Link
-                  className="muted"
-                  href={`/leaderboard?package_id=${data.package_id}&revision_id=${data.revision_id}`}
-                >
-                  Peringkat versi latihan ini
-                </Link>
-              )}
             </aside>
           </div>
         )

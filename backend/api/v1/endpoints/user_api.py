@@ -4,13 +4,46 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.rate_limiter import limiter
 from backend.core.redis_service import redis_service
 
+from sqlalchemy import select
 from backend.db.session import get_async_session
-from backend.models.models import User, Feedback
+from backend.models.models import User, UserProfile, Feedback
 from backend.api.v1.endpoints.auth import get_current_user
 from backend.core.analytics_service import analytics_service
 from backend.schemas.feedback import FeedbackCreate
+from backend.schemas.user import UserProfile as UserProfileSchema, UserProfileUpdate
 
 router = APIRouter(prefix="/user", tags=["user"])
+
+
+@router.put("/me/profile", response_model=UserProfileSchema)
+@router.patch("/me/profile", response_model=UserProfileSchema)
+async def update_my_profile(
+    profile_in: UserProfileUpdate,
+    db: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Update participant profile (full_name, phone_number, target_instansi).
+    """
+    profile = await db.scalar(
+        select(UserProfile).where(UserProfile.user_id == current_user.id)
+    )
+    if not profile:
+        profile = UserProfile(
+            user_id=current_user.id,
+            full_name=profile_in.full_name,
+            phone_number=profile_in.phone_number,
+            target_instansi=profile_in.target_instansi,
+        )
+        db.add(profile)
+    else:
+        profile.full_name = profile_in.full_name
+        profile.phone_number = profile_in.phone_number
+        profile.target_instansi = profile_in.target_instansi
+
+    await db.commit()
+    await db.refresh(profile)
+    return profile
 
 @router.get("/me/mastery")
 async def get_my_mastery(

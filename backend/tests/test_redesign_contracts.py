@@ -192,3 +192,47 @@ async def test_old_cached_client_cannot_create_or_drive_modern_attempt(client, t
     assert old_resume.status_code == 409
     assert old_resume.json()['detail']['code'] == 'update_required'
     assert (await client.get(f"/api/v1/exam/session/{data['session_id']}/state")).status_code == 200
+
+
+async def test_profile_update_and_non_strict_weak_points(client, test_user, test_package_with_questions, db_session):
+    await login_and_get_cookies(client, test_user.email, 'TestPassword123')
+    updated = await client.put('/api/v1/user/me/profile', json={
+        'full_name': '  Budi Santoso  ',
+        'phone_number': ' 0851-1762-3819 ',
+        'target_instansi': ' Kementerian Keuangan ',
+    })
+    assert updated.status_code == 200, updated.text
+    assert updated.json() == {
+        'full_name': 'Budi Santoso',
+        'phone_number': '0851-1762-3819',
+        'target_instansi': 'Kementerian Keuangan',
+    }
+    me = await client.get('/api/v1/auth/me')
+    assert me.status_code == 200
+    assert me.json()['profile']['full_name'] == 'Budi Santoso'
+    assert me.json()['profile']['phone_number'] == '0851-1762-3819'
+    assert me.json()['profile']['target_instansi'] == 'Kementerian Keuangan'
+
+    # Clearing optional fields works cleanly without strict errors
+    cleared = await client.patch('/api/v1/user/me/profile', json={
+        'full_name': 'Budi Santoso',
+        'phone_number': '   ',
+        'target_instansi': '',
+    })
+    assert cleared.status_code == 200
+    assert cleared.json()['phone_number'] is None
+    assert cleared.json()['target_instansi'] is None
+
+    # Weak points works even after answering a single question in a finished session
+    data = await start(client, test_package_with_questions)
+    sid = uuid.UUID(data['session_id'])
+    await client.post(f'/api/v1/exam/autosave/{sid}', json=mutation(data))
+    await client.post(f'/api/v1/exam/finish/{sid}')
+    attempt = await owned_session(db_session, sid, test_user.id, lock=True)
+    await score(db_session, attempt)
+
+    weak = await client.get('/api/v1/user/me/weak-points')
+    assert weak.status_code == 200
+    assert len(weak.json()) >= 1
+    assert weak.json()[0]['total_answered'] == 1
+

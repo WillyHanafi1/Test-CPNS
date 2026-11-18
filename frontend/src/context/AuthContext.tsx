@@ -14,6 +14,8 @@ interface User {
   email: string;
   role: string;
   full_name?: string;
+  phone_number?: string | null;
+  target_instansi?: string | null;
   is_pro?: boolean;
   pro_expires_at?: string | null;
 }
@@ -43,10 +45,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const refreshSession = useCallback(async () => {
     try {
-      const d = await api<User & { profile?: { full_name?: string } }>(
-        "/auth/me",
-      );
-      setUser({ ...d, full_name: d.profile?.full_name });
+      const d = await api<
+        User & {
+          profile?: {
+            full_name?: string;
+            phone_number?: string | null;
+            target_instansi?: string | null;
+          };
+        }
+      >("/auth/me");
+      setUser({
+        ...d,
+        full_name: d.profile?.full_name,
+        phone_number: d.profile?.phone_number ?? null,
+        target_instansi: d.profile?.target_instansi ?? null,
+      });
     } catch (e) {
       if (e instanceof ApiError && [401, 403].includes(e.status)) setUser(null);
       throw e;
