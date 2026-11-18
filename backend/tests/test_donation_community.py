@@ -51,7 +51,7 @@ async def test_overview_counts_confirmed_real_donations_and_includes_top_support
         ('Anonim', 1000, 1, 'Semangat!'),
     ]
     anonymous = [row for row in data['recent_supporters'] if row['is_anonymous']]
-    assert len(anonymous) == 1 and anonymous[0]['full_name'] == 'Pendukung anonim'
+    assert len(anonymous) == 1 and anonymous[0]['full_name'] == 'Anonim'
     assert anonymous[0]['message'] == 'Semangat!'
     assert datetime.fromisoformat(anonymous[0]['created_at'].replace('Z', '+00:00')).utcoffset() is not None
     rendered = json.dumps(data)
@@ -107,7 +107,36 @@ async def test_anonymous_only_and_empty_period_are_honest_and_zero_target_is_saf
     assert len(data['top_supporters']) == 1
     assert data['top_supporters'][0]['full_name'] == 'Anonim'
     assert data['top_supporters'][0]['is_anonymous'] is True
-    assert data['recent_supporters'][0]['full_name'] == 'Pendukung anonim'
+    assert data['recent_supporters'][0]['full_name'] == 'Anonim'
+
+
+@pytest.mark.parametrize('logged_in', [False, True])
+async def test_public_and_signed_in_boards_preserve_anonymous_amounts_and_messages_without_identity(
+        client, db_session, test_user, admin_user, logged_in):
+    await donation(db_session, test_user, 50000, is_anonymous=True, message='Semangat dari donatur anonim!')
+    await donation(db_session, admin_user, 1000, message='Pesan pendukung bernama')
+    if logged_in:
+        await login_and_get_cookies(client, test_user.email, 'TestPassword123')
+    for endpoint in ('/overview?period=all&limit=20', '/top?period=all', '/wall-of-fame?period=all'):
+        response = await client.get(BASE + endpoint)
+        assert response.status_code == 200
+        payload = response.json()
+        lists = [payload['top_supporters'], payload['recent_supporters']] if endpoint.startswith('/overview') else [payload]
+        for rows in lists:
+            anonymous = [row for row in rows if row['is_anonymous']]
+            assert len(anonymous) == 1
+            assert anonymous[0]['full_name'] == 'Anonim'
+            assert anonymous[0]['message'] == 'Semangat dari donatur anonim!'
+            assert anonymous[0].get('total_amount', anonymous[0].get('amount')) == 50000
+            assert any(row['full_name'] == 'Admin User' for row in rows)
+            rendered = json.dumps(rows)
+            assert 'Test User' not in rendered and test_user.email not in rendered and str(test_user.id) not in rendered
+        if endpoint.startswith('/overview'):
+            assert payload['stats']['total_amount'] == 51000
+            assert payload['top_supporters'][0]['full_name'] == 'Anonim'
+            assert payload['top_supporters'][0]['rank'] == 1
+    mine = await client.get('/api/v1/transactions/my-transactions')
+    assert mine.status_code == (200 if logged_in else 401)
 
 
 @pytest.mark.parametrize('query', ['period=year', 'limit=0', 'limit=21'])

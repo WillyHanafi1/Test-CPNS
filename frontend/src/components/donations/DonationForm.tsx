@@ -82,7 +82,7 @@ export default function DonationForm({
       : demo
         ? "Namamu di sini"
         : "Nama Profilmu"
-    : "Pendukung anonim";
+    : "Anonim";
 
   return (
     <form
@@ -101,7 +101,7 @@ export default function DonationForm({
         }
         if (demo) {
           setDemoReceipt(
-            `Simulasi berhasil: ${rupiah(amount)} dari ${showName ? "Namamu di sini" : "Pendukung anonim"}. Tidak ada pembayaran atau data yang dikirim.`,
+            `Simulasi berhasil: ${rupiah(amount)} dari ${showName ? "Namamu di sini" : "Anonim"}. Tidak ada pembayaran atau data yang dikirim.`,
           );
           return;
         }
@@ -150,7 +150,7 @@ export default function DonationForm({
         <p className="muted donation-small">
           {demo
             ? "Coba pilih nominal dan titip pesan. Ini simulasi, tanpa pembayaran atau pengiriman data."
-            : "Pesan dan namamu langsung tampil di papan dukungan setelah pembayaran terverifikasi."}
+            : "Donasi dan pesan tampil di halaman publik serta dashboard akun setelah pembayaran terverifikasi. Kamu bisa memilih nama profil atau Anonim."}
         </p>
       </div>
       <fieldset disabled={busy}>
@@ -201,7 +201,7 @@ export default function DonationForm({
           <div className="between">
             <label htmlFor={`${id}-message`}>Pesan untuk komunitas</label>
             <span className="muted donation-small">
-              {message.length}/150 · tampil di papan
+              {message.length}/150 · tampil di papan publik
             </span>
           </div>
           <textarea
@@ -244,8 +244,8 @@ export default function DonationForm({
           </label>
           <p id={`${id}-privacy-help`} className="muted donation-small">
             {showName
-              ? `${previewName} akan tampil di leaderboard & papan pesan.`
-              : "Nama tampil sebagai Pendukung anonim. Nominal dan pesan tetap terlihat."}{" "}
+              ? `${previewName}, nominal, dan pesan akan terlihat di halaman publik dan dashboard akun.`
+              : "Nama tampil sebagai Anonim di halaman publik dan dashboard akun. Nominal serta pesan tetap terlihat di leaderboard, pesan, dan pin pendukung teratas."}{" "}
             Bisa diubah kapan saja lewat riwayat transaksi.
           </p>
         </div>

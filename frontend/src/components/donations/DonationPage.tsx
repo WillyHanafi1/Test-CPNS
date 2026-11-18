@@ -32,7 +32,8 @@ export default function DonationPage() {
         </h1>
         <p className="muted">
           Kalau TOCPNS membantu perjalanan belajarmu, kamu bisa ikut merawatnya
-          dan meninggalkan pesan semangat untuk sesama pejuang CPNS.
+          dan meninggalkan pesan semangat untuk sesama pejuang CPNS. Papan
+          dukungan ini bisa dibaca siapa saja, tanpa perlu masuk akun.
         </p>
       </div>
       <div className="donation-layout">
@@ -146,11 +147,11 @@ export default function DonationPage() {
           ],
           [
             "Apakah nama saya harus tampil?",
-            "Tidak wajib. Secara default nama profilmu ditampilkan agar masuk ke papan dukungan bersama pesanmu. Jika ingin anonim, cukup matikan centang tampilkan nama sebelum membayar atau ubah kapan saja melalui riwayat transaksi di Akun.",
+            "Tidak wajib. Jika centang tampilkan nama aktif, nama profilmu terlihat di halaman donasi publik dan dashboard akun. Jika dimatikan, namamu diganti menjadi Anonim pada kedua tampilan. Nominal dan pesan tetap terlihat, termasuk di leaderboard dan pin jika menjadi pendukung teratas. Pilihan nama ini dapat diubah kapan saja melalui riwayat transaksi di Akun.",
           ],
           [
             "Bagaimana pembayaran dan konfirmasinya?",
-            "Pembayaran dilakukan melalui DOKU dengan metode yang tersedia di halaman checkout. Setelah pembayaran berhasil dikonfirmasi, dukungan dan pesan langsung masuk ke papan dukungan. Status juga tersedia di riwayat transaksi akunmu.",
+            "Masuk akun untuk mengirim donasi. Pembayaran dilakukan melalui DOKU dengan metode yang tersedia di halaman checkout. Setelah pembayaran terverifikasi, dukungan dan pesan masuk ke papan publik serta dashboard, menggunakan nama profil atau Anonim sesuai pilihanmu. Status tersedia di riwayat transaksi akunmu.",
           ],
           [
             "Apakah ini pembayaran berulang?",

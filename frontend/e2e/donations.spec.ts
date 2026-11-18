@@ -1,6 +1,6 @@
 import { expect, test, Page } from "@playwright/test";
 import path from "node:path";
-import { demoOverview } from "../src/lib/donation-demo";
+import { DEMO_DONATIONS, demoOverview } from "../src/lib/donation-demo";
 import type { DonationOverview } from "../src/lib/donations";
 
 const sample = (period = "month") => ({
@@ -33,7 +33,7 @@ const sample = (period = "month") => ({
   ],
   recent_supporters: [
     {
-      full_name: "Pendukung anonim",
+      full_name: "Anonim",
       amount: 1000,
       is_anonymous: true,
       message: "Semangat berlatih!",
@@ -334,6 +334,49 @@ test("streamer boards use the full width below the introduction or form, with ch
   expect(errors).toEqual([]);
 });
 
+test("public visitors and account users see the same named donors, anonymous messages and anonymous top pin", async ({
+  page,
+}) => {
+  const overview = demoOverview("november", [
+    {
+      ...DEMO_DONATIONS[0],
+      id: "anonymous-top-visibility-test",
+      amount: 3000000,
+      is_anonymous: true,
+      message: "Pesan semangat dari pendukung anonim teratas.",
+      paid_at: "2026-11-18T12:00:00+07:00",
+      created_at: "2026-11-18T12:00:00+07:00",
+    },
+  ]);
+  const { errors } = await fixture(page, { guest: true, overview });
+  await page.goto("/donasi");
+  const community = page.locator(".donation-community");
+  await expect(
+    community.locator(".lb-stream-overlay > li").first(),
+  ).toContainText("Anonim");
+  await expect(community.locator(".dc-pin")).toContainText("Anonim");
+  await expect(community.locator(".dc-pin")).not.toContainText("Alya Putri");
+  await expect(community.locator(".dc-chat-message").last()).toContainText(
+    "Anonim",
+  );
+  await expect(community).toContainText("Fajar Maulana");
+  const publicBoard = await community.innerText();
+  await page.getByRole("button", { name: "Masuk & lanjutkan donasi" }).click();
+  await expect(page).toHaveURL(/\/login\?next=/);
+  await page
+    .getByLabel("Email", { exact: true })
+    .fill("synthetic@example.test");
+  await page
+    .getByLabel("Kata sandi", { exact: true })
+    .fill("SyntheticOnly123!");
+  await page.getByRole("button", { name: "Masuk", exact: true }).click();
+  await expect(page).toHaveURL(/\/donasi\?amount=5000$/);
+  await expect(community).toHaveText(publicBoard, { useInnerText: true });
+  await page.goto("/dashboard");
+  await expect(community).toHaveText(publicBoard, { useInnerText: true });
+  expect(errors).toEqual([]);
+});
+
 test("guest selection and message survive login, including an admin returning to the donation flow", async ({
   page,
 }) => {
@@ -379,6 +422,24 @@ test("donation shows name by default, supports one-click anonymous toggle, rejec
   const nameCheckbox = page.getByLabel("Tampilkan nama singkat saya");
   await expect(nameCheckbox).toBeChecked();
   await nameCheckbox.uncheck();
+  await expect(page.getByLabel("Pratinjau kartu dukungan")).toContainText(
+    "Anonim",
+  );
+  await expect(page.getByLabel("Pratinjau kartu dukungan")).not.toContainText(
+    "Sinta Wijaya",
+  );
+  await expect(
+    page.getByText(
+      "Nama tampil sebagai Anonim di halaman publik dan dashboard akun.",
+      { exact: false },
+    ),
+  ).toBeVisible();
+  await page.getByRole("form", { name: "Form donasi" }).screenshot({
+    path: path.resolve(
+      "../.server-notes/ui-qa/donation-public-anonymous-preview.png",
+    ),
+    style: ".app-header, .skip-link { visibility: hidden !important; }",
+  });
   await page.getByLabel("Nominal lain (rupiah)").fill("-5000");
   await page.getByRole("button", { name: "Periksa nominal" }).click();
   await expect(page.locator("main").getByRole("alert")).toContainText(

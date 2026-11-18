@@ -39,6 +39,8 @@ docker compose --profile app up -d --build
 
 Buka [beranda akun lokal](http://localhost:3107/dashboard) setelah login atau [halaman donasi lokal](http://localhost:3107/donasi). Beranda publik tidak menampilkan section donasi. Pilih **Semua waktu** di halaman donasi untuk melihat seluruh 20 transaksi (Rp 2.946.000 dari 17 akun); **Bulan ini** mengikuti tanggal server dan hanya menampilkan transaksi bulan berjalan. Contoh mencakup donasi berulang, anonim, tanpa pesan, serta batas pergantian bulan dan tahun dalam WIB. Seed dapat dijalankan ulang tanpa menggandakan data.
 
+Halaman `/donasi` dan papan dukungannya dapat dibaca tanpa login; mengirim donasi tetap memerlukan akun. Papan publik dan dashboard akun memakai data serta pilihan nama yang sama: donasi anonim tetap tampil di leaderboard, pesan, dan pin sebagai **Anonim**, sedangkan donasi bernama menampilkan nama profil. Nominal dan pesan tetap terlihat pada kedua tampilan. Pilihan nama dapat diubah melalui riwayat transaksi milik donatur.
+
 `docker-compose.yml` menyediakan profil `app` untuk backend/frontend/worker/beat development dan layanan `seed` yang dijalankan secara eksplisit. Image backend memakai daftar dependensi runtime yang sama dengan production; build Dockerfile langsung tetap menyertakan alat development secara default. Konfigurasi ini hanya menggunakan PostgreSQL/Redis development, dengan kredensial pembayaran/email/AI kosong. Container aplikasi tidak melakukan migrasi otomatis. Helper seed memakai `create_all` hanya pada database bernama `tocpns_dev` di loopback atau host Compose `postgres` dengan opsi `--docker`; ini bukan pengganti Alembic untuk production.
 
 ## Verifikasi

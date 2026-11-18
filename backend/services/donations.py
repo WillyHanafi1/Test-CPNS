@@ -95,7 +95,7 @@ async def recent_supporters(db, period='all', limit=20, now=None):
         .outerjoin(UserProfile, UserProfile.user_id == UserTransaction.user_id)
         .where(*conditions(period, now))
         .order_by(payment_time().desc(), UserTransaction.id.desc()).limit(limit))).all()
-    return [{'full_name': 'Pendukung anonim' if row.is_anonymous is not False else public_name(name),
+    return [{'full_name': 'Anonim' if row.is_anonymous is not False else public_name(name),
              'amount': row.amount, 'message': row.message, 'created_at': utc(row.created_at),
              'paid_at': utc(row.paid_at) if row.paid_at else None,
              'is_anonymous': row.is_anonymous is not False} for row, name in rows]

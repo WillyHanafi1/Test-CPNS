@@ -135,7 +135,9 @@ export function demoOverview(
         sorted.findIndex((other) => other.total_amount === row.total_amount) +
         1,
     })),
-    recent_supporters: rows,
+    recent_supporters: rows.map((row) =>
+      row.is_anonymous ? { ...row, full_name: "Anonim" } : row,
+    ),
     updated_at: "2026-11-18T12:00:00+07:00",
   };
 }

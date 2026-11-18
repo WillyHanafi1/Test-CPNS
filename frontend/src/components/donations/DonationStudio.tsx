@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -29,7 +29,14 @@ import {
 import DonationCommunity from "./DonationCommunity";
 import DonationForm from "./DonationForm";
 
+const subscribeToHydration = () => () => {};
+
 export default function DonationStudio() {
+  const hydrated = useSyncExternalStore(
+    subscribeToHydration,
+    () => true,
+    () => false,
+  );
   const params = useSearchParams();
   const [format, setFormat] = useState<DonationDesignId>(
     findDonationDesign(params.get("format") || params.get("design")).id,
@@ -86,7 +93,7 @@ export default function DonationStudio() {
   }
   return (
     <AppShell>
-      <div className="leaderboard-studio">
+      <div className="leaderboard-studio" inert={!hydrated}>
         <Link className="ls-back" href="/donasi">
           <ArrowLeft size={14} /> Kembali ke donasi
         </Link>
@@ -197,6 +204,7 @@ export default function DonationStudio() {
           <select
             id="leaderboard-scenario"
             className="input"
+            disabled={!hydrated}
             value={scenario}
             onChange={(event) =>
               choose({ scenario: event.target.value as DemoScenarioId })

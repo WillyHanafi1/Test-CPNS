@@ -275,7 +275,7 @@ test("studio comparisons do not replace the approved application design and demo
   await page.getByRole("button", { name: "Coba dukungan · Rp 7.500" }).click();
   await expect(
     page.getByRole("status").filter({ hasText: "Simulasi berhasil" }),
-  ).toContainText("Pendukung anonim");
+  ).toContainText("Anonim");
   expect(checkout).toEqual([]);
   await page.route("**/api/v1/transactions/donations/overview**", (route) =>
     route.fulfill({
@@ -301,10 +301,7 @@ test("studio comparisons do not replace the approved application design and demo
     "overlay",
   );
   await page.goto("/");
-  await expect(page.locator(".donation-leaderboard-formats")).toHaveAttribute(
-    "data-format",
-    "overlay",
-  );
+  await expect(page.locator(".donation-leaderboard-formats")).toHaveCount(0);
 });
 
 test("capture a clean comparison using the unchanged site theme", async ({

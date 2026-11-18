@@ -35,8 +35,8 @@ export default function DonationVisibility({
             setHidden(result.is_anonymous);
             setNotice(
               result.is_anonymous
-                ? "Nama disembunyikan dari papan pendukung."
-                : "Nama singkat tampil di papan pendukung.",
+                ? "Nama tampil sebagai Anonim di papan publik dan dashboard. Nominal dan pesan tetap terlihat."
+                : "Nama profil tampil di papan publik dan dashboard bersama nominal dan pesan.",
             );
             onUpdated();
           } catch (failure) {
@@ -56,6 +56,10 @@ export default function DonationVisibility({
             ? "Tampilkan nama singkat"
             : "Sembunyikan nama"}
       </button>
+      <p className="muted donation-small">
+        {hidden ? "Nama: Anonim." : "Nama profil ditampilkan."} Nominal dan
+        pesan tetap terlihat di papan publik dan dashboard.
+      </p>
       {notice && (
         <p className="muted donation-small" role="status">
           {notice}

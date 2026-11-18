@@ -56,9 +56,7 @@ test("repeat donors aggregate by account and anonymous accounts participate sepa
     [25000, 5000, 5000],
   );
   assert.equal(
-    anonymous.recent_supporters.every(
-      (row) => row.full_name === "Pendukung anonim",
-    ),
+    anonymous.recent_supporters.every((row) => row.full_name === "Anonim"),
     true,
   );
 });
