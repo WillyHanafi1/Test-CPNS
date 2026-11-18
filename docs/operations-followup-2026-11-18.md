@@ -6,8 +6,7 @@
 - SMTP Gmail: autentikasi server berhasil; pemilik menerima email reset password.
 - DOKU: konfigurasi server dan build frontend disamakan ke Production. Kredensial
   yang sama ditolak Sandbox dengan `invalid_client_id` dan diterima Production.
-- Donasi nyata Rp5.000 melalui QRIS menghasilkan invoice
-  `DONATE-110d88c30dcf46928b89fc7b`. API status DOKU mengembalikan `SUCCESS`,
+- Donasi nyata Rp5.000 melalui QRIS berhasil. API status DOKU mengembalikan `SUCCESS`,
   nominal 5.000, kanal `QRIS`, dan waktu bayar 18 November 2026 12:35:28 WIB.
   Signature respons diverifikasi oleh client aplikasi. Database mencatat satu
   perubahan status dan tidak memberikan Pro untuk donasi.
@@ -15,7 +14,8 @@
   Supabase, diunduh kembali, diperiksa SHA-256, dan diautentikasi AES-GCM. Salinan
   terenkripsi serta kunci pemulihan terpisah tersedia di komputer pemilik.
 - Rehearsal restore backup pada PostgreSQL 17 disposable berhasil: revision
-  `c3d9e25b4a60`, 17 tabel aplikasi, 17 pengguna, 2.567 soal, dan 83 sesi ujian.
+  `c3d9e25b4a60`, 17 tabel aplikasi, 18 pengguna, 2.567 soal, dan 83 sesi ujian.
+  Donasi Rp5.000 berstatus `success` dan receipt `processed` juga berhasil dipulihkan.
   Restore memerlukan extension `uuid-ossp`/`pgcrypto` pada schema `extensions`.
 - Timer backup harian 02:40 WIB dengan jitter maksimal lima menit dan monitor
   setiap menit sudah diaktifkan. Status operasi setelah perbaikan adalah `healthy`
@@ -74,7 +74,9 @@ Rujukan: [contoh notifikasi Non-SNAP DOKU](https://developers.doku.com/get-start
 - Build frontend production menghasilkan 27 halaman statis. Audit dependency
   production frontend tidak menemukan advisori pada saat pemeriksaan.
 - Pemeriksaan kebocoran nilai konfigurasi privat dan whitespace lulus.
-- CI dan Deploy commit `cf3f7bc` sukses. Seluruh delapan container sehat;
+- [CI](https://github.com/WillyHanafi1/Test-CPNS/actions/runs/44248660548) dan
+  [Deploy](https://github.com/WillyHanafi1/Test-CPNS/actions/runs/44248921432)
+  commit `d479f30` sukses. Seluruh delapan container sehat;
   backup normal tanpa unit kompatibilitas berhasil untuk database dan konfigurasi.
 
 Pemilik memberikan izin tetap untuk commit/push `main` pada sesi ini;
