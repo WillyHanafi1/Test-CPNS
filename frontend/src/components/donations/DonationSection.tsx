@@ -10,7 +10,7 @@ import {
 } from "./DonationDisplay";
 
 export default function DonationSection() {
-  const { data, error, loading, reload } = useDonations("month", 3);
+  const { data, error, loading, reload } = useDonations("month", 4);
   return (
     <section className="donation-home" aria-labelledby="donation-home-title">
       <div className="donation-home-intro">
@@ -21,7 +21,8 @@ export default function DonationSection() {
         <h2 id="donation-home-title">Ruang latihan ini tumbuh bersama.</h2>
         <p className="muted">
           Dukungan sukarela membantu biaya server, perawatan platform, dan
-          pengembangan latihan. Sedikit dari banyak orang bisa berarti banyak.
+          pengembangan latihan. Kirim pesan atau doa semangatmu untuk sesama
+          pejuang CPNS.
         </p>
         <div className="stack" style={{ gap: 12 }}>
           <Link className="button" href="/donasi?amount=5000">
@@ -29,7 +30,7 @@ export default function DonationSection() {
             <ArrowRight size={16} />
           </Link>
           <Link className="donation-text-link" href="/donasi">
-            Lihat papan dukungan →
+            Lihat papan dukungan & kirim pesan →
           </Link>
         </div>
         <p className="muted donation-small">
@@ -51,10 +52,10 @@ export default function DonationSection() {
                 <div className="donation-preview-lists">
                   <div>
                     <h3>Pendukung bulan ini</h3>
-                    <SupporterList rows={data.top_supporters} />
+                    <SupporterList compact rows={data.top_supporters} />
                   </div>
                   <div>
-                    <h3>Dukungan terbaru</h3>
+                    <h3>Pesan & dukungan terbaru</h3>
                     <RecentList compact rows={data.recent_supporters} />
                   </div>
                 </div>

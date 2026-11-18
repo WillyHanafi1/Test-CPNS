@@ -34,8 +34,8 @@ export default function DonationPage() {
           <span className="donation-accent">Ruang belajar yang terawat.</span>
         </h1>
         <p className="muted">
-          Kalau TOCPNS membantu perjalanan belajarmu, kamu bisa ikut merawatnya.
-          Pilih dukungan yang terasa nyaman untukmu.
+          Kalau TOCPNS membantu perjalanan belajarmu, kamu bisa ikut merawatnya
+          dan meninggalkan pesan semangat untuk sesama pejuang CPNS.
         </p>
       </div>
       <div className="donation-layout">
@@ -100,8 +100,8 @@ export default function DonationPage() {
               <p className="eyebrow">TERIMA KASIH SUDAH IKUT MERAWAT</p>
               <h2 id="donation-board-title">Papan dukungan</h2>
               <p className="muted donation-small">
-                Total donasi publik berhasil per akun. Semua nominal sama
-                berartinya.
+                Peringkat total donasi publik per akun beserta pesan terbaru
+                mereka. Semua nominal sama berartinya.
               </p>
             </div>
             {loading ? (
@@ -114,14 +114,16 @@ export default function DonationPage() {
               </p>
             )}
             <p className="muted donation-small donation-board-note">
-              Nama ditampilkan atas pilihan pendukung. Donasi anonim ikut total,
-              tanpa masuk peringkat nama.
+              Nama dan pesan ditampilkan sesuai pilihan pendukung. Donasi anonim
+              ikut total dan tampil di daftar pesan terbaru tanpa membuka nama.
             </p>
           </section>
           <section className="panel" aria-labelledby="donation-recent-title">
+            <p className="eyebrow">PESAN & DOA KOMUNITAS</p>
             <h2 id="donation-recent-title">Dukungan terbaru</h2>
             <p className="muted donation-small">
-              Besar atau kecil, setiap dukungan punya tempat di sini.
+              Besar atau kecil, setiap dukungan dan pesan semangat punya tempat
+              di sini.
             </p>
             {loading ? (
               <Loading />
@@ -191,11 +193,11 @@ export default function DonationPage() {
           ],
           [
             "Apakah nama saya harus tampil?",
-            "Tidak. Nama disembunyikan secara default. Jika memilih tampil, hanya nama singkat profil yang terlihat. Nominal dan pesan tetap publik. Kamu bisa mengubah pilihan nama melalui riwayat transaksi di Akun.",
+            "Tidak wajib. Secara default nama profilmu ditampilkan agar masuk ke papan dukungan bersama pesanmu. Jika ingin anonim, cukup matikan centang tampilkan nama sebelum membayar atau ubah kapan saja melalui riwayat transaksi di Akun.",
           ],
           [
             "Bagaimana pembayaran dan konfirmasinya?",
-            "Pembayaran dilakukan melalui DOKU dengan metode yang tersedia di halaman checkout. Setelah pembayaran berhasil dikonfirmasi, dukungan masuk ke total dan daftar terbaru. Status juga tersedia di riwayat transaksi akunmu.",
+            "Pembayaran dilakukan melalui DOKU dengan metode yang tersedia di halaman checkout. Setelah pembayaran berhasil dikonfirmasi, dukungan dan pesan langsung masuk ke papan dukungan. Status juga tersedia di riwayat transaksi akunmu.",
           ],
           [
             "Apakah ini pembayaran berulang?",

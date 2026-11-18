@@ -5,7 +5,7 @@ from datetime import datetime
 class DonationRequest(BaseModel):
     amount: int = Field(ge=1000, le=2147483647, strict=True)
     message: Optional[str] = Field(default=None, max_length=150)
-    is_anonymous: bool = True
+    is_anonymous: bool = False
     callback_url: Optional[str] = None
 
 class DonationResponse(BaseModel):
@@ -26,6 +26,7 @@ class TopSupporter(BaseModel):
     total_amount: int
     donation_count: int = 1
     rank: int = 0
+    message: Optional[str] = None
 
 class DonationStats(BaseModel):
     total_amount: int

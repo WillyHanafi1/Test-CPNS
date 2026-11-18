@@ -29,11 +29,13 @@ async def donation(db, user, amount=5000, **values):
     return row
 
 
-async def test_overview_counts_confirmed_real_donations_and_keeps_anonymous_identity_private(client, db_session, test_user, admin_user):
-    await donation(db_session, test_user)
+async def test_overview_counts_confirmed_real_donations_and_includes_top_supporter_messages(client, db_session, test_user, admin_user):
+    await donation(db_session, test_user, 5000, message='Bismillah lulus CPNS tahun ini!')
     await donation(db_session, test_user, 1000, is_anonymous=True, message='Semangat!')
-    await donation(db_session, admin_user, 10000)
-    await donation(db_session, admin_user, 6000)
+    await donation(db_session, admin_user, 10000, message='Pesan awal admin',
+                   paid_at=month_bounds()[0] + timedelta(hours=1))
+    await donation(db_session, admin_user, 6000, message='Semangat pejuang NIP!',
+                   paid_at=month_bounds()[0] + timedelta(hours=4))
     for options in [dict(payment_status='pending'), dict(payment_status='failed'),
                     dict(transaction_type='pro_upgrade'), dict(payment_environment='sandbox')]:
         await donation(db_session, test_user, 500000, **options)
@@ -43,8 +45,10 @@ async def test_overview_counts_confirmed_real_donations_and_keeps_anonymous_iden
     assert data['period'] == 'month'
     assert data['stats']['total_amount'] == 22000
     assert data['stats']['supporter_count'] == 2 and data['stats']['donation_count'] == 4
-    assert [(row['full_name'], row['total_amount'], row['donation_count']) for row in data['top_supporters']] == [
-        ('Admin U.', 16000, 2), ('Test U.', 5000, 1)]
+    assert [(row['full_name'], row['total_amount'], row['donation_count'], row['message']) for row in data['top_supporters']] == [
+        ('Admin User', 16000, 2, 'Semangat pejuang NIP!'),
+        ('Test User', 5000, 1, 'Bismillah lulus CPNS tahun ini!'),
+    ]
     anonymous = [row for row in data['recent_supporters'] if row['is_anonymous']]
     assert len(anonymous) == 1 and anonymous[0]['full_name'] == 'Pendukung anonim'
     assert anonymous[0]['message'] == 'Semangat!'
@@ -86,8 +90,8 @@ async def test_ties_share_rank_and_limit_is_applied_after_grouping(client, db_se
 
 @pytest.mark.parametrize('name,expected', [(None, 'Pendukung TOCPNS'), ('', 'Pendukung TOCPNS'),
     ('private.person@example.com', 'Pendukung TOCPNS'), ('https://example.com', 'Pendukung TOCPNS'),
-    ('  Budi  Santoso ', 'Budi S.'), ('Siti', 'Siti')])
-def test_public_name_never_uses_email_or_a_full_profile_name(name, expected):
+    ('  Budi  Santoso ', 'Budi Santoso'), ('Siti', 'Siti')])
+def test_public_name_normalizes_display_name_and_never_uses_email_or_url(name, expected):
     assert public_name(name) == expected
 
 

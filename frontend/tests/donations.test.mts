@@ -3,32 +3,52 @@ import assert from "node:assert/strict";
 const {
   donationAmount,
   donationLoginHref,
+  donationTier,
   dokuCheckoutUrl,
   supporterName,
   validDonationOverview,
 } = await import("../src/lib/donations");
 const { loginDestination } = await import("../src/lib/api");
 
-test("money input accepts whole rupiah and Indonesian thousands without silently changing invalid amounts", () => {
-  for (const input of ["5000", "5.000", " 5000 "])
+test("money input accepts whole rupiah and common user formats without silently accepting decimals or out-of-range amounts", () => {
+  for (const input of [
+    "5000",
+    "5.000",
+    "5,000",
+    "5 000",
+    "Rp 5.000",
+    "Rp5000",
+    " 5000 ",
+  ])
     assert.equal(donationAmount(input), 5000);
   for (const input of [
     "",
     "999",
     "-5000",
     "5000.5",
-    "5,000",
+    "5000,50",
     "5e3",
-    "Rp5000",
     "2147483648",
     "1000000000000",
   ])
     assert.equal(donationAmount(input), null);
 });
-test("public names are shortened and never fall back to an email address", () => {
-  assert.equal(supporterName("Budi Santoso"), "Budi S.");
+test("public names keep readable display names and never fall back to an email address", () => {
+  assert.equal(supporterName("Budi Santoso"), "Budi Santoso");
   assert.equal(supporterName("private@example.com"), "Pendukung TOCPNS");
   assert.equal(supporterName(), "Pendukung TOCPNS");
+});
+test("donation tiers map nominal ranges to supporter recognition labels", () => {
+  assert.deepEqual(donationTier(5000), { key: "base", label: "Pendukung" });
+  assert.deepEqual(donationTier(10000), { key: "teal", label: "Penyemangat" });
+  assert.deepEqual(donationTier(25000), {
+    key: "indigo",
+    label: "Pejuang Utama",
+  });
+  assert.deepEqual(donationTier(50000), {
+    key: "gold",
+    label: "Sponsor Belajar",
+  });
 });
 test("login preserves the donation amount for participants and admins without allowing external redirects", () => {
   const next = new URL(

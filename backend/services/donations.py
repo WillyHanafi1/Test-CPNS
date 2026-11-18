@@ -10,11 +10,10 @@ from backend.services.revenue import BUSINESS_TIMEZONE, month_bounds, payment_ti
 
 
 def public_name(name):
-    parts = (name or '').strip().split()
-    if not parts or any(value in name for value in ('@', '://', 'www.')):
+    cleaned = ' '.join((name or '').strip().split())
+    if not cleaned or any(value in cleaned for value in ('@', '://', 'www.')):
         return 'Pendukung TOCPNS'
-    first = parts[0][:40]
-    return first + (' ' + parts[-1][0].upper() + '.' if len(parts) > 1 else '')
+    return cleaned[:40].rstrip()
 
 
 def conditions(period, now=None):
@@ -41,22 +40,46 @@ async def statistics(db, period='month', now=None):
 
 
 async def top_supporters(db, period='all', limit=10, now=None):
+    base_filters = [*conditions(period, now), UserTransaction.is_anonymous.is_(False)]
     total = func.sum(UserTransaction.amount)
     rows = (await db.execute(select(
-        UserProfile.full_name, total.label('total_amount'),
+        UserTransaction.user_id,
+        UserProfile.full_name,
+        total.label('total_amount'),
         func.count(UserTransaction.id).label('donation_count')
     ).outerjoin(UserProfile, UserProfile.user_id == UserTransaction.user_id)
-      .where(*conditions(period, now), UserTransaction.is_anonymous.is_(False))
+      .where(*base_filters)
       .group_by(UserTransaction.user_id, UserProfile.full_name)
       .order_by(total.desc(), func.min(payment_time()).asc(), UserTransaction.user_id.asc())
       .limit(limit))).all()
+    if not rows:
+        return []
+    user_ids = [row.user_id for row in rows if row.user_id is not None]
+    latest_messages = {}
+    if user_ids:
+        msg_rows = (await db.execute(select(
+            UserTransaction.user_id, UserTransaction.message
+        ).where(
+            *base_filters,
+            UserTransaction.user_id.in_(user_ids),
+            UserTransaction.message.is_not(None),
+            func.trim(UserTransaction.message) != ''
+        ).order_by(payment_time().desc(), UserTransaction.id.desc()))).all()
+        for uid, msg in msg_rows:
+            if uid not in latest_messages and msg and msg.strip():
+                latest_messages[uid] = msg.strip()
     result, previous, rank = [], None, 0
     for index, row in enumerate(rows, 1):
         amount = int(row.total_amount)
         if amount != previous:
             rank = index
-        result.append({'full_name': public_name(row.full_name), 'total_amount': amount,
-                       'donation_count': row.donation_count, 'rank': rank})
+        result.append({
+            'full_name': public_name(row.full_name),
+            'total_amount': amount,
+            'donation_count': row.donation_count,
+            'rank': rank,
+            'message': latest_messages.get(row.user_id),
+        })
         previous = amount
     return result
 

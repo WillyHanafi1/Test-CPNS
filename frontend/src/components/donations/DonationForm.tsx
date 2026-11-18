@@ -1,15 +1,26 @@
 "use client";
-import { useId, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowUpRight, Heart, Loader2, LockKeyhole } from "lucide-react";
+import {
+  ArrowUpRight,
+  Heart,
+  Loader2,
+  LockKeyhole,
+  MessageSquareQuote,
+  Sparkles,
+} from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { api, rememberPayment } from "@/lib/api";
 import {
   donationAmount,
   DONATION_AMOUNTS,
   donationLoginHref,
+  donationTier,
   dokuCheckoutUrl,
+  loadDonationDraft,
+  QUICK_DONATION_MESSAGES,
   rupiah,
+  saveDonationDraft,
   supporterName,
 } from "@/lib/donations";
 
@@ -21,8 +32,6 @@ export default function DonationForm({
   initialAmount?: number;
 }) {
   const { user: sessionUser, loading: sessionLoading } = useAuth();
-  // A surrounding Suspense boundary may hydrate after the auth provider updates.
-  // Use the server's anonymous/loading snapshot for this component's first render.
   const hydrated = useSyncExternalStore(
     subscribeToHydration,
     () => true,
@@ -37,11 +46,32 @@ export default function DonationForm({
     DONATION_AMOUNTS.includes(initialAmount) ? "" : String(initialAmount),
   );
   const [message, setMessage] = useState("");
-  const [showName, setShowName] = useState(false);
+  const [showName, setShowName] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const submitting = useRef(false);
+
+  useEffect(() => {
+    const draft = loadDonationDraft();
+    if (!draft) return;
+    Promise.resolve().then(() => {
+      if (typeof draft.message === "string" && draft.message) {
+        setMessage(draft.message.slice(0, 150));
+      }
+      if (typeof draft.showName === "boolean") {
+        setShowName(draft.showName);
+      }
+    });
+  }, []);
+
   const amount = custom.trim() ? donationAmount(custom) : preset;
+  const activeTier = donationTier(amount || preset || 5000);
+  const previewName = showName
+    ? user
+      ? supporterName(user.full_name)
+      : "Nama Profilmu"
+    : "Pendukung anonim";
+
   return (
     <form
       className="donation-form stack"
@@ -57,6 +87,7 @@ export default function DonationForm({
           return;
         }
         if (!user) {
+          saveDonationDraft({ message: message.trim(), showName });
           router.push(donationLoginHref(amount));
           return;
         }
@@ -96,9 +127,10 @@ export default function DonationForm({
     >
       <div>
         <p className="eyebrow">DUKUNG SESUAI KEMAMPUANMU</p>
-        <h2>Mulai dari hal kecil.</h2>
+        <h2>Kirim dukungan & pesan semangat.</h2>
         <p className="muted donation-small">
-          Setiap dukungan membantu merawat ruang latihan ini.
+          Pesan dan namamu langsung tampil di papan dukungan setelah pembayaran
+          terverifikasi.
         </p>
       </div>
       <fieldset disabled={busy}>
@@ -129,7 +161,7 @@ export default function DonationForm({
           inputMode="numeric"
           autoComplete="off"
           value={custom}
-          placeholder="Contoh: 5.000"
+          placeholder="Contoh: 5.000 atau 15000"
           maxLength={24}
           aria-describedby={`${id}-amount-help`}
           aria-invalid={Boolean(custom && !amount)}
@@ -139,58 +171,98 @@ export default function DonationForm({
           }}
         />
         <p id={`${id}-amount-help`} className="muted donation-small">
-          Mulai Rp 1.000. Bebas pilih nominal.
+          Mulai Rp 1.000. Boleh ketik 10000, 10.000, atau Rp 10.000.
         </p>
       </fieldset>
-      {user && (
-        <details className="donation-optional">
-          <summary>Nama & pesan (opsional)</summary>
-          <div className="stack" style={{ gap: 18 }}>
-            <label className="field" htmlFor={`${id}-message`}>
-              Pesan untuk komunitas{" "}
-              <span className="muted donation-small">
-                Opsional · tampil publik
-              </span>
-              <textarea
-                id={`${id}-message`}
-                className="input"
-                rows={2}
-                maxLength={150}
-                value={message}
-                disabled={busy}
-                placeholder="Semangat untuk teman-teman yang sedang berjuang."
-                onChange={(event) => setMessage(event.target.value)}
-              />
-            </label>
-            <div className="donation-privacy">
-              <label className="inline" htmlFor={`${id}-name`}>
-                <input
-                  id={`${id}-name`}
-                  type="checkbox"
-                  checked={showName}
-                  disabled={busy}
-                  aria-describedby={`${id}-privacy-help`}
-                  onChange={(event) => setShowName(event.target.checked)}
-                />
-                Tampilkan nama singkat saya
-              </label>
-              <p id={`${id}-privacy-help`} className="muted donation-small">
-                {showName
-                  ? `${supporterName(user.full_name)} akan tampil di papan pendukung.`
-                  : "Nama tampil sebagai Pendukung anonim. Nominal dan pesan tetap terlihat."}{" "}
-                Pilihan nama bisa diubah lewat riwayat transaksi.
-              </p>
-            </div>
+
+      <div className="donation-message-section stack" style={{ gap: 14 }}>
+        <div className="field">
+          <div className="between">
+            <label htmlFor={`${id}-message`}>Pesan untuk komunitas</label>
+            <span className="muted donation-small">
+              {message.length}/150 · tampil di papan
+            </span>
           </div>
-        </details>
-      )}
-      {user && (
-        <p className="muted donation-small">
-          {showName
-            ? `Nama publik: ${supporterName(user.full_name)}.`
-            : "Nama disembunyikan secara default. Kamu bisa memilih tampil lewat Nama & pesan."}
-        </p>
-      )}
+          <textarea
+            id={`${id}-message`}
+            className="input"
+            rows={2}
+            maxLength={150}
+            value={message}
+            disabled={busy}
+            placeholder="Tulis doa, harapan lulus CPNS, atau semangat untuk teman-teman pejuang NIP…"
+            onChange={(event) => setMessage(event.target.value)}
+          />
+        </div>
+        <div className="donation-quick-chips" aria-label="Contoh pesan cepat">
+          {QUICK_DONATION_MESSAGES.map((template) => (
+            <button
+              key={template}
+              type="button"
+              className="donation-chip"
+              disabled={busy}
+              onClick={() => setMessage(template)}
+            >
+              + {template}
+            </button>
+          ))}
+        </div>
+        <div className="donation-privacy">
+          <label className="inline" htmlFor={`${id}-name`}>
+            <input
+              id={`${id}-name`}
+              type="checkbox"
+              checked={showName}
+              disabled={busy}
+              aria-describedby={`${id}-privacy-help`}
+              onChange={(event) => setShowName(event.target.checked)}
+            />
+            Tampilkan nama singkat saya
+          </label>
+          <p id={`${id}-privacy-help`} className="muted donation-small">
+            {showName
+              ? `${previewName} akan tampil di leaderboard & papan pesan.`
+              : "Nama tampil sebagai Pendukung anonim. Nominal dan pesan tetap terlihat."}{" "}
+            Bisa diubah kapan saja lewat riwayat transaksi.
+          </p>
+        </div>
+      </div>
+
+      <div
+        className="donation-live-preview"
+        data-tier={activeTier.key}
+        aria-label="Pratinjau kartu dukungan"
+      >
+        <div className="between donation-preview-header">
+          <span className="eyebrow" style={{ margin: 0 }}>
+            PRATINJAU TAMPILAN DI PAPAN
+          </span>
+          <span className="donation-tier-pill" data-tier={activeTier.key}>
+            <Sparkles size={12} aria-hidden="true" />
+            {activeTier.label}
+          </span>
+        </div>
+        <div className="donation-row" style={{ padding: "8px 0 4px" }}>
+          <div className="donation-person">
+            <strong>{previewName}</strong>
+          </div>
+          <strong className="donation-row-amount">
+            {rupiah(amount || preset || 5000)}
+          </strong>
+        </div>
+        <div className="donation-chat-bubble" style={{ marginTop: 6 }}>
+          <MessageSquareQuote
+            size={14}
+            className="donation-chat-icon"
+            aria-hidden="true"
+          />
+          <p className="donation-message-text">
+            {message.trim() ||
+              "Pesan atau doa yang kamu tulis akan tampil di sini…"}
+          </p>
+        </div>
+      </div>
+
       {error && (
         <p className="notice notice-error" role="alert">
           {error}
@@ -221,8 +293,8 @@ export default function DonationForm({
         </button>
         {!user && !loading && (
           <p className="muted donation-small">
-            Masuk dengan Google atau email agar donasi dan status pembayarannya
-            tersimpan di akunmu. Nominal pilihanmu tetap dibawa.
+            Masuk dengan Google atau email agar donasi dan pesanmu tercatat.
+            Nominal serta pesan yang kamu isi tetap tersimpan.
           </p>
         )}
         <p className="muted donation-small inline">

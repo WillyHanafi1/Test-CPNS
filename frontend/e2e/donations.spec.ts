@@ -12,8 +12,20 @@ const sample = (period = "month") => ({
     donation_count: 3,
   },
   top_supporters: [
-    { full_name: "Sinta W.", total_amount: 10000, rank: 1, donation_count: 1 },
-    { full_name: "Budi S.", total_amount: 4000, rank: 2, donation_count: 1 },
+    {
+      full_name: "Sinta Wijaya",
+      total_amount: 10000,
+      rank: 1,
+      donation_count: 1,
+      message: "Terima kasih sudah merawat ruang belajar ini.",
+    },
+    {
+      full_name: "Budi Santoso",
+      total_amount: 4000,
+      rank: 2,
+      donation_count: 1,
+      message: null,
+    },
   ],
   recent_supporters: [
     {
@@ -25,7 +37,7 @@ const sample = (period = "month") => ({
       created_at: "2026-11-18T05:34:00Z",
     },
     {
-      full_name: "Sinta W.",
+      full_name: "Sinta Wijaya",
       amount: 10000,
       is_anonymous: false,
       message: "Terima kasih sudah merawat ruang belajar ini.",
@@ -33,7 +45,7 @@ const sample = (period = "month") => ({
       created_at: "2026-11-18T05:19:00Z",
     },
     {
-      full_name: "Budi S.",
+      full_name: "Budi Santoso",
       amount: 4000,
       is_anonymous: false,
       message: null,
@@ -151,7 +163,7 @@ async function fixture(
   };
 }
 
-test("home puts the community section after learning content and the mobile header exposes Donasi", async ({
+test("home puts the community section after learning content, shows donor chat messages, and the mobile header exposes Donasi", async ({
   page,
 }) => {
   const { errors } = await fixture(page, { guest: true });
@@ -160,6 +172,16 @@ test("home puts the community section after learning content and the mobile head
     name: "Ruang latihan ini tumbuh bersama.",
   });
   await expect(section.getByText("Rp 15.000", { exact: true })).toBeVisible();
+  await expect(
+    section.getByText("Semangat berlatih!", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    section
+      .getByText("Terima kasih sudah merawat ruang belajar ini.", {
+        exact: true,
+      })
+      .first(),
+  ).toBeVisible();
   const positions = await page.evaluate(() => ({
     feature: document.querySelector(".feature-card")!.getBoundingClientRect()
       .bottom,
@@ -183,12 +205,15 @@ test("home puts the community section after learning content and the mobile head
   expect(errors).toEqual([]);
 });
 
-test("guest selection survives login, including an admin returning to the donation flow", async ({
+test("guest selection and message survive login, including an admin returning to the donation flow", async ({
   page,
 }) => {
   await fixture(page, { guest: true });
   await page.goto("/donasi");
-  await page.getByLabel("Nominal lain (rupiah)").fill("7.500");
+  await page.getByLabel("Nominal lain (rupiah)").fill("Rp 7.500");
+  await page
+    .getByLabel("Pesan untuk komunitas")
+    .fill("Doakan lulus CPNS tahun ini!");
   await page.getByRole("button", { name: "Masuk & lanjutkan donasi" }).click();
   await expect(page).toHaveURL(/\/login\?next=/);
   expect(new URL(page.url()).searchParams.get("next")).toBe(
@@ -205,9 +230,12 @@ test("guest selection survives login, including an admin returning to the donati
   await expect(
     page.getByRole("button", { name: "Lanjutkan · Rp 7.500" }),
   ).toBeVisible();
+  await expect(page.getByLabel("Pesan untuk komunitas")).toHaveValue(
+    "Doakan lulus CPNS tahun ini!",
+  );
 });
 
-test("donation defaults to anonymous, rejects invalid money and can retry without relying on storage", async ({
+test("donation shows name by default, supports one-click anonymous toggle, rejects invalid money, and can retry without relying on storage", async ({
   page,
 }) => {
   const { requests, errors } = await fixture(page);
@@ -219,10 +247,9 @@ test("donation defaults to anonymous, rejects invalid money and can retry withou
     });
   });
   await page.goto("/donasi");
-  await page.getByText("Nama & pesan (opsional)", { exact: true }).click();
-  await expect(
-    page.getByLabel("Tampilkan nama singkat saya"),
-  ).not.toBeChecked();
+  const nameCheckbox = page.getByLabel("Tampilkan nama singkat saya");
+  await expect(nameCheckbox).toBeChecked();
+  await nameCheckbox.uncheck();
   await page.getByLabel("Nominal lain (rupiah)").fill("-5000");
   await page.getByRole("button", { name: "Periksa nominal" }).click();
   await expect(page.locator("main").getByRole("alert")).toContainText(
@@ -277,24 +304,25 @@ test("rapid repeated form submission sends only one checkout request", async ({
   expect(requests).toHaveLength(1);
 });
 
-test("public recognition is opt-in and previews the shortened profile name", async ({
+test("quick message chips and live preview update immediately and submit public recognition by default", async ({
   page,
 }) => {
   const { requests } = await fixture(page);
   await page.goto("/donasi");
-  await page.getByText("Nama & pesan (opsional)", { exact: true }).click();
-  await page.getByLabel("Tampilkan nama singkat saya").check();
   await page
-    .getByLabel("Pesan untuk komunitas", { exact: false })
-    .fill("Semangat belajar!");
-  await expect(
-    page.getByText("Sinta W. akan tampil", { exact: false }),
-  ).toBeVisible();
+    .getByRole("button", { name: "+ Bismillah lulus CPNS tahun ini!" })
+    .click();
+  await expect(page.getByLabel("Pesan untuk komunitas")).toHaveValue(
+    "Bismillah lulus CPNS tahun ini!",
+  );
+  const preview = page.getByLabel("Pratinjau kartu dukungan");
+  await expect(preview).toContainText("Sinta Wijaya");
+  await expect(preview).toContainText("Bismillah lulus CPNS tahun ini!");
   await page.getByRole("button", { name: "Lanjutkan · Rp 5.000" }).click();
   await expect(page.locator("main").getByRole("alert")).toBeVisible();
   expect(requests[0]).toMatchObject({
     is_anonymous: false,
-    message: "Semangat belajar!",
+    message: "Bismillah lulus CPNS tahun ini!",
     amount: 5000,
   });
   await expect(page.getByText("private@example.test")).toHaveCount(0);

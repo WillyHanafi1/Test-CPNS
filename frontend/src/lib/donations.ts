@@ -1,29 +1,84 @@
 export const DONATION_AMOUNTS = [5000, 10000, 25000, 50000];
 export const MIN_DONATION = 1000;
 export const MAX_DONATION = 2147483647;
+
+export const QUICK_DONATION_MESSAGES = [
+  "Bismillah lulus CPNS tahun ini!",
+  "Semangat pejuang NIP, pantang menyerah!",
+  "Terima kasih sudah merawat ruang latihan ini.",
+];
+
+export type DonationTierKey = "gold" | "indigo" | "teal" | "base";
+
+export interface DonationTierInfo {
+  key: DonationTierKey;
+  label: string;
+}
+
+export function donationTier(amount: number): DonationTierInfo {
+  if (amount >= 50000) return { key: "gold", label: "Sponsor Belajar" };
+  if (amount >= 25000) return { key: "indigo", label: "Pejuang Utama" };
+  if (amount >= 10000) return { key: "teal", label: "Penyemangat" };
+  return { key: "base", label: "Pendukung" };
+}
+
 export function donationAmount(value: string): number | null {
-  const text = value.trim();
-  if (!/^\d+$/.test(text) && !/^\d{1,3}(\.\d{3})+$/.test(text)) return null;
-  const amount = Number(text.replaceAll(".", ""));
+  const cleaned = value
+    .trim()
+    .replace(/^(?:rp|idr)\.?\s*/i, "")
+    .trim();
+  if (
+    !/^\d+$/.test(cleaned) &&
+    !/^\d{1,3}(?:[.,\s]\d{3})+$/.test(cleaned)
+  ) {
+    return null;
+  }
+  const amount = Number(cleaned.replace(/[.,\s]/g, ""));
   return Number.isSafeInteger(amount) &&
     amount >= MIN_DONATION &&
     amount <= MAX_DONATION
     ? amount
     : null;
 }
+
 export const rupiah = (amount: number) =>
   `Rp ${amount.toLocaleString("id-ID")}`;
+
 export const donationLoginHref = (amount: number) =>
   `/login?next=${encodeURIComponent(`/donasi?amount=${amount}`)}`;
+
 export function supporterName(name?: string): string {
-  const parts = (name || "").trim().split(/\s+/).filter(Boolean);
-  if (!parts.length || /@|:\/\/|www\./.test(name || ""))
-    return "Pendukung TOCPNS";
-  return (
-    Array.from(parts[0]).slice(0, 40).join("") +
-    (parts.length > 1 ? ` ${Array.from(parts.at(-1)!)[0].toUpperCase()}.` : "")
-  );
+  const cleaned = (name || "").trim().replace(/\s+/g, " ");
+  if (!cleaned || /@|:\/\/|www\./i.test(cleaned)) return "Pendukung TOCPNS";
+  return Array.from(cleaned).slice(0, 40).join("").trim();
 }
+
+const DRAFT_KEY = "tocpns_donation_draft";
+
+export function saveDonationDraft(draft: {
+  message: string;
+  showName: boolean;
+}) {
+  try {
+    window.sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  } catch {}
+}
+
+export function loadDonationDraft(): {
+  message?: string;
+  showName?: boolean;
+} | null {
+  try {
+    const raw = window.sessionStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    window.sessionStorage.removeItem(DRAFT_KEY);
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 export function dokuCheckoutUrl(value: string): string {
   const target = new URL(value);
   if (
@@ -40,6 +95,7 @@ export function dokuCheckoutUrl(value: string): string {
     );
   return target.href;
 }
+
 export type DonationPeriod = "month" | "all";
 export interface DonationStats {
   total_amount: number;
@@ -53,6 +109,7 @@ export interface TopSupporter {
   total_amount: number;
   donation_count: number;
   rank: number;
+  message?: string | null;
 }
 export interface RecentSupporter {
   full_name: string;
@@ -93,7 +150,10 @@ export function validDonationOverview(
         typeof row.full_name === "string" &&
         Number.isFinite(row.total_amount) &&
         Number.isFinite(row.rank) &&
-        Number.isFinite(row.donation_count),
+        Number.isFinite(row.donation_count) &&
+        (row.message === undefined ||
+          row.message === null ||
+          typeof row.message === "string"),
     ) &&
     Array.isArray(data.recent_supporters) &&
     data.recent_supporters.every(
