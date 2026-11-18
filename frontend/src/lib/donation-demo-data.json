@@ -1,0 +1,202 @@
+[
+  {
+    "id": "demo-1",
+    "supporter_id": "alya",
+    "full_name": "Alya Putri",
+    "amount": 25000,
+    "paid_at": "2026-11-18T09:10:00+07:00",
+    "created_at": "2026-11-18T09:10:00+07:00",
+    "message": "Sedikit dari aku. Semoga makin banyak yang terbantu. 🌱",
+    "is_anonymous": false
+  },
+  {
+    "id": "demo-2",
+    "supporter_id": "anon-1",
+    "full_name": "Pendukung anonim",
+    "amount": 5000,
+    "paid_at": "2026-11-18T08:05:00+07:00",
+    "created_at": "2026-11-18T08:05:00+07:00",
+    "message": "Bismillah, semoga kita dipertemukan dengan NIP impian.",
+    "is_anonymous": true
+  },
+  {
+    "id": "demo-3",
+    "supporter_id": "rizky",
+    "full_name": "Rizky Pratama",
+    "amount": 50000,
+    "paid_at": "2026-11-17T20:30:00+07:00",
+    "created_at": "2026-11-17T20:30:00+07:00",
+    "message": "Teman belajar sepulang kerja. Terima kasih sudah ada!",
+    "is_anonymous": false
+  },
+  {
+    "id": "demo-4",
+    "supporter_id": "nadia",
+    "full_name": "Nadia Rahma",
+    "amount": 10000,
+    "paid_at": "2026-11-16T06:15:00+07:00",
+    "created_at": "2026-11-16T06:15:00+07:00",
+    "message": null,
+    "is_anonymous": false
+  },
+  {
+    "id": "demo-5",
+    "supporter_id": "fajar",
+    "full_name": "Fajar Maulana",
+    "amount": 100000,
+    "paid_at": "2026-11-12T12:00:00+07:00",
+    "created_at": "2026-11-12T12:00:00+07:00",
+    "message": "Semoga ruang ini terus menemani teman-teman berjuang.",
+    "is_anonymous": false
+  },
+  {
+    "id": "demo-6",
+    "supporter_id": "alya",
+    "full_name": "Alya Putri",
+    "amount": 15000,
+    "paid_at": "2026-11-05T19:20:00+07:00",
+    "created_at": "2026-11-05T19:20:00+07:00",
+    "message": "Balik lagi buat titip semangat. Pelan-pelan, kita bisa.",
+    "is_anonymous": false
+  },
+  {
+    "id": "demo-7",
+    "supporter_id": "bima",
+    "full_name": "Bima Saputra",
+    "amount": 1000,
+    "paid_at": "2026-11-01T00:00:00+07:00",
+    "created_at": "2026-11-01T00:00:00+07:00",
+    "message": "Belum banyak, tapi ingin ikut merawat. 🤍",
+    "is_anonymous": false
+  },
+  {
+    "id": "demo-8",
+    "supporter_id": "anon-2",
+    "full_name": "Pendukung anonim",
+    "amount": 5000,
+    "paid_at": "2026-10-31T23:59:00+07:00",
+    "created_at": "2026-10-31T23:59:00+07:00",
+    "message": "Menutup bulan dengan satu niat baik.",
+    "is_anonymous": true
+  },
+  {
+    "id": "demo-9",
+    "supporter_id": "dewi",
+    "full_name": "Dewi Lestari",
+    "amount": 25000,
+    "paid_at": "2026-10-28T14:45:00+07:00",
+    "created_at": "2026-10-28T14:45:00+07:00",
+    "message": "Satu latihan setiap hari. Satu langkah lebih dekat.",
+    "is_anonymous": false
+  },
+  {
+    "id": "demo-10",
+    "supporter_id": "rizky",
+    "full_name": "Rizky Pratama",
+    "amount": 25000,
+    "paid_at": "2026-10-20T21:00:00+07:00",
+    "created_at": "2026-10-20T21:00:00+07:00",
+    "message": "Buat yang belum lolos: istirahat boleh, menyerah jangan.",
+    "is_anonymous": false
+  },
+  {
+    "id": "demo-11",
+    "supporter_id": "salsa",
+    "full_name": "Salsabila Nur Azizah Prameswari",
+    "amount": 50000,
+    "paid_at": "2026-10-15T07:00:00+07:00",
+    "created_at": "2026-10-15T07:00:00+07:00",
+    "message": "Terima kasih sudah menemani proses belajar yang tidak selalu mudah. Semoga kita semua diberi kesehatan, kesabaran, dan hasil terbaik. Terus semangat!",
+    "is_anonymous": false
+  },
+  {
+    "id": "demo-12",
+    "supporter_id": "arif",
+    "full_name": "Arif Hidayat",
+    "amount": 75000,
+    "paid_at": "2026-10-06T16:30:00+07:00",
+    "created_at": "2026-10-06T16:30:00+07:00",
+    "message": "Untuk server dan teman-teman yang masih berjuang.",
+    "is_anonymous": false
+  },
+  {
+    "id": "demo-13",
+    "supporter_id": "citra",
+    "full_name": "Citra Ayu",
+    "amount": 10000,
+    "paid_at": "2026-10-01T00:00:00+07:00",
+    "created_at": "2026-10-01T00:00:00+07:00",
+    "message": "Bulan baru, semangat baru!",
+    "is_anonymous": false
+  },
+  {
+    "id": "demo-14",
+    "supporter_id": "yoga",
+    "full_name": "Yoga Aditya",
+    "amount": 5000,
+    "paid_at": "2026-09-30T23:59:00+07:00",
+    "created_at": "2026-09-30T23:59:00+07:00",
+    "message": null,
+    "is_anonymous": false
+  },
+  {
+    "id": "demo-15",
+    "supporter_id": "anon-3",
+    "full_name": "Pendukung anonim",
+    "amount": 25000,
+    "paid_at": "2026-09-10T10:10:00+07:00",
+    "created_at": "2026-09-10T10:10:00+07:00",
+    "message": "Semoga bermanfaat.",
+    "is_anonymous": true
+  },
+  {
+    "id": "demo-16",
+    "supporter_id": "tania",
+    "full_name": "Tania Maharani",
+    "amount": 500000,
+    "paid_at": "2026-01-19T18:00:00+07:00",
+    "created_at": "2026-01-19T18:00:00+07:00",
+    "message": "Mau ikut membantu supaya platformnya terus dirawat.",
+    "is_anonymous": false
+  },
+  {
+    "id": "demo-17",
+    "supporter_id": "bayu",
+    "full_name": "Bayu Setiawan",
+    "amount": 2000000,
+    "paid_at": "2026-01-03T09:00:00+07:00",
+    "created_at": "2026-01-03T09:00:00+07:00",
+    "message": "Semoga akses belajar yang baik bisa terus berkembang.",
+    "is_anonymous": false
+  },
+  {
+    "id": "demo-18",
+    "supporter_id": "intan",
+    "full_name": "Intan Permata",
+    "amount": 10000,
+    "paid_at": "2026-01-01T00:00:00+07:00",
+    "created_at": "2026-01-01T00:00:00+07:00",
+    "message": "Tahun baru, harapan baru. Semangat semuanya!",
+    "is_anonymous": false
+  },
+  {
+    "id": "demo-19",
+    "supporter_id": "wahyu",
+    "full_name": "Wahyu Nugroho",
+    "amount": 5000,
+    "paid_at": "2025-12-31T23:59:00+07:00",
+    "created_at": "2025-12-31T23:59:00+07:00",
+    "message": "Sampai jumpa di tahun yang lebih baik.",
+    "is_anonymous": false
+  },
+  {
+    "id": "demo-20",
+    "supporter_id": "alya",
+    "full_name": "Alya Putri",
+    "amount": 5000,
+    "paid_at": "2026-11-01T00:05:00+07:00",
+    "created_at": "2026-11-01T00:05:00+07:00",
+    "message": "Awal bulan, mulai lagi. ✨",
+    "is_anonymous": false
+  }
+]

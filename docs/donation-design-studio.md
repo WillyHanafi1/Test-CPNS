@@ -24,6 +24,10 @@ Tema, font, header, formulir donasi, dan bagian lain memakai aplikasi yang sudah
 
 Konsep **05, Papan Streamer + pesan**, sudah diterapkan tetap pada beranda, dashboard, dan `/donasi`, menggunakan API asli. Pemilihan format di studio hanya memengaruhi contoh; preferensi eksperimen browser lama tidak mengganti tampilan aplikasi. URL menyimpan format, skenario, dan versi widget. Tombol **Buka halaman donasi** menuju halaman aplikasi, dan reset mengembalikan studio ke konsep 05. Studio hanya tersedia pada development.
 
+Pada aplikasi, intro beranda berada di atas statistik. Di `/donasi`, formulir berada di bagian atas, lalu kontrol periode, statistik, dan papan komunitas di bawahnya. Papan menggunakan lebar penuh: leaderboard di kiri dan chat di kanan saat ruang mencukupi, lalu tersusun vertikal di layar kecil. Pesan setiap donatur tetap tampil pada baris leaderboard.
+
+Untuk melihat halaman aplikasi dengan data API lokal, jalankan `docker compose up -d --wait`, `docker compose run --rm --build seed`, lalu `docker compose --profile app up -d --build` dari root repositori. Buka [beranda](http://localhost:3107) dan [donasi](http://localhost:3107/donasi). Dataset studio dan seed memakai sumber yang sama, `frontend/src/lib/donation-demo-data.json`. Pilih **Semua waktu** untuk seluruh 20 transaksi; filter bulan mengikuti waktu server. Seed hanya menyentuh database development dan tidak menggandakan transaksi saat diulang. Studio `/donasi/desain` tetap memerlukan server Next development, sedangkan Docker menjalankan build aplikasi.
+
 ## Konsep pesan dan pin
 
 Kode `frontend/src/components/WallOfFame.tsx` lama masih tersedia. Di dalamnya ada podium Sultan NIP, statistik operasional, dan Aktivitas Live dengan `message`, nama, nominal, dan waktu. Backend sekarang masih memakai `UserTransaction.message`; endpoint publik membaca pesan yang sudah ada. Pengerjaan ini tidak menghapus pesan atau mengubah database. Keberadaan baris pesan asli di database production belum diverifikasi.

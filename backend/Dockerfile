@@ -10,10 +10,15 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements
-COPY requirements.txt .
+COPY requirements.txt build_requirements.py ./
 
 # Install python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+ARG INSTALL_DEV_TOOLS=true
+RUN --mount=type=cache,target=/root/.cache/pip \
+    if [ "$INSTALL_DEV_TOOLS" = "true" ]; then cp requirements.txt /tmp/install-requirements.txt; \
+    else python build_requirements.py > /tmp/install-requirements.txt; fi \
+    && pip install --timeout=120 --retries=5 -r /tmp/install-requirements.txt \
+    && rm /tmp/install-requirements.txt
 
 # Copy backend code into a subdirectory named 'backend' 
 # This preserves the 'from backend.xxx' import structure

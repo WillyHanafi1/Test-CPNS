@@ -4,6 +4,11 @@ name: tocpns-dev
 include:
   - path: ./infra/development/compose.yml
 
+x-dev-backend-build: &dev-backend-build
+  context: ./backend
+  args:
+    INSTALL_DEV_TOOLS: 'false'
+
 x-dev-environment: &dev-environment
   DATABASE_URL: postgresql+asyncpg://tocpns:development-only@postgres:5432/tocpns_dev
   REDIS_URL: redis://redis:6379/0
@@ -22,9 +27,22 @@ x-dev-environment: &dev-environment
   DOKU_ENVIRONMENT: sandbox
 
 services:
+  seed:
+    profiles: [tools]
+    image: tocpns-dev-backend
+    build: *dev-backend-build
+    environment: *dev-environment
+    volumes:
+      - ./scripts/ops/development.py:/app/scripts/ops/development.py:ro
+      - ./frontend/src/lib/donation-demo-data.json:/app/frontend/src/lib/donation-demo-data.json:ro
+    command: [python, scripts/ops/development.py, seed, --docker, --donations]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
   backend:
     profiles: [app]
-    build: ./backend
+    image: tocpns-dev-backend
+    build: *dev-backend-build
     environment: *dev-environment
     ports: ['127.0.0.1:8017:8001']
     volumes: ['./backend:/app/backend']
@@ -34,7 +52,8 @@ services:
       redis: {condition: service_healthy}
   worker:
     profiles: [app]
-    build: ./backend
+    image: tocpns-dev-backend
+    build: *dev-backend-build
     environment: *dev-environment
     volumes: ['./backend:/app/backend']
     command: [celery, -A, backend.core.celery_app.celery_app, worker, --concurrency=1, --loglevel=WARNING]
@@ -43,7 +62,8 @@ services:
       redis: {condition: service_healthy}
   beat:
     profiles: [app]
-    build: ./backend
+    image: tocpns-dev-backend
+    build: *dev-backend-build
     environment: *dev-environment
     volumes: ['./backend:/app/backend']
     command: [celery, -A, backend.core.celery_app.celery_app, beat, --schedule=/tmp/celerybeat, --loglevel=WARNING]

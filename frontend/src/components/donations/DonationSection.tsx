@@ -11,17 +11,18 @@ export default function DonationSection() {
   return (
     <section className="donation-home" aria-labelledby="donation-home-title">
       <div className="donation-home-intro">
-        <span className="donation-symbol">
-          <Heart size={24} aria-hidden="true" />
-        </span>
-        <p className="eyebrow">DARI KOMUNITAS, UNTUK KOMUNITAS</p>
-        <h2 id="donation-home-title">Ruang latihan ini tumbuh bersama.</h2>
-        <p className="muted">
-          Dukungan sukarela membantu biaya server, perawatan platform, dan
-          pengembangan latihan. Kirim pesan atau doa semangatmu untuk sesama
-          pejuang CPNS.
-        </p>
-        <div className="stack" style={{ gap: 12 }}>
+        <div className="donation-home-heading">
+          <p className="eyebrow">
+            <Heart size={14} aria-hidden="true" /> DARI KOMUNITAS, UNTUK
+            KOMUNITAS
+          </p>
+          <h2 id="donation-home-title">Ruang latihan ini tumbuh bersama.</h2>
+          <p className="muted">
+            Ikut merawat ruang belajar dan titipkan semangat untuk sesama
+            pejuang CPNS. Dukungan selalu sukarela.
+          </p>
+        </div>
+        <div className="donation-home-actions">
           <Link className="button" href="/donasi?amount=5000">
             Dukung mulai Rp 5.000
             <ArrowRight size={16} />
@@ -30,9 +31,6 @@ export default function DonationSection() {
             Lihat papan dukungan & kirim pesan →
           </Link>
         </div>
-        <p className="muted donation-small">
-          Tetap bisa belajar tanpa berdonasi.
-        </p>
       </div>
       <div className="donation-home-data">
         {loading ? (
@@ -40,7 +38,7 @@ export default function DonationSection() {
         ) : (
           <>
             {error && <ErrorPanel message={error} retry={reload} />}
-            {data && <DonationCommunity data={data} format="overlay" compact />}
+            {data && <DonationCommunity data={data} format="overlay" />}
           </>
         )}
       </div>

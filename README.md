@@ -29,7 +29,17 @@ Buka `http://localhost:3107`. Akun sintetis: `demo@example.com` dan `admin@examp
 
 Untuk membandingkan leaderboard tanpa menjalankan backend, jalankan `node node_modules/next/dist/bin/next dev --port 3107` dari folder `frontend`, lalu buka [10 format papan donasi](http://localhost:3107/donasi/desain). Tema mengikuti aplikasi yang sudah ada. Preview memuat 20 transaksi fiktif, statistik, pesan bergaya chat, opsi pin, dan skenario pergantian bulan/tahun. Panduan: [Studio leaderboard lokal](docs/donation-design-studio.md).
 
-`docker-compose.yml` juga menyediakan profil `app` untuk backend/frontend/worker/beat development. Konfigurasi ini hanya menggunakan PostgreSQL/Redis development. Container tidak melakukan migrasi otomatis. Helper seed memakai `create_all` hanya pada database bernama `tocpns_dev` di loopback; ini bukan pengganti Alembic untuk production.
+Untuk menjalankan seluruh aplikasi melalui Docker, termasuk 20 donasi contoh yang sama dengan studio:
+
+```powershell
+docker compose up -d --wait
+docker compose run --rm --build seed
+docker compose --profile app up -d --build
+```
+
+Buka [beranda lokal](http://localhost:3107) atau [halaman donasi lokal](http://localhost:3107/donasi). Pilih **Semua waktu** di halaman donasi untuk melihat seluruh 20 transaksi (Rp 2.946.000 dari 17 akun); **Bulan ini** mengikuti tanggal server dan hanya menampilkan transaksi bulan berjalan. Contoh mencakup donasi berulang, anonim, tanpa pesan, serta batas pergantian bulan dan tahun dalam WIB. Seed dapat dijalankan ulang tanpa menggandakan data.
+
+`docker-compose.yml` menyediakan profil `app` untuk backend/frontend/worker/beat development dan layanan `seed` yang dijalankan secara eksplisit. Image backend memakai daftar dependensi runtime yang sama dengan production; build Dockerfile langsung tetap menyertakan alat development secara default. Konfigurasi ini hanya menggunakan PostgreSQL/Redis development, dengan kredensial pembayaran/email/AI kosong. Container aplikasi tidak melakukan migrasi otomatis. Helper seed memakai `create_all` hanya pada database bernama `tocpns_dev` di loopback atau host Compose `postgres` dengan opsi `--docker`; ini bukan pengganti Alembic untuk production.
 
 ## Verifikasi
 

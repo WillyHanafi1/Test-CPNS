@@ -36,11 +36,15 @@ export default function DonationPage() {
         </p>
       </div>
       <div className="donation-layout">
-        <aside id="donation-form" className="panel donation-form-panel">
+        <section
+          id="donation-form"
+          className="panel donation-form-panel"
+          aria-label="Kirim dukungan"
+        >
           <Suspense fallback={<Loading label="Menyiapkan formulir donasi…" />}>
             <DonationQueryForm />
           </Suspense>
-        </aside>
+        </section>
         <div className="donation-data-column stack">
           <div className="between donation-controls">
             <div

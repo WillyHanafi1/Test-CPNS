@@ -1,5 +1,7 @@
 import { expect, test, Page } from "@playwright/test";
 import path from "node:path";
+import { demoOverview } from "../src/lib/donation-demo";
+import type { DonationOverview } from "../src/lib/donations";
 
 const sample = (period = "month") => ({
   period,
@@ -60,7 +62,12 @@ const sample = (period = "month") => ({
 
 async function fixture(
   page: Page,
-  options: { guest?: boolean; failure?: boolean; anonymousOnly?: boolean } = {},
+  options: {
+    guest?: boolean;
+    failure?: boolean;
+    anonymousOnly?: boolean;
+    overview?: DonationOverview;
+  } = {},
 ) {
   let authenticated = !options.guest;
   let hidden = false;
@@ -104,7 +111,8 @@ async function fixture(
         });
         return;
       }
-      const data = sample(url.searchParams.get("period") || "month");
+      const data =
+        options.overview || sample(url.searchParams.get("period") || "month");
       if (options.anonymousOnly) {
         data.top_supporters = [
           {
@@ -224,7 +232,7 @@ test("home puts the community section after learning content, shows donor chat m
   expect(errors).toEqual([]);
 });
 
-test("approved streamer design is used on the home, dashboard and donation pages regardless of old preview settings", async ({
+test("streamer boards use the full width below the introduction or form, with chat on the right on desktop", async ({
   page,
 }) => {
   const { errors } = await fixture(page);
@@ -249,20 +257,50 @@ test("approved streamer design is used on the home, dashboard and donation pages
       page.getByRole("log", { name: "Riwayat pesan dukungan" }),
     ).toContainText("Semangat berlatih!");
     await expect(page.locator('a[href="/donasi/desain"]')).toHaveCount(0);
+    const desktop = await page.evaluate(() => {
+      const box = (selector: string) => {
+        const { x, top, bottom } = document
+          .querySelector(selector)!
+          .getBoundingClientRect();
+        return { x, top, bottom };
+      };
+      return {
+        intro: box(
+          document.querySelector(".donation-form-panel")
+            ? ".donation-form-panel"
+            : ".donation-home-intro",
+        ),
+        stats: box(".dc-stats"),
+        board: box(".dc-board"),
+        chat: box(".dc-chat"),
+      };
+    });
+    expect(desktop.intro.bottom).toBeLessThanOrEqual(desktop.stats.top);
+    expect(desktop.stats.bottom).toBeLessThanOrEqual(desktop.board.top);
+    expect(desktop.board.x).toBeLessThan(desktop.chat.x);
+    expect(Math.abs(desktop.board.top - desktop.chat.top)).toBeLessThan(2);
+    await page.setViewportSize({ width: 390, height: 844 });
+    const mobile = await page.evaluate(() => ({
+      boardBottom: document.querySelector(".dc-board")!.getBoundingClientRect()
+        .bottom,
+      chatTop: document.querySelector(".dc-chat")!.getBoundingClientRect().top,
+      overflow: document.documentElement.scrollWidth > window.innerWidth,
+    }));
+    expect(mobile.boardBottom).toBeLessThanOrEqual(mobile.chatTop);
+    expect(mobile.overflow).toBe(false);
+    await page.setViewportSize({ width: 1280, height: 720 });
     await expect(page.locator("footer")).toBeVisible();
   }
   await expect(page.getByRole("form", { name: "Form donasi" })).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Lanjutkan · Rp 5.000" }),
   ).toBeEnabled();
-  await page
-    .locator(".donation-community")
-    .screenshot({
-      path: path.resolve(
-        "../.server-notes/ui-qa/donation-project-implemented.png",
-      ),
-      style: ".app-header { visibility: hidden !important; }",
-    });
+  await page.locator(".donation-community").screenshot({
+    path: path.resolve(
+      "../.server-notes/ui-qa/donation-project-implemented.png",
+    ),
+    style: ".app-header { visibility: hidden !important; }",
+  });
   expect(errors).toEqual([]);
 });
 
@@ -452,16 +490,20 @@ test("a donor can hide their name from their own account history", async ({
   await expect(page.getByText("Berhasil", { exact: true })).toBeVisible();
 });
 
-test("donation desktop and mobile previews use real layout states without horizontal overflow", async ({
+test("twenty varied donations fit desktop and mobile without horizontal overflow", async ({
   page,
 }) => {
-  const { errors } = await fixture(page);
+  const { errors } = await fixture(page, { overview: demoOverview("all") });
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/donasi");
-  await expect(page.getByText("Rp 15.000", { exact: true })).toBeVisible();
+  await expect(page.getByText("Rp 2.946.000", { exact: true })).toBeVisible();
   await page.screenshot({
     path: path.resolve("../.server-notes/ui-qa/donations-desktop.png"),
     fullPage: true,
+  });
+  await page.locator(".donation-community").screenshot({
+    path: path.resolve("../.server-notes/ui-qa/donations-twenty-example.png"),
+    style: ".app-header, .skip-link { visibility: hidden !important; }",
   });
   for (const width of [768, 390, 320]) {
     await page.setViewportSize({ width, height: 844 });

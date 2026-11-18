@@ -144,7 +144,7 @@ export default function DonationForm({
         }
       }}
     >
-      <div>
+      <div className="donation-form-heading">
         <p className="eyebrow">DUKUNG SESUAI KEMAMPUANMU</p>
         <h2>Kirim dukungan & pesan semangat.</h2>
         <p className="muted donation-small">
@@ -251,6 +251,20 @@ export default function DonationForm({
         </div>
       </div>
 
+      {(error || demoReceipt) && (
+        <div className="donation-form-feedback">
+          {error && (
+            <p className="notice notice-error" role="alert">
+              {error}
+            </p>
+          )}
+          {demoReceipt && (
+            <p className="notice" role="status">
+              {demoReceipt}
+            </p>
+          )}
+        </div>
+      )}
       <div
         className="donation-live-preview"
         data-tier={activeTier.key}
@@ -286,17 +300,7 @@ export default function DonationForm({
         </div>
       </div>
 
-      {error && (
-        <p className="notice notice-error" role="alert">
-          {error}
-        </p>
-      )}
-      {demoReceipt && (
-        <p className="notice" role="status">
-          {demoReceipt}
-        </p>
-      )}
-      <div className="stack" style={{ gap: 12 }}>
+      <div className="donation-form-actions stack" style={{ gap: 12 }}>
         <button
           className="button donation-submit"
           type="submit"
