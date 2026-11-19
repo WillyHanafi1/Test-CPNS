@@ -552,9 +552,6 @@ async def get_my_sessions(
         ))
     
     return sessions
-@router.post("/{session_id}/ai-generate")
-async def retired_analysis(session_id: uuid.UUID, current_user: User = Depends(get_current_user)):
-    raise HTTPException(410, "Fitur AI peserta telah dihentikan.")
 
 
 @router.get("/session/{session_id}/state", response_model=StartExamResponse)

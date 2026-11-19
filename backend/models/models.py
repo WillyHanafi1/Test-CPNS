@@ -140,9 +140,10 @@ class ExamSession(Base):
     writer_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     submitted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    # AI Analysis Fields
+    # Legacy AI columns: no longer read or written. Kept until a separate
+    # contraction migration drops them after a backup.
     ai_analysis: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-    ai_status: Mapped[str] = mapped_column(String(20), default="none")  # none, processing, completed, failed
+    ai_status: Mapped[str] = mapped_column(String(20), default="none")
 
     updated_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True),
@@ -296,6 +297,11 @@ class AuditEvent(Base):
 
 
 class ChatSession(Base):
+    """Legacy AI mentor history. Read-only archive; no code path creates rows.
+
+    Kept so existing data and FK cascades stay intact until a separate
+    contraction migration drops chat_sessions/chat_messages after a backup.
+    """
     __tablename__ = "chat_sessions"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)

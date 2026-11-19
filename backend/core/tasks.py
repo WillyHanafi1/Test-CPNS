@@ -39,7 +39,6 @@ def run_async_task(coro_func):
 
 logger_scoring = logging.getLogger("celery.tasks.scoring")
 logger_beat = logging.getLogger("celery.beat.auto_finish")
-logger_ai = logging.getLogger("celery.tasks.ai_analysis")
 
 
 # ====================================================================
@@ -85,7 +84,6 @@ async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: s
             # can reference them uninitialized if the try block fails early
             score_twk = score_tiu = score_tkp = total_score = 0
             db_answers = []
-            sub_cat_stats = {}
 
             try:
                 redis_answers = await redis_client.hgetall(cache_key)
@@ -132,14 +130,6 @@ async def async_run_scoring(session_id_str: str, user_id_str: str, user_email: s
                         selected_option=selected_option.label,
                         points_earned=points
                     ))
-
-                    # Track sub-category stats for AI analysis
-                    sub_cat = q.sub_category or "Umum"
-                    if sub_cat not in sub_cat_stats:
-                        sub_cat_stats[sub_cat] = {"score": 0, "max_possible": 0}
-                    sub_cat_stats[sub_cat]["score"] += points
-                    max_q_score = max((opt.score for opt in q.options), default=5)
-                    sub_cat_stats[sub_cat]["max_possible"] += max_q_score
 
                 total_score = score_twk + score_tiu + score_tkp
 
@@ -331,88 +321,6 @@ async def _mark_session_expired(session_factory, session_id: uuid.UUID):
 )
 def auto_finish_expired_sessions():
     return run_async_task(async_auto_finish_expired)()
-
-
-# ====================================================================
-# AI Analysis Task
-# ====================================================================
-
-@celery_app.task(name="backend.core.tasks.generate_ai_analysis")
-def generate_ai_analysis_task(*args, **kwargs):
-    # Consume already queued legacy jobs without invoking the model.
-    return {"status": "retired"}
-
-# ====================================================================
-# Data Integrity & Audit Tasks
-# ====================================================================
-
-async def async_repair_question_bias(question_id_str: str):
-    """Optional admin tool; never imported by core startup."""
-    if not settings.ADMIN_AI_ENABLED:
-        return {"status": "disabled"}
-    from backend.core.ai_service import ai_service
-    logger_ai.info(f"Starting AI bias repair for question {question_id_str}")
-    engine = create_async_engine(
-        settings.DATABASE_URL, echo=False, poolclass=NullPool,
-        connect_args={"statement_cache_size": 0},  # Required: Supabase PgBouncer doesn't support prepared statements
-    )
-    session_factory = async_sessionmaker(engine, expire_on_commit=False)
-
-    try:
-        question_id = uuid.UUID(question_id_str)
-        async with session_factory() as db:
-            # Fetch question and its options
-            result = await db.execute(
-                select(Question)
-                .options(selectinload(Question.options))
-                .where(Question.id == question_id)
-            )
-            question = result.scalar_one_or_none()
-            if not question:
-                logger_ai.error(f"Question {question_id_str} not found")
-                return {"status": "error", "message": "question not found"}
-
-            from backend.services.exams import lock_editable_package
-            await lock_editable_package(db, question.package_id)
-
-            # Get correct answer and wrong answers
-            correct_opt = next((opt for opt in question.options if opt.score > 0), None)
-            if not correct_opt:
-                logger_ai.error(f"No correct option found for question {question_id_str}")
-                return {"status": "error", "message": "no correct option found"}
-
-            # Call AI Service
-            new_options = await ai_service.generate_balanced_options(
-                question_text=question.content,
-                correct_answer=correct_opt.content
-            )
-
-            # Update wrong options
-            wrong_idx = 0
-            for opt in question.options:
-                if opt.id != correct_opt.id:
-                    if wrong_idx < len(new_options):
-                        opt.content = new_options[wrong_idx]
-                        wrong_idx += 1
-
-            await db.commit()
-            logger_ai.info(f"Successfully repaired bias for question {question_id_str}")
-            return {"status": "success", "question_id": question_id_str}
-
-    except Exception as e:
-        logger_ai.error(f"Bias repair failed for {question_id_str}: {e}\n{traceback.format_exc()}")
-        return {"status": "error", "message": str(e)}
-    finally:
-        await engine.dispose()
-
-@celery_app.task(
-    name="backend.core.tasks.repair_question_bias",
-    autoretry_for=(OperationalError, OSError),
-    max_retries=2,
-    default_retry_delay=5,
-)
-def repair_question_bias_task(question_id: str):
-    return run_async_task(async_repair_question_bias)(question_id)
 
 
 async def async_reconcile_jobs():

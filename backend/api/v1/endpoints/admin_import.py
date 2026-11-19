@@ -6,7 +6,7 @@ import io
 import uuid
 from typing import List
 from backend.db.session import get_async_session
-from backend.models.models import Question, QuestionOption, Package, User, Answer, ExamSession, ChatSession, ChatMessage
+from backend.models.models import Question, QuestionOption, Package, User, Answer, ExamSession
 from backend.api.v1.endpoints.auth import get_current_admin
 from backend.core.redis_service import redis_service
 from backend.services.exams import lock_editable_package

@@ -1,7 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from backend.core.rate_limiter import limiter
 
 from sqlalchemy import select
 from backend.db.session import get_async_session
@@ -63,15 +61,6 @@ async def get_my_weak_points(
     Identify weak sub-categories for the current user.
     """
     return await analytics_service.get_weak_points(db, current_user.id)
-
-@router.get("/me/mastery/digest")
-@limiter.limit("5/hour")
-async def get_my_mastery_digest(
-    request: Request,
-    db: AsyncSession = Depends(get_async_session),
-    current_user: User = Depends(get_current_user)
-):
-    raise HTTPException(410, "Fitur AI peserta telah dihentikan.")
 
 @router.post("/feedback")
 async def submit_feedback(

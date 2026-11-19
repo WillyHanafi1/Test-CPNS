@@ -88,15 +88,6 @@ class Settings(BaseSettings):
                     and not target.query and not target.fragment
                     and target.scheme in ({"https"} if self.DOKU_ENVIRONMENT == "production" else {"http", "https"}))
     
-    # Vertex AI
-    VERTEX_PROJECT_ID: str = os.getenv("VERTEX_PROJECT_ID", "")
-    VERTEX_LOCATION: str = os.getenv("VERTEX_LOCATION", "us-central1")
-    VERTEX_MODEL_NAME: str = os.getenv("VERTEX_MODEL_NAME", "gemini-2.5-pro-preview-05-06")
-
-    # Google Gemini AI
-    GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
-    ADMIN_AI_ENABLED: bool = False
-
     # Logging
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
 

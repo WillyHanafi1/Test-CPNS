@@ -81,7 +81,7 @@ def analyze_csv(file_path):
     if mismatch_count == 0 and total_checked > 0:
         print(f'[PASS] PERFECT! Tidak ada mismatch pada {file_path}.')
     elif mismatch_count > 0:
-        print(f'[FAIL] GAGAL! Ditemukan {mismatch_count} mismatch pada {file_path} (AI tidak membahas opsi jawaban benar secara eksplisit).')
+        print(f'[FAIL] GAGAL! Ditemukan {mismatch_count} mismatch pada {file_path} (pembahasan tidak menyebut opsi jawaban benar secara eksplisit).')
 
 if __name__ == "__main__":
     analyze_csv('data/csv/Hard1.csv')

@@ -64,7 +64,7 @@ if __name__ == "__main__":
     asyncio.run(prepare())
     env = os.environ.copy()
     env.update(DATABASE_URL=f"postgresql+asyncpg://tocpns:development-only@127.0.0.1:{PORT}/{DB}",
-               SECRET_KEY="migration-rehearsal-only-not-production", ENV="development", GOOGLE_API_KEY="")
+               SECRET_KEY="migration-rehearsal-only-not-production", ENV="development")
     subprocess.run([sys.executable, "-m", "alembic", "-c", "backend/alembic.ini", "upgrade", "head"], cwd=ROOT, env=env, check=True)
     report = {**asyncio.run(verify()), "elapsed_seconds": round(time.monotonic()-started, 2)}
     print(json.dumps(report))

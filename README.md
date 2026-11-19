@@ -1,12 +1,12 @@
 # TOCPNS
 
-Aplikasi latihan CAT CPNS: pilih paket, kerjakan ujian, lihat hasil, pelajari pembahasan. Peserta Pro dapat mengakses seluruh paket yang terbit, aktif, siap, dan sesuai jadwal selama keanggotaannya berlaku. Fitur AI peserta dihentikan; alat AI admin opsional dan mati secara default.
+Aplikasi latihan CAT CPNS: pilih paket, kerjakan ujian, lihat hasil, pelajari pembahasan. Peserta Pro dapat mengakses seluruh paket yang terbit, aktif, siap, dan sesuai jadwal selama keanggotaannya berlaku. Platform ini tidak memakai fitur AI; soal dan pembahasan dikelola secara editorial.
 
 Stack yang digunakan tercatat dalam `frontend/package-lock.json` dan `backend/requirements.txt`: Next.js/React, FastAPI, PostgreSQL, Redis, dan Celery. PostgreSQL menjadi sumber jawaban ujian baru yang sudah dikonfirmasi tersimpan. Redis dipakai untuk broker/cache/revokasi token, serta kompatibilitas sesi lama sampai selesai.
 
 ## Menjalankan preview lokal
 
-Gunakan Node.js 22, Python 3.12, dan Docker Compose. Jalankan dari root repositori. Preview tidak memakai database Supabase atau provider pembayaran/email/AI production.
+Gunakan Node.js 22, Python 3.12, dan Docker Compose. Jalankan dari root repositori. Preview tidak memakai database Supabase atau provider pembayaran/email production.
 
 ```powershell
 python -m venv .venv
@@ -41,7 +41,7 @@ Buka [beranda akun lokal](http://localhost:3107/dashboard) setelah login atau [h
 
 Halaman `/donasi` dan papan dukungannya dapat dibaca tanpa login; mengirim donasi tetap memerlukan akun. Papan publik dan dashboard akun memakai data serta pilihan nama yang sama: donasi anonim tetap tampil di leaderboard, pesan, dan pin sebagai **Anonim**, sedangkan donasi bernama menampilkan nama profil. Nominal dan pesan tetap terlihat pada kedua tampilan. Pilihan nama dapat diubah melalui riwayat transaksi milik donatur.
 
-`docker-compose.yml` menyediakan profil `app` untuk backend/frontend/worker/beat development dan layanan `seed` yang dijalankan secara eksplisit. Image backend memakai daftar dependensi runtime yang sama dengan production; build Dockerfile langsung tetap menyertakan alat development secara default. Konfigurasi ini hanya menggunakan PostgreSQL/Redis development, dengan kredensial pembayaran/email/AI kosong. Container aplikasi tidak melakukan migrasi otomatis. Helper seed memakai `create_all` hanya pada database bernama `tocpns_dev` di loopback atau host Compose `postgres` dengan opsi `--docker`; ini bukan pengganti Alembic untuk production.
+`docker-compose.yml` menyediakan profil `app` untuk backend/frontend/worker/beat development dan layanan `seed` yang dijalankan secara eksplisit. Image backend memakai daftar dependensi runtime yang sama dengan production; build Dockerfile langsung tetap menyertakan alat development secara default. Konfigurasi ini hanya menggunakan PostgreSQL/Redis development, dengan kredensial pembayaran/email kosong. Container aplikasi tidak melakukan migrasi otomatis. Helper seed memakai `create_all` hanya pada database bernama `tocpns_dev` di loopback atau host Compose `postgres` dengan opsi `--docker`; ini bukan pengganti Alembic untuk production.
 
 ## Verifikasi
 

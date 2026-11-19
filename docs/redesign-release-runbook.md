@@ -30,7 +30,7 @@ Berlaku untuk perubahan additive `667ecbb432df → d8e4a91b2201 → e7b2c80d913a
 ## 4. Switch aplikasi dan smoke test
 
 - Catat manifest image lama dan kandidat. `deploy-ujian.sh start` menolak schema drift dan tidak melakukan migrasi.
-- Nyalakan backend/frontend/gateway/worker/payment-worker/beat kandidat; cek health dan satu instance beat yang benar. Worker ujian hanya mengambil antrean `celery`, worker pembayaran hanya `payments`; keduanya memakai image backend yang sama. AI admin default mati; jangan mengaktifkan profil admin-ai tanpa secret terpisah dan kebutuhan admin yang nyata.
+- Nyalakan backend/frontend/gateway/worker/payment-worker/beat kandidat; cek health dan satu instance beat yang benar. Worker ujian hanya mengambil antrean `celery`, worker pembayaran hanya `payments`; keduanya memakai image backend yang sama.
 - Periksa client protocol: frontend baru mengirim `X-Exam-Protocol: 2`; client lama mendapat 409 `update_required` pada start/resume mesin baru. Ini gate kompatibilitas, bukan mekanisme autentikasi. Client legacy tetap boleh menyelesaikan sesi legacy yang sudah berjalan; lakukan refresh halaman saat cutover.
 - Smoke: domain apex, www canonical, login, katalog/hak, mulai akun uji, jawaban ACK, refresh, submit/scoring, hasil, pembahasan, logout. Gunakan data/account uji yang disepakati; jangan membuat transaksi uang nyata.
 - Periksa `Cache-Control`, cookie Secure/HttpOnly, tidak ada kunci sebelum selesai, tidak ada port DB/Redis publik, dan request ID/durasi log tanpa query/token.

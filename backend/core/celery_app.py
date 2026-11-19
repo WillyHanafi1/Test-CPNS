@@ -15,7 +15,6 @@ celery_app.conf.update(
     result_expires=300,
     worker_prefetch_multiplier=1,
     task_routes={
-        "backend.core.tasks.repair_question_bias": {"queue": "admin-ai"},
         "backend.core.tasks.reconcile_payments": {"queue": "payments"},
         "backend.core.tasks.process_payment_events": {"queue": "payments"},
         "backend.core.tasks.payment_worker_heartbeat": {"queue": "payments"},

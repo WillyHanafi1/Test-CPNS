@@ -73,7 +73,7 @@ def main():
         raise SystemExit('\n'.join(problems))
     print(f'{args.mode} configuration preflight passed; no secret values displayed.')
     if args.mode in ['app', 'tunnel']:
-        for name in ['GOOGLE_CLIENT_ID', 'GOOGLE_API_KEY', 'MAIL_USERNAME', 'DOKU_SECRET_KEY']:
+        for name in ['GOOGLE_CLIENT_ID', 'MAIL_USERNAME', 'DOKU_SECRET_KEY']:
             if not app.get(name):
                 print(f'Optional feature not configured: {name}')
         if app.get('DOKU_ENVIRONMENT') == 'sandbox':

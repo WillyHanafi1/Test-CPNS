@@ -5,7 +5,7 @@ import re
 excluded = {
     'pytest', 'pytest-asyncio', 'aiosqlite', 'fastapi-cli', 'fastapi-cloud-cli',
     'fastar', 'midtransclient', 'passlib',
-    'pytest-cov', 'ruff', 'google-cloud-aiplatform',
+    'pytest-cov', 'ruff',
 }
 for line in Path('requirements.txt').read_text().splitlines():
     name = re.split(r'[=<>!~;\[]', line.strip(), maxsplit=1)[0].lower().replace('_', '-')

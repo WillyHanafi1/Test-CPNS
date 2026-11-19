@@ -77,10 +77,10 @@ Berdasarkan analisis mendalam pada core backend:
     - Implementasikan **Token Blocklist** di Redis untuk fitur *Logout*. Gunakan **SHA256 Hashing** sebelum menyimpan token ke Redis untuk mencegah kebocoran *plaintext token*.
     - Mitigasi *Pre-hijacking* pada SSO (Google Login): Wajib cek `email_verified` dan larang *takeover* akun lokal secara otomatis jika sudah ada *password*.
     - Gunakan fitur `is_pro_active` pada model `User` to validate access fitur premium secara *real-time*.
-3. **AI Integration (Gemini)**:
-    - Selalu sertakan konteks (*question content*, *user answer*, *discussion*) menggunakan **Sintaks XML `<context_soal>`** dalam prompt AI Chat Mentor for giving accurate contextual answers.
-    - Model yang diverifikasi aktif dan didukung untuk environment ini adalah `gemini-3.1-pro-preview` dengan **High Thinking** (`thinking_level="high"`).
-    - Batasi penggunaan fitur AI hanya untuk pengguna dengan status `is_pro_active`.
+3. **Tanpa AI (Keputusan Produk, November 2026)**:
+    - Platform **tidak memakai fitur AI** di sisi peserta maupun admin (chat mentor, analisis AI, generator/auditor soal, Gemini/Vertex sudah dihapus beserta dependensi `google-genai`).
+    - Jangan menambahkan kembali integrasi LLM, endpoint chat, atau janji AI di UI/marketing tanpa keputusan eksplisit pemilik proyek.
+    - Tabel `chat_sessions`/`chat_messages` dan kolom `exam_sessions.ai_analysis`/`ai_status` hanya arsip lama; jangan dipakai. Penghapusan dilakukan lewat migrasi Alembic kontraksi terpisah setelah backup.
 4. **Topic Mastery Analytics**:
     - Agregasikan data jawaban berdasarkan `sub_category`.
     - Gunakan **SQLAlchemy 2.0 Syntax**: Selalu gunakan tuple dalam `case()`.
@@ -126,23 +126,14 @@ Berdasarkan troubleshooting render gambar dan sinkronisasi database pada Maret 2
     - `Question` (berdasarkan `Package`)
 3. **Standard Question Count**: Pastikan setiap paket latihan SKD memiliki total **110 soal** sesuai standar BKN (TWK, TIU, TKP) untuk menjaga konsistensi analitik.
 
-### G. Automated Question Quality Audit (Standard Operating Procedure)
-Berdasarkan implementasi pipeline QA pada April 2026:
-1. **Two-Pass Hybrid QA**: Jangan biarkan AI generator memvalidasi dirinya sendiri (*self-reinforcement bias*). Gunakan `scripts/quality_audit.py` untuk menjalankan Pass 1 (Judge) dan Pass 2 (Fixer) secara terpisah.
-2. **Zero-Score Tampering**: Saat AI Fixer melakukan perbaikan narasi/pembahasan pada soal yang *flagged*, sistem dilarang keras mengubah bobot `score` pada opsi jawaban untuk menjaga integritas distribusi soal.
-3. **API Rate Limiting Protection**: Eksekusi perbaikan massal wajib menggunakan arsitektur *Wave Processing* dengan *Token Bucket Rate Limiter* (maks 20 RPM) dan *Exponential Backoff* pada error 429 untuk mencegah *resource exhausted*. Detail eksekusi ada di `docs/Quality_Audit_Pipeline.md`.
-4. **D1 Konsistensi Pembahasan-Skor**: Dimensi audit paling kritis. Judge WAJIB melakukan 4-langkah verifikasi: (1) identifikasi skor tertinggi, (2) temukan klaim jawaban di pembahasan, (3) cross-check huruf, (4) scan kontradiksi internal. Mismatch = FLAG otomatis.
+### G. Question Integrity (Standard Operating Procedure)
+Soal dan pembahasan dikelola secara editorial (tanpa generator/auditor AI). Saat menyunting atau mengimpor soal:
+1. **Zero-Score Tampering**: Perbaikan narasi/pembahasan dilarang mengubah bobot `score` pada opsi jawaban untuk menjaga integritas distribusi soal.
+2. **Konsistensi Pembahasan-Skor**: Pastikan pembahasan menyebut opsi dengan skor tertinggi sebagai jawaban benar dan tidak berisi kontradiksi internal. `scripts/analyze_csv.py` dapat dipakai untuk memeriksa mismatch pada CSV.
+3. **Distribusi Kunci Seimbang**: Kunci jawaban A–E per segmen (TWK, TIU, TKP) dibagi merata tanpa pola siklus.
 
-### H. Pre-assigned Answer Key Seeding (Standard Operating Procedure — RECOMMENDED)
-Berdasarkan optimalisasi pipeline anti-cyclical pattern pada Mei 2026:
-1. **Urutan Pipeline Wajib**: **Generate (dengan Key Seeding)** → Audit/Fix → Selesai. Tidak perlu lagi menjalankan `shuffle_answers.py` karena posisi kunci sudah ditentukan sejak awal oleh Python.
-2. **Mekanisme Key Seeding**: `scripts/generate_questions.py` membuat daftar huruf A-E yang dibagi rata secara eksak (masing-masing ≈20%), lalu diacak menggunakan `random.shuffle()` di Python. Daftar ini dikirim sebagai instruksi wajib ke dalam prompt AI (`ai_service.py`), sehingga AI menyusun opsi dan pembahasan yang 100% konsisten secara native.
-3. **Keunggulan vs Shuffle Post-Processing**: (1) Tidak ada risiko *edge-case* regex pada pembahasan bahasa Indonesia, (2) Distribusi kunci dijamin matematis sempurna, (3) Tidak ada pola siklus karena Python PRNG bukan probabilitas LLM.
-4. **Fallback pada Retry**: Jika soal gagal validasi dan di-generate ulang secara individual, `target_key` asli untuk slot tersebut tetap dipertahankan agar distribusi global tidak terganggu.
-
-### I. Answer Shuffler Pipeline (LEGACY — Hanya untuk Data Lama)
-Berdasarkan implementasi anti-cyclical pattern pada Mei 2026:
-1. **Urutan Pipeline Wajib**: Generate → Audit/Fix → **Shuffle** → Validate. Jangan pernah shuffle sebelum audit, karena audit memerlukan posisi opsi original.
+### H. Answer Shuffler Pipeline
+1. **Urutan Pipeline**: Sunting/Review → **Shuffle** → Validate. Jangan shuffle sebelum review, karena review memerlukan posisi opsi original.
 2. **Discussion Remapping (Two-Pass Placeholder)**: `scripts/shuffle_answers.py` menggunakan teknik *placeholder* dua tahap untuk menghindari tabrakan saat remap (misal: A→C dan C→A tidak saling menimpa). Semua 52+ pola referensi opsi di pembahasan (termasuk frasa multi-kata seperti "Jawaban yang benar adalah X") di-remap secara otomatis.
 3. **Post-Shuffle Validation**: Script memiliki 3 lapisan validasi: (1) Score Integrity — memastikan skor tidak berubah, (2) Discussion Consistency — memastikan pembahasan menyebut opsi dengan skor tertinggi sebagai jawaban benar, (3) Cycle Detection — memastikan tidak ada pola berulang di kunci jawaban.
 4. **Excluded Categories**: Sub-kategori figural (Analogi Gambar, Serial Gambar, Ketidaksamaan Gambar) dikecualikan dari shuffle karena opsi berbasis gambar.

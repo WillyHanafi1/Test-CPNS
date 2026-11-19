@@ -17,9 +17,7 @@ x-dev-environment: &dev-environment
   COOKIE_SECURE: 'false'
   FRONTEND_URL: http://localhost:3107
   CORS_ORIGINS: http://localhost:3107
-  GOOGLE_API_KEY: ''
   GOOGLE_CLIENT_ID: ''
-  ADMIN_AI_ENABLED: 'false'
   MAIL_USERNAME: ''
   MAIL_PASSWORD: ''
   DOKU_CLIENT_ID: ''

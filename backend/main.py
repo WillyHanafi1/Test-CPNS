@@ -92,11 +92,6 @@ app.include_router(user_router, prefix="/api/v1")
 app.include_router(analytics_router, prefix="/api/v1")
 app.include_router(membership_router, prefix="/api/v1")
 
-@app.api_route("/api/v1/chat/{path:path}", methods=["GET", "POST", "DELETE"])
-async def retired_participant_chat(path: str):
-    from fastapi import HTTPException
-    raise HTTPException(410, "Fitur AI peserta telah dihentikan. Gunakan pembahasan soal.")
-
 @app.get("/")
 async def root():
     return {"message": "CPNS Platform API is running", "version": "1.0.0"}

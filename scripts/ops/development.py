@@ -18,7 +18,7 @@ def environment(docker=False):
                REDIS_URL="redis://127.0.0.1:56389/0", ENV="development",
                SECRET_KEY="local-development-only-not-for-production-2026",
                FRONTEND_URL="http://localhost:3107", CORS_ORIGINS="http://localhost:3107",
-               GOOGLE_API_KEY="", GOOGLE_CLIENT_ID="", ADMIN_AI_ENABLED="false",
+               GOOGLE_CLIENT_ID="",
                MAIL_USERNAME="", MAIL_PASSWORD="", DOKU_CLIENT_ID="", DOKU_SECRET_KEY="",
                DOKU_ENVIRONMENT="sandbox", NEXT_PUBLIC_API_URL="http://localhost:8017",
                NEXT_PUBLIC_GOOGLE_CLIENT_ID="", NEXT_PUBLIC_DOKU_ENVIRONMENT="sandbox")

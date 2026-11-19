@@ -43,8 +43,6 @@ jobs:
       DATABASE_URL: postgresql+asyncpg://tocpns:development-only@127.0.0.1:5432/tocpns_test
       SECRET_KEY: integration-test-only-key-never-for-production
       ENV: development
-      GOOGLE_API_KEY: ''
-      ADMIN_AI_ENABLED: 'false'
       LOCAL_PG_PORT: '5432'
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6

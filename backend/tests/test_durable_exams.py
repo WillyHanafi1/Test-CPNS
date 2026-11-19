@@ -166,11 +166,11 @@ async def test_unpublished_and_incomplete_packages_cannot_start(client, test_use
     assert (await client.post(f"/api/v1/exam/start/{test_package_with_questions.id}")).status_code == 409
 
 
-async def test_ai_routes_retired_and_private_data_not_cached(client, test_user):
+async def test_ai_routes_removed_and_private_data_not_cached(client, test_user):
     await login_and_get_cookies(client, "testuser@example.com", "TestPassword123")
-    assert (await client.post('/api/v1/chat/start')).status_code == 410
-    assert (await client.get('/api/v1/user/me/mastery/digest')).status_code == 410
-    assert (await client.post(f'/api/v1/exam/{uuid.uuid4()}/ai-generate')).status_code == 410
+    assert (await client.post('/api/v1/chat/start')).status_code in (404, 405)
+    assert (await client.get('/api/v1/user/me/mastery/digest')).status_code in (404, 405)
+    assert (await client.post(f'/api/v1/exam/{uuid.uuid4()}/ai-generate')).status_code in (404, 405)
     response = await client.get('/api/v1/auth/me')
     assert response.headers['cache-control'] == 'private, no-store'
     assert response.headers['x-request-id']

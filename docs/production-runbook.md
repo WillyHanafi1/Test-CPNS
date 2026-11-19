@@ -85,7 +85,7 @@ sudo bash scripts/ops/deploy-ujian.sh start
 Wajib: DATABASE_URL PostgreSQL asyncpg yang benar, JWT secret kuat,
 ENV=production, COOKIE_SECURE=true, FRONTEND_URL/CORS origin HTTPS yang tepat.
 Samakan Google/DOKU client ID dan mode payment pada kedua environment; rebuild
-frontend setelah perubahan nilai publik. Email, Google, Gemini, dan DOKU yang
+frontend setelah perubahan nilai publik. Email, Google, dan DOKU yang
 belum diberi kredensial belum dapat dinyatakan siap. Sandbox bukan pembayaran nyata.
 
 Startup memeriksa revision Alembic secara read-only. Jika berbeda, buat backup
@@ -163,7 +163,6 @@ tetap memerlukan token dan route yang benar.
 - Ujian, autosave, submit, nilai, riwayat, dan leaderboard.
 - DOKU notification URL: `https://tocpns.my.id/api/payments/doku/notifications`;
   uji callback/idempotensi dan samakan environment sebelum memakai uang nyata.
-- AI diuji setelah GOOGLE_API_KEY production tersedia.
 
 ## Bantuan peserta dan operasi admin
 
