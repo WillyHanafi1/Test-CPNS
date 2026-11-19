@@ -1,7 +1,22 @@
-"use client";
-import { useParams } from "next/navigation";
 import { ReviewView } from "@/features/exam/Results";
-export default function Review() {
-  const { id } = useParams<{ id: string }>();
-  return <ReviewView id={id} />;
+
+export default async function Review({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ filter?: string; question?: string }>;
+}) {
+  const [{ id }, { filter, question }] = await Promise.all([
+    params,
+    searchParams,
+  ]);
+  return (
+    <ReviewView
+      key={`${id}:${filter}:${question}`}
+      id={id}
+      initialFilter={filter}
+      initialQuestion={question}
+    />
+  );
 }

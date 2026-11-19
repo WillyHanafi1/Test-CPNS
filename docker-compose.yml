@@ -79,3 +79,15 @@ services:
         NEXT_PUBLIC_DOKU_ENVIRONMENT: sandbox
     ports: ['127.0.0.1:3107:3000']
     depends_on: [backend]
+  exam-studio:
+    profiles: [studio]
+    build:
+      context: ./frontend
+      target: studio
+    environment:
+      EXAM_STUDIO_ENABLED: 'true'
+      NEXT_PUBLIC_API_URL: http://localhost:3110
+      NEXT_PUBLIC_GOOGLE_CLIENT_ID: ''
+    ports: ['127.0.0.1:3110:3000']
+    volumes:
+      - ./tmp/exam-studio:/run/exam-studio:ro

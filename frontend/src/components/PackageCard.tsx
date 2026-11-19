@@ -7,12 +7,16 @@ export function PackageCard(p: PackageInfo) {
   const { user } = useAuth();
   const ongoing = p.user_status === "ongoing";
   const completed = p.user_status === "finished";
+  const processing = p.user_status === "processing";
+  const canRepeat =
+    completed && p.is_ready && !p.is_weekly && p.access_reason === "included";
+  const packageUrl = `/catalog/${p.id}`;
   const href =
     ongoing && p.session_id
       ? `/session/${p.session_id}`
-      : completed && p.session_id
+      : (completed || processing) && p.session_id
         ? `/session/${p.session_id}/result`
-        : `/catalog/${p.id}`;
+        : packageUrl;
   return (
     <article className="panel package-item">
       <div className="between">
@@ -27,7 +31,11 @@ export function PackageCard(p: PackageInfo) {
             : "Gratis"}
         </span>
       </div>
-      <h3>{p.title}</h3>
+      <h3>
+        <Link href={packageUrl} className="hover:underline">
+          {p.title}
+        </Link>
+      </h3>
       <div className="inline muted">
         <span className="inline" style={{ gap: 5 }}>
           <FileText size={14} />
@@ -42,20 +50,38 @@ export function PackageCard(p: PackageInfo) {
         <span className="muted">
           {ongoing
             ? "Sedang dikerjakan"
-            : completed
-              ? "Selesai"
-              : p.access_reason === "upcoming"
-                ? "Belum dibuka"
-                : p.access_reason === "expired"
-                  ? "Jadwal berakhir"
-                  : p.is_ready
-                    ? "Siap dikerjakan"
-                    : "Sedang dipersiapkan"}
+            : processing
+              ? "Hasil sedang dihitung"
+              : completed
+                ? "Selesai"
+                : p.access_reason === "upcoming"
+                  ? "Belum dibuka"
+                  : p.access_reason === "expired"
+                    ? "Jadwal berakhir"
+                    : p.is_ready
+                      ? "Siap dikerjakan"
+                      : "Sedang dipersiapkan"}
         </span>
-        <Link className="button button-small button-secondary" href={href}>
-          {ongoing ? "Lanjutkan" : completed ? "Lihat hasil" : "Lihat paket"}
-          <ArrowUpRight size={14} />
-        </Link>
+        <div className="inline">
+          <Link className="button button-small button-secondary" href={href}>
+            {ongoing
+              ? "Lanjutkan"
+              : completed
+                ? "Lihat hasil"
+                : processing
+                  ? "Periksa hasil"
+                  : "Lihat paket"}
+            <ArrowUpRight size={14} aria-hidden="true" />
+          </Link>
+          {canRepeat && (
+            <Link
+              className="button button-small button-secondary"
+              href={packageUrl}
+            >
+              Ulangi ujian
+            </Link>
+          )}
+        </div>
       </footer>
     </article>
   );

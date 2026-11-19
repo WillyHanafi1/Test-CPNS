@@ -6,6 +6,7 @@ export class ApiError extends Error {
     public status: number,
     public code: string,
     message: string,
+    public detail?: unknown,
   ) {
     super(message);
   }
@@ -59,6 +60,7 @@ export async function api<T>(
         typeof detail === "string"
           ? detail
           : detail?.message || "Permintaan belum berhasil. Silakan coba lagi.",
+        detail,
       );
     }
     return data as T;

@@ -3,11 +3,12 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  BookOpen,
+  ArrowRight,
   Flag,
   LayoutGrid,
   CheckCircle2,
   CloudOff,
+  Clock3,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { api, ApiError } from "@/lib/api";
@@ -18,9 +19,19 @@ import {
   writerId,
 } from "@/store/useExamStore";
 import { Loading, ErrorPanel } from "@/components/AppShell";
-import MarkdownRenderer from "@/components/ui/MarkdownRenderer";
 import Modal from "@/components/Modal";
-import ThemeToggle from "@/components/ThemeToggle";
+import {
+  AnswerChoices,
+  ExamFrame,
+  ExamText,
+  ImageDialog,
+  QuestionActions,
+  QuestionImage,
+  QuestionNavigator,
+  type ExamImage,
+  type NavigatorItem,
+} from "./ExamLayout";
+import styles from "./exam.module.css";
 export default function Runner({ id }: { id: string }) {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -34,8 +45,9 @@ export default function Runner({ id }: { id: string }) {
   const [busy, setBusy] = useState(false);
   const [online, setOnline] = useState(true);
   const [storageWarning, setStorageWarning] = useState(false);
-  const [zoom, setZoom] = useState<string | null>(null);
+  const [zoom, setZoom] = useState<ExamImage | null>(null);
   const submitting = useRef(false);
+  const questionHeading = useRef<HTMLHeadingElement>(null);
   const refreshAttempt = useCallback(
     async (signal?: AbortSignal) => {
       if (!ownerId) return;
@@ -210,106 +222,114 @@ export default function Runner({ id }: { id: string }) {
   ]);
   if (loading || authLoading)
     return (
-      <div className="app-surface">
+      <ExamFrame stage="Ujian">
         <Loading label="Menyiapkan lembar ujian…" />
-      </div>
+      </ExamFrame>
     );
-  if (!state.questions.length || state.sessionId !== id)
+  if (
+    !state.questions.length ||
+    state.sessionId !== id ||
+    state.ownerId !== ownerId
+  )
     return (
-      <div className="app-surface">
-        <main className="app-main">
+      <ExamFrame stage="Ujian">
+        <div className="stack">
           <ErrorPanel message={error || "Sesi tidak ditemukan."} />
-          <Link className="button" href="/history">
+          <Link className="button button-secondary" href="/history">
             Kembali ke riwayat
           </Link>
-        </main>
-      </div>
+        </div>
+      </ExamFrame>
     );
-  const q = state.questions[state.currentIndex];
+
+  const question = state.questions[state.currentIndex];
   const pending = Object.keys(state.pending).length;
   const answered = Object.keys(state.answers).length;
   const doubts = Object.values(state.doubtStatus).filter(Boolean).length;
-  const clock = `${Math.floor(state.timeLeft / 60)
-    .toString()
-    .padStart(2, "0")}:${(state.timeLeft % 60).toString().padStart(2, "0")}`;
-  const navigatorPanel = (
-    <div className="stack">
-      <p className="muted">
-        {answered}/{state.questions.length} dijawab · {doubts} ragu
-      </p>
-      <div className="question-grid">
-        {state.questions.map((question, i) => (
-          <button
-            key={question.id}
-            aria-label={`Soal ${question.number}, ${state.answers[question.id] ? "dijawab" : "belum dijawab"}${state.doubtStatus[question.id] ? ", ragu-ragu" : ""}`}
-            aria-current={i === state.currentIndex}
-            data-answered={!!state.answers[question.id]}
-            data-doubt={!!state.doubtStatus[question.id]}
-            onClick={() => {
-              state.setCurrentIndex(i);
-              setNav(false);
-              window.scrollTo({ top: 0, behavior: "instant" });
-            }}
-          >
-            {question.number}
-          </button>
-        ))}
-      </div>
-      <p className="muted" style={{ fontSize: 12 }}>
-        Hijau: dijawab · Kuning: ragu · Indigo: soal aktif
-      </p>
-    </div>
+  const total = state.questions.length;
+  const confirmed = Math.max(0, answered - pending);
+  const clock = `${String(Math.floor(state.timeLeft / 60)).padStart(2, "0")}:${String(state.timeLeft % 60).padStart(2, "0")}`;
+  const canFinish = !busy && !conflict;
+  const items: NavigatorItem[] = state.questions.map((item) => ({
+    id: item.id,
+    number: item.number,
+    segment: item.segment,
+    status: state.pending[item.id]
+      ? "pending"
+      : state.answers[item.id]
+        ? "saved"
+        : "blank",
+    flagged: state.doubtStatus[item.id],
+  }));
+
+  function goTo(index: number) {
+    state.setCurrentIndex(index);
+    setNav(false);
+    requestAnimationFrame(() => questionHeading.current?.focus());
+  }
+
+  function requestFinish() {
+    if (!canFinish) return;
+    setNav(false);
+    if (state.timeLeft === 0) void finish("deadline");
+    else setConfirm(true);
+  }
+
+  const progress = `${confirmed} dari ${total} tersimpan${doubts ? ` · ${doubts} ragu` : ""}`;
+  const renderNavigator = (action?: React.ReactNode) => (
+    <QuestionNavigator
+      items={items}
+      active={question.id}
+      current={progress}
+      onSelect={(questionId) =>
+        goTo(state.questions.findIndex((item) => item.id === questionId))
+      }
+      action={action}
+    />
   );
+
   return (
-    <div className="app-surface">
-      <header className="app-header">
-        <div className="app-header-inner" style={{ maxWidth: 1440 }}>
-          <div className="brand">
-            <BookOpen size={20} />
-            <span className="exam-brand-label">TOCPNS</span>
-          </div>
-          <div
-            role="timer"
-            aria-label="Sisa waktu"
-            style={{
-              fontVariantNumeric: "tabular-nums",
-              fontSize: 22,
-              fontWeight: 650,
-              color: state.timeLeft < 300 ? "var(--danger)" : undefined,
-            }}
-          >
-            {clock}
-          </div>
-          <div className="header-actions">
-            <ThemeToggle />
-            <button
-              className="button button-small"
-              disabled={busy || conflict}
-              onClick={() =>
-                state.timeLeft === 0
-                  ? void finish("deadline")
-                  : setConfirm(true)
-              }
-            >
-              {state.timeLeft === 0 ? "Periksa pengumpulan" : "Selesai"}
-            </button>
-          </div>
+    <ExamFrame
+      stage="Ujian"
+      timer={
+        <div
+          className={styles.timer}
+          data-urgent={state.timeLeft < 300}
+          role="timer"
+          aria-label="Sisa waktu"
+        >
+          <Clock3 size={18} aria-hidden="true" />
+          {clock}
         </div>
+      }
+      action={
+        <button
+          type="button"
+          className={`button button-small ${styles.headerAction}`}
+          disabled={!canFinish}
+          onClick={requestFinish}
+        >
+          {state.timeLeft === 0 ? "Periksa pengumpulan" : "Selesai"}
+        </button>
+      }
+    >
+      <header className={styles.context}>
+        <h1>{state.title}</h1>
       </header>
-      <main className="exam-layout">
-        <div className="exam-reading stack">
+      <div className={styles.workspace}>
+        <div className="stack">
           {storageWarning && (
             <p className="notice notice-warning" role="status">
               Penyimpanan browser tidak tersedia. Tetap buka halaman ini sampai
               semua jawaban tersimpan ke server.
             </p>
           )}
-          {error && <ErrorPanel message={error} />}{" "}
+          {error && !confirm && <ErrorPanel message={error} />}
           {state.saveAuthRequired && (
             <div className="notice notice-warning">
               <p>
-                Sesi masuk berakhir. Jawaban tertunda tetap ada di tab ini;
-                waktu ujian tetap berjalan.
+                Sesi masuk berakhir. Jawaban tertunda tetap ada di tab ini.
+                Waktu ujian tetap berjalan.
               </p>
               <Link
                 className="button button-secondary"
@@ -329,24 +349,28 @@ export default function Runner({ id }: { id: string }) {
           ) : (
             !online && (
               <div className="notice notice-warning">
-                <CloudOff size={18} />
-                Koneksi terputus. Waktu tetap berjalan; jawaban tertunda belum
-                diterima server.
+                <CloudOff size={18} aria-hidden="true" /> Koneksi terputus.
+                Waktu tetap berjalan. Jawaban tertunda belum diterima server.
               </div>
             )
           )}
           {conflict && (
             <div className="notice notice-warning">
-              <p>Sesi sedang digunakan di tab/perangkat lain.</p>
+              <p>Sesi sedang digunakan di tab atau perangkat lain.</p>
               <button
+                type="button"
                 className="button button-secondary"
                 onClick={async () => {
+                  if (!ownerId) return;
                   try {
-                    const d = await api<Attempt>(`/exam/session/${id}/claim`, {
-                      method: "POST",
-                      body: JSON.stringify({ writer_id: writerId() }),
-                    });
-                    state.initialize(user!.id, d);
+                    const attempt = await api<Attempt>(
+                      `/exam/session/${id}/claim`,
+                      {
+                        method: "POST",
+                        body: JSON.stringify({ writer_id: writerId() }),
+                      },
+                    );
+                    state.initialize(ownerId, attempt);
                   } catch (e) {
                     setError(
                       e instanceof Error
@@ -360,116 +384,106 @@ export default function Runner({ id }: { id: string }) {
               </button>
             </div>
           )}
-          <section className="panel">
-            <div className="between">
-              <span className="badge">
-                Soal {q.number} · {q.segment}
-              </span>
-              <button
-                className="button button-small button-secondary"
-                aria-pressed={!!state.doubtStatus[q.id]}
-                onClick={() => state.toggleDoubt(q.id)}
+          <article className={styles.question} aria-labelledby="exam-question">
+            <header className={styles.questionMeta}>
+              <h2
+                className={styles.questionLabel}
+                id="exam-question"
+                ref={questionHeading}
+                tabIndex={-1}
               >
-                <Flag size={15} />
-                {state.doubtStatus[q.id] ? "Ditandai ragu" : "Ragu-ragu"}
+                <strong>{question.segment}</strong> Soal {question.number} dari{" "}
+                {total}
+              </h2>
+              <button
+                type="button"
+                className={`button button-small button-secondary ${styles.flag}`}
+                aria-pressed={!!state.doubtStatus[question.id]}
+                onClick={() => state.toggleDoubt(question.id)}
+              >
+                <Flag size={15} aria-hidden="true" />{" "}
+                {state.doubtStatus[question.id]
+                  ? "Ditandai ragu"
+                  : "Tandai ragu"}
               </button>
-            </div>
-            <div className="question-content">
-              <MarkdownRenderer>{q.content}</MarkdownRenderer>
-              {q.image_url && (
-                <button
-                  aria-label="Perbesar gambar soal"
-                  onClick={() => setZoom(q.image_url!)}
-                >
-                  <img
-                    className="diagram-image"
-                    src={q.image_url}
-                    alt={`Diagram soal ${q.number}`}
-                  />
-                </button>
+            </header>
+            <div className={styles.prompt}>
+              <ExamText>{question.content}</ExamText>
+              {question.image_url && (
+                <QuestionImage
+                  image={{
+                    src: question.image_url,
+                    label: `Gambar soal ${question.number}`,
+                  }}
+                  onZoom={setZoom}
+                />
               )}
             </div>
-            <fieldset
+            <AnswerChoices
+              question={question}
+              selected={state.answers[question.id]}
               disabled={conflict || busy || state.timeLeft === 0}
-              className="answer-options"
+              choose={(option) => state.selectOption(question.id, option)}
+              zoom={setZoom}
+            />
+            <p
+              className={styles.saveStatus}
+              data-warning={!!state.saveError}
+              role="status"
             >
-              <legend className="sr-only">Pilih satu jawaban</legend>
-              {q.options.map((o) => (
-                <label
-                  className="answer-option"
-                  key={o.id}
-                  data-selected={state.answers[q.id] === o.id}
-                >
-                  <input
-                    type="radio"
-                    name={`answer-${q.id}`}
-                    value={o.id}
-                    checked={state.answers[q.id] === o.id}
-                    onChange={() => state.selectOption(q.id, o.id)}
-                    style={{ marginTop: 8, accentColor: "var(--accent-solid)" }}
-                  />
-                  <span className="answer-letter">{o.label}</span>
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <MarkdownRenderer>{o.content}</MarkdownRenderer>
-                    {o.image_url && (
-                      <img
-                        className="diagram-image"
-                        src={o.image_url}
-                        alt={`Gambar pilihan ${o.label}`}
-                      />
-                    )}
-                  </div>
-                </label>
-              ))}
-            </fieldset>
-            <div className="save-status" role="status">
               {state.saveError ? (
-                <span style={{ color: "var(--warning)" }}>
-                  {state.saveError} {pending} jawaban belum terkirim.
-                </span>
+                `${state.saveError} ${pending} jawaban belum terkirim.`
               ) : pending ? (
                 `${pending} jawaban sedang disimpan…`
+              ) : answered ? (
+                <>
+                  <CheckCircle2 size={15} aria-hidden="true" /> Semua jawaban
+                  terkonfirmasi tersimpan.
+                </>
               ) : (
-                <span className="inline" style={{ gap: 6 }}>
-                  <CheckCircle2 size={15} />
-                  {answered
-                    ? "Jawaban terkonfirmasi tersimpan."
-                    : "Pilih jawaban untuk memulai."}
-                </span>
+                "Pilih satu jawaban."
               )}
-            </div>
-          </section>
-          <div className="exam-actions">
-            <button
-              className="button button-secondary"
-              disabled={state.currentIndex === 0}
-              onClick={() => state.setCurrentIndex(state.currentIndex - 1)}
-            >
-              Sebelumnya
-            </button>
-            <button
-              className="button button-secondary"
-              onClick={() => setNav(true)}
-              aria-label="Buka daftar soal"
-            >
-              <LayoutGrid size={18} />
-            </button>
-            <button
-              className="button"
-              disabled={state.currentIndex === state.questions.length - 1}
-              onClick={() => state.setCurrentIndex(state.currentIndex + 1)}
-            >
-              Berikutnya
-            </button>
-          </div>
+            </p>
+            <QuestionActions
+              previous={
+                state.currentIndex > 0
+                  ? () => goTo(state.currentIndex - 1)
+                  : undefined
+              }
+              next={
+                state.currentIndex < total - 1
+                  ? () => goTo(state.currentIndex + 1)
+                  : undefined
+              }
+              openMap={() => setNav(true)}
+              finish={
+                state.currentIndex === total - 1 && canFinish
+                  ? requestFinish
+                  : undefined
+              }
+            />
+          </article>
         </div>
-        <aside className="panel exam-navigator">
-          <h2 style={{ marginBottom: 20 }}>Daftar soal</h2>
-          {navigatorPanel}
+        <aside className={styles.navigator}>
+          <div className={styles.navHeading}>
+            <h2>Daftar soal</h2>
+            <LayoutGrid size={18} aria-hidden="true" />
+          </div>
+          {renderNavigator(
+            <button
+              type="button"
+              className={`button button-secondary ${styles.mapFinish}`}
+              disabled={!canFinish}
+              onClick={requestFinish}
+            >
+              {state.timeLeft === 0 ? "Periksa pengumpulan" : "Kumpulkan ujian"}{" "}
+              <ArrowRight size={16} aria-hidden="true" />
+            </button>,
+          )}
         </aside>
-      </main>
+      </div>
       <Modal open={nav} title="Daftar soal" onClose={() => setNav(false)}>
-        {navigatorPanel}
+        {nav && renderNavigator()}
       </Modal>
       <Modal
         open={confirm}
@@ -477,28 +491,39 @@ export default function Runner({ id }: { id: string }) {
         onClose={() => setConfirm(false)}
       >
         <p className="muted">
-          {answered} dijawab · {state.questions.length - answered} kosong ·{" "}
-          {doubts} ragu-ragu.
+          {answered} dijawab · {total - answered} kosong · {doubts} ragu.
         </p>
         {pending > 0 && (
-          <div className="notice notice-warning">
+          <p className="notice notice-warning">
             {pending} jawaban masih menunggu konfirmasi.
-          </div>
+          </p>
         )}
         <p>Setelah dikumpulkan, jawaban tidak dapat diubah.</p>
-        <button
-          className="button"
-          disabled={busy || conflict}
-          onClick={() =>
-            void finish(state.timeLeft === 0 ? "deadline" : "manual")
-          }
-        >
-          {busy ? "Mengumpulkan…" : "Ya, kumpulkan jawaban"}
-        </button>
+        <div className="inline">
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={() => setConfirm(false)}
+            disabled={busy}
+          >
+            Lanjut mengerjakan
+          </button>
+          <button
+            type="button"
+            className="button"
+            disabled={!canFinish}
+            onClick={() =>
+              void finish(state.timeLeft === 0 ? "deadline" : "manual")
+            }
+          >
+            {busy ? "Mengumpulkan…" : "Ya, kumpulkan jawaban"}
+          </button>
+        </div>
         {pending > 0 && online && state.timeLeft > 0 && (
           <button
+            type="button"
             className="button button-secondary"
-            disabled={busy || conflict}
+            disabled={!canFinish}
             onClick={() => void finish("manual", true)}
           >
             Kumpulkan jawaban yang sudah tersimpan
@@ -506,15 +531,7 @@ export default function Runner({ id }: { id: string }) {
         )}
         {error && <ErrorPanel message={error} />}
       </Modal>
-      <Modal open={!!zoom} title="Gambar soal" onClose={() => setZoom(null)}>
-        {zoom && (
-          <img
-            className="diagram-image"
-            src={zoom}
-            alt="Diagram soal diperbesar"
-          />
-        )}
-      </Modal>
-    </div>
+      <ImageDialog image={zoom} close={() => setZoom(null)} />
+    </ExamFrame>
   );
 }

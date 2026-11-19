@@ -1,17 +1,42 @@
 "use client";
-import { useEffect, useState } from "react";
+
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import AppShell, { Loading, ErrorPanel, Scores } from "@/components/AppShell";
+import {
+  ArrowLeft,
+  ArrowRight,
+  BookOpen,
+  LayoutGrid,
+  RotateCcw,
+} from "lucide-react";
+import { Loading, ErrorPanel } from "@/components/AppShell";
 import { useResource } from "@/lib/useResource";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
-import MarkdownRenderer from "@/components/ui/MarkdownRenderer";
 import Modal from "@/components/Modal";
 import { useExamStore } from "@/store/useExamStore";
+import {
+  ExamFrame,
+  ExamText,
+  ImageDialog,
+  QuestionActions,
+  QuestionImage,
+  QuestionNavigator,
+  ReviewChoices,
+  reviewOutcome,
+  segments,
+  segmentNames,
+  type ExamImage,
+  type ReviewQuestion,
+} from "./ExamLayout";
+import styles from "./exam.module.css";
+
 type Result = {
   status: string;
   package_id: string;
+  package_title?: string | null;
+  can_repeat?: boolean;
   revision_id?: string | null;
   total_score: number;
   score_twk: number;
@@ -21,33 +46,30 @@ type Result = {
   passing_grades?: Record<string, number>;
   answers?: Record<string, string>;
 };
-type ReviewOption = {
-  id: string;
-  label: string;
-  content: string;
-  image_url?: string;
-  score: number;
-};
-type ReviewQuestion = {
-  id: string;
-  number: number;
-  content: string;
-  image_url?: string;
-  discussion?: string;
-  segment: string;
-  selected_option_id: string | null;
-  options: ReviewOption[];
-};
+
 type Review = {
-  session_id: string;
   revision_id?: string | null;
   package_title: string;
   questions: ReviewQuestion[];
-  total_score: number;
-  score_twk: number;
-  score_tiu: number;
-  score_tkp: number;
 };
+
+const filters = [
+  ["all", "Semua"],
+  ["needs-review", "Perlu ditinjau"],
+  ["wrong", "Salah"],
+  ["blank", "Kosong"],
+  ["partial", "TKP belum maksimal"],
+] as const;
+type ReviewFilter = (typeof filters)[number][0];
+
+function matchFilter(question: ReviewQuestion, filter: ReviewFilter) {
+  const { status } = reviewOutcome(question);
+  return (
+    filter === "all" ||
+    (filter === "needs-review" ? status !== "best" : status === filter)
+  );
+}
+
 export function ResultView({ id }: { id: string }) {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -63,11 +85,15 @@ export function ResultView({ id }: { id: string }) {
       ? state.unsubmittedCount
       : 0,
   );
+  const attemptTitle = useExamStore((state) =>
+    state.ownerId === ownerId && state.sessionId === id ? state.title : "",
+  );
   const { data, error, loading, reload } = useResource<Result>(
     `/exam/result/${id}${pending ? "?include_answers=true" : ""}`,
     !!user,
   );
   const [slow, setSlow] = useState(false);
+
   useEffect(() => {
     if (ownerId && data?.answers)
       useExamStore.getState().recordSubmission(ownerId, id, data.answers);
@@ -81,338 +107,393 @@ export function ResultView({ id }: { id: string }) {
   useEffect(() => {
     if (data?.status !== "processing" || slow) return;
     const started = Date.now();
-    const t = setInterval(() => {
+    const timer = setInterval(() => {
       if (Date.now() - started > 60000) {
         setSlow(true);
-        clearInterval(t);
+        clearInterval(timer);
       } else reload();
     }, 2500);
-    return () => clearInterval(t);
+    return () => clearInterval(timer);
   }, [data?.status, reload, slow]);
+
+  const waiting = authLoading || !user || (!data && loading);
   const done =
     data?.status === "finished" || data?.status === "already finished";
+  const reviewUrl = `/session/${id}/review`;
+  const title = data?.package_title || attemptTitle;
   return (
-    <AppShell
-      title="Hasil latihan"
-      description="Pahami hasilmu, lalu tentukan langkah belajar berikutnya."
+    <ExamFrame
+      stage="Hasil"
+      action={
+        <Link
+          className={`button button-small ${styles.headerAction}`}
+          href="/history"
+        >
+          Riwayat
+        </Link>
+      }
     >
-      {unsubmittedCount > 0 && (
-        <p className="notice notice-warning" role="status">
-          {unsubmittedCount} pilihan terakhir dari tab ini belum tercatat saat
-          ujian dikumpulkan. Hasil dihitung dari jawaban yang diterima server.
-        </p>
-      )}
-      {authLoading || (!data && loading) ? (
-        <Loading label="Memuat hasil latihan…" />
-      ) : error ? (
-        <ErrorPanel message={error} retry={reload} />
-      ) : !done ? (
-        <section className="panel stack">
-          <h2>
-            {data?.status === "ongoing"
-              ? "Ujian belum dikumpulkan."
-              : "Jawaban sudah dikumpulkan."}
-          </h2>
-          <p className="muted">
-            {data?.status === "ongoing"
-              ? "Kembali ke sesi untuk melanjutkan atau mengumpulkan jawaban."
-              : slow
-                ? "Pemrosesan membutuhkan waktu lebih lama. Jawaban tetap tersimpan; kamu dapat memeriksa kembali melalui riwayat."
-                : "Hasil sedang dihitung. Halaman ini akan diperbarui otomatis."}
+      <header className={styles.resultHeading}>
+        <h1>Hasil latihan</h1>
+        {title && <p>{title}</p>}
+      </header>
+      <div className="stack">
+        {unsubmittedCount > 0 && (
+          <p className="notice notice-warning" role="status">
+            {unsubmittedCount} pilihan terakhir dari tab ini belum tercatat saat
+            ujian dikumpulkan. Hasil dihitung dari jawaban yang diterima server.
           </p>
-          <div className="inline">
-            {data?.status === "ongoing" ? (
-              <Link className="button" href={`/session/${id}`}>
-                Kembali ke ujian
-              </Link>
-            ) : (
-              <button
-                className="button button-secondary"
-                onClick={() => {
-                  setSlow(false);
-                  reload();
-                }}
-              >
-                Periksa hasil
-              </button>
-            )}
-            <Link className="button button-secondary" href="/history">
-              Riwayat latihan
-            </Link>
-          </div>
-        </section>
-      ) : (
-        data && (
-          <div className="two-column">
-            <section className="panel stack">
+        )}
+        {waiting ? (
+          <Loading label="Memuat hasil latihan…" />
+        ) : error ? (
+          <ErrorPanel message={error} retry={reload} />
+        ) : done && data ? (
+          <>
+            <section className={styles.resultHero} aria-label="Ringkasan nilai">
+              <div>
+                <p>Skor total</p>
+                <strong>{data.total_score}</strong>
+              </div>
               <span
                 className={`badge ${data.is_passed ? "badge-green" : "badge-amber"}`}
               >
                 {data.is_passed
-                  ? "Memenuhi ambang batas latihan"
-                  : "Masih ada bagian yang perlu dilatih"}
+                  ? "Mencapai ambang latihan"
+                  : "Belum mencapai ambang latihan"}
               </span>
-              <Scores scores={data} />
-              <p className="muted">
-                Hasil ini menggambarkan performa simulasi, bukan keputusan
-                kelulusan seleksi resmi.
-              </p>
-              <Link className="button" href={`/session/${id}/review`}>
-                Pelajari pembahasan →
-              </Link>
             </section>
-            <aside className="panel stack">
-              <h2>Langkah berikutnya</h2>
-              <p className="muted">
-                Mulai dari jawaban yang salah, kosong, atau belum memperoleh
-                poin maksimal. Pahami alasannya sebelum latihan berikutnya.
-              </p>
-              <p className="muted" style={{ fontSize: 13 }}>
-                Acuan latihan:{" "}
-                {Object.entries(
-                  data.passing_grades || { TWK: 65, TIU: 80, TKP: 166 },
-                )
-                  .map(([key, value]) => `${key} ${value}`)
-                  .join(" · ")}
-                . Periksa ketentuan seleksi resmi yang berlaku untuk
-                kebutuhanmu.
-              </p>
+            <div className={styles.scoreCards}>
+              {segments.map((segment) => {
+                const value = {
+                  TWK: data.score_twk,
+                  TIU: data.score_tiu,
+                  TKP: data.score_tkp,
+                }[segment];
+                const target =
+                  data.passing_grades?.[segment] ??
+                  { TWK: 65, TIU: 80, TKP: 166 }[segment];
+                return (
+                  <section className={styles.scoreCard} key={segment}>
+                    <h2>
+                      {segment} · {segmentNames[segment]}
+                    </h2>
+                    <strong>{value}</strong>
+                    <p data-met={value >= target}>Ambang latihan {target}</p>
+                  </section>
+                );
+              })}
+            </div>
+            <div className="inline">
+              <Link className="button" href={reviewUrl}>
+                <BookOpen size={17} aria-hidden="true" /> Buka pembahasan
+              </Link>
               <Link
                 className="button button-secondary"
-                href={`/catalog/${data.package_id}`}
+                href={`${reviewUrl}?filter=needs-review`}
               >
-                Latihan kembali
+                Bahas yang perlu ditinjau{" "}
+                <ArrowRight size={16} aria-hidden="true" />
               </Link>
-              <Link className="muted" href="/analytics">
-                Lihat perkembangan & penguasaan topik →
-              </Link>
+              {data.can_repeat && (
+                <Link
+                  className="button button-secondary"
+                  href={`/catalog/${data.package_id}`}
+                >
+                  <RotateCcw size={16} aria-hidden="true" /> Ulangi ujian
+                </Link>
+              )}
+            </div>
+            <nav className={styles.resultLinks} aria-label="Lanjutan latihan">
+              {!data.can_repeat && (
+                <Link href={`/catalog/${data.package_id}`}>
+                  Kembali ke paket
+                </Link>
+              )}
               <Link
-                className="muted"
                 href={`/leaderboard?package_id=${encodeURIComponent(data.package_id)}${data.revision_id ? `&revision_id=${encodeURIComponent(data.revision_id)}` : ""}`}
               >
-                Peringkat latihan paket ini →
+                Peringkat paket
               </Link>
-              <Link className="muted" href="/history">
-                Lihat semua riwayat
+              <Link href="/analytics">Perkembangan belajar</Link>
+              <Link href="/history">Semua riwayat</Link>
+            </nav>
+            <p className="muted">
+              Ambang ini berlaku untuk simulasi. Untuk seleksi resmi, ikuti
+              aturan tahun dan formasi yang kamu lamar.
+            </p>
+          </>
+        ) : (
+          <section className="panel stack">
+            <h2>
+              {data?.status === "ongoing"
+                ? "Ujian belum dikumpulkan"
+                : "Jawaban sudah dikumpulkan"}
+            </h2>
+            <p className="muted">
+              {data?.status === "ongoing"
+                ? "Kembali ke sesi untuk melanjutkan ujian."
+                : slow
+                  ? "Pemrosesan membutuhkan waktu lebih lama. Jawaban tetap tersimpan dan hasil bisa diperiksa dari riwayat."
+                  : "Nilai sedang dihitung. Hasil akan muncul otomatis."}
+            </p>
+            <div className="inline">
+              {data?.status === "ongoing" ? (
+                <Link className="button" href={`/session/${id}`}>
+                  Kembali ke ujian
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  onClick={() => {
+                    setSlow(false);
+                    reload();
+                  }}
+                >
+                  Periksa hasil
+                </button>
+              )}
+              <Link className="button button-secondary" href="/history">
+                Riwayat latihan
               </Link>
-            </aside>
-          </div>
-        )
-      )}
-    </AppShell>
+            </div>
+          </section>
+        )}
+      </div>
+    </ExamFrame>
   );
 }
-export function ReviewView({ id }: { id: string }) {
+
+export function ReviewView({
+  id,
+  initialFilter,
+  initialQuestion,
+}: {
+  id: string;
+  initialFilter?: string;
+  initialQuestion?: string;
+}) {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { data, error, loading, reload } = useResource<Review>(
     `/exam/session/${id}/review`,
     !!user,
   );
-  const [filter, setFilter] = useState("Semua");
-  const [index, setIndex] = useState(0);
-  const [report, setReport] = useState(false);
+  const [filter, setFilter] = useState<ReviewFilter>(
+    () => filters.find(([key]) => key === initialFilter)?.[0] ?? "all",
+  );
+  const [active, setActive] = useState(initialQuestion);
+  const [mapOpen, setMapOpen] = useState(false);
+  const [reportQuestion, setReportQuestion] = useState<ReviewQuestion | null>(
+    null,
+  );
   const [message, setMessage] = useState("");
   const [sent, setSent] = useState(false);
   const [sendError, setSendError] = useState("");
   const [sending, setSending] = useState(false);
-  const [zoom, setZoom] = useState<string | null>(null);
+  const [zoom, setZoom] = useState<ExamImage | null>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
-    if (!authLoading && !user)
-      router.replace(
-        `/login?next=${encodeURIComponent(`/session/${id}/review`)}`,
-      );
+    if (!authLoading && !user) {
+      const next = `/session/${id}/review${window.location.search}`;
+      router.replace(`/login?next=${encodeURIComponent(next)}`);
+    }
   }, [user, authLoading, id, router]);
-  const items = (data?.questions || []).filter((q) => {
-    const selected = q.options.find((o) => o.id === q.selected_option_id);
-    const max = Math.max(...q.options.map((o) => o.score));
-    return (
-      filter === "Semua" ||
-      (filter === "Kosong"
-        ? !selected
-        : filter === "Salah"
-          ? q.segment !== "TKP" && !!selected && selected.score < max
-          : q.segment === "TKP" && !!selected && selected.score < max)
-    );
-  });
-  const q = items[Math.min(index, Math.max(0, items.length - 1))];
-  const max = q ? Math.max(...q.options.map((o) => o.score)) : 0;
+
+  const questions = data?.questions ?? [];
+  const items = questions.filter((question) => matchFilter(question, filter));
+  const q = items.find((question) => question.id === active) ?? items[0];
+  const index = items.findIndex((question) => question.id === q?.id);
+  const status = q && reviewOutcome(q);
+
+  function goTo(questionId: string) {
+    setActive(questionId);
+    setMapOpen(false);
+    requestAnimationFrame(() => heading.current?.focus());
+  }
+
+  function openReport(question: ReviewQuestion) {
+    setReportQuestion(question);
+    setMessage("");
+    setSent(false);
+    setSendError("");
+  }
+
+  const navigator = q && (
+    <QuestionNavigator
+      items={items.map((question) => ({
+        id: question.id,
+        number: question.number,
+        segment: question.segment,
+        status: reviewOutcome(question).status,
+      }))}
+      active={q.id}
+      current={`${items.length} dari ${questions.length} soal`}
+      onSelect={goTo}
+      review
+    />
+  );
+
   return (
-    <AppShell
-      title="Pembahasan"
-      description={data?.package_title}
+    <ExamFrame
+      stage="Pembahasan"
       action={
         <Link
-          className="button button-secondary"
+          className={`button button-small ${styles.headerAction}`}
           href={`/session/${id}/result`}
         >
-          Kembali ke hasil
+          <ArrowLeft size={15} aria-hidden="true" /> Kembali ke hasil
         </Link>
       }
     >
-      {authLoading || loading ? (
-        <Loading />
+      <header className={styles.context}>
+        <h1>Pembahasan</h1>
+        {data?.package_title && <p>{data.package_title}</p>}
+      </header>
+      {authLoading || !user || loading ? (
+        <Loading label="Memuat pembahasan…" />
       ) : error ? (
         <ErrorPanel message={error} retry={reload} />
       ) : (
         <>
-          <div className="filters" aria-label="Filter pembahasan">
-            {["Semua", "Salah", "Kosong", "TKP belum maksimal"].map((f) => (
-              <button
-                className="filter"
-                key={f}
-                aria-pressed={filter === f}
-                onClick={() => {
-                  setFilter(f);
-                  setIndex(0);
-                }}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
-          {!q ? (
-            <div className="empty-state panel">
-              <h2>Tidak ada soal pada pilihan ini.</h2>
-              <p>Coba filter lain untuk melihat pembahasan.</p>
+          <div className={styles.reviewBar}>
+            <div
+              className="filters"
+              role="group"
+              aria-label="Filter pembahasan"
+            >
+              {filters.map(([key, name]) => (
+                <button
+                  type="button"
+                  className="filter"
+                  key={key}
+                  aria-pressed={filter === key}
+                  onClick={() => setFilter(key)}
+                >
+                  {name}
+                </button>
+              ))}
             </div>
-          ) : (
-            <div className="two-column">
-              <article className="panel stack">
-                <div className="between">
-                  <span className="badge">
-                    Soal {q.number} · {q.segment}
+            <p className="muted">{items.length} soal</p>
+          </div>
+          {q && status ? (
+            <div className={styles.workspace}>
+              <article
+                className={styles.question}
+                aria-labelledby="review-question"
+              >
+                <header className={styles.questionMeta}>
+                  <h2
+                    className={styles.questionLabel}
+                    id="review-question"
+                    ref={heading}
+                    tabIndex={-1}
+                  >
+                    <strong>{q.segment}</strong> Soal {q.number} dari{" "}
+                    {questions.length}
+                  </h2>
+                  <span
+                    className={styles.reviewPoints}
+                    data-status={status.status}
+                  >
+                    {!status.selected ? "Belum dijawab · " : ""}
+                    {status.selected?.score ?? 0} / {status.max} poin
                   </span>
-                  <span className="muted">
-                    {index + 1} dari {items.length}
-                  </span>
-                </div>
-                <div className="question-content" style={{ margin: "4px 0" }}>
-                  <MarkdownRenderer>{q.content}</MarkdownRenderer>
+                </header>
+                <div className={styles.prompt}>
+                  <ExamText>{q.content}</ExamText>
                   {q.image_url && (
-                    <button
-                      aria-label="Perbesar gambar soal"
-                      onClick={() => setZoom(q.image_url!)}
-                    >
-                      <img
-                        className="diagram-image"
-                        src={q.image_url}
-                        alt="Diagram soal"
-                      />
-                    </button>
+                    <QuestionImage
+                      image={{
+                        src: q.image_url,
+                        label: `Gambar soal ${q.number}`,
+                      }}
+                      onZoom={setZoom}
+                    />
                   )}
                 </div>
-                <div className="answer-options">
-                  {q.options.map((o) => (
-                    <div
-                      className="answer-option"
-                      data-result={
-                        o.score === max && max > 0
-                          ? "best"
-                          : o.id === q.selected_option_id
-                            ? "selected"
-                            : undefined
-                      }
-                      style={{
-                        cursor: "default",
-                      }}
-                      key={o.id}
-                    >
-                      <span className="answer-letter">{o.label}</span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <MarkdownRenderer>{o.content}</MarkdownRenderer>
-                        {o.image_url && (
-                          <img
-                            className="diagram-image"
-                            src={o.image_url}
-                            alt={`Gambar opsi ${o.label}`}
-                          />
-                        )}
-                        <div className="inline" style={{ marginTop: 9 }}>
-                          <span className="badge badge-neutral">
-                            {o.score} poin
-                          </span>
-                          {o.id === q.selected_option_id && (
-                            <span className="badge">Pilihanmu</span>
-                          )}
-                          {o.score === max && max > 0 && (
-                            <span className="badge badge-green">
-                              Poin maksimal
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <section>
-                  <h2 style={{ marginBottom: 15 }}>Alasan dan pembahasan</h2>
-                  <div className="discussion">
-                    <MarkdownRenderer>
+                <ReviewChoices question={q} zoom={setZoom} />
+                <section
+                  className={styles.discussion}
+                  aria-labelledby="discussion-title"
+                >
+                  <span className={styles.discussionIcon}>
+                    <BookOpen size={19} aria-hidden="true" />
+                  </span>
+                  <div>
+                    <h3 id="discussion-title">Pembahasan soal</h3>
+                    <ExamText>
                       {q.discussion ||
                         "Pembahasan belum tersedia untuk soal ini."}
-                    </MarkdownRenderer>
+                    </ExamText>
                   </div>
                 </section>
-                <div className="exam-actions">
+                <p className={styles.saveStatus}>
                   <button
-                    className="button button-secondary"
-                    disabled={index === 0}
-                    onClick={() => setIndex((i) => i - 1)}
+                    type="button"
+                    className="button button-small button-secondary"
+                    onClick={() => openReport(q)}
                   >
-                    Sebelumnya
+                    Laporkan masalah soal
                   </button>
-                  <button
-                    className="button"
-                    disabled={index === items.length - 1}
-                    onClick={() => {
-                      setIndex((i) => i + 1);
-                      window.scrollTo({ top: 0, behavior: "instant" });
-                    }}
-                  >
-                    Berikutnya
-                  </button>
-                </div>
-              </article>
-              <aside className="panel stack">
-                <h2>Pelajari satu per satu.</h2>
-                <p className="muted">
-                  Perhatikan alasan pemilihan jawaban dan perbedaan poin setiap
-                  opsi. Gunakan filter untuk menentukan fokus belajarmu.
                 </p>
-                <button
-                  className="button button-secondary"
-                  onClick={() => {
-                    setReport(true);
-                    setSent(false);
-                    setSendError("");
-                    setMessage("");
-                  }}
-                >
-                  Laporkan masalah soal
-                </button>
-                <Link className="muted" href="/history">
-                  Kembali ke riwayat
-                </Link>
+                <QuestionActions
+                  previous={
+                    index > 0 ? () => goTo(items[index - 1].id) : undefined
+                  }
+                  next={
+                    index < items.length - 1
+                      ? () => goTo(items[index + 1].id)
+                      : undefined
+                  }
+                  openMap={() => setMapOpen(true)}
+                />
+              </article>
+              <aside className={styles.navigator}>
+                <div className={styles.navHeading}>
+                  <h2>Daftar soal</h2>
+                  <LayoutGrid size={18} aria-hidden="true" />
+                </div>
+                {navigator}
               </aside>
             </div>
+          ) : (
+            <section className="panel stack">
+              <h2>Tidak ada soal untuk filter ini</h2>
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={() => setFilter("all")}
+              >
+                Tampilkan semua soal
+              </button>
+            </section>
           )}
         </>
       )}
       <Modal
-        open={report}
+        open={mapOpen}
+        title="Daftar soal"
+        onClose={() => setMapOpen(false)}
+      >
+        {mapOpen && navigator}
+      </Modal>
+      <Modal
+        open={!!reportQuestion}
         title="Laporkan masalah soal"
-        onClose={() => setReport(false)}
+        onClose={() => setReportQuestion(null)}
       >
         {sent ? (
           <p className="notice">
-            Laporan terkirim. Terima kasih sudah membantu perbaikan konten.
+            Laporan terkirim. Terima kasih sudah membantu perbaikan soal.
           </p>
         ) : (
           <form
             className="stack"
-            onSubmit={async (e) => {
-              e.preventDefault();
+            onSubmit={async (event) => {
+              event.preventDefault();
+              if (!reportQuestion) return;
               setSending(true);
               setSendError("");
               try {
@@ -420,8 +501,8 @@ export function ReviewView({ id }: { id: string }) {
                   method: "POST",
                   body: JSON.stringify({
                     category: "correction",
-                    content: `Soal ${q?.number}: ${message}`,
-                    path_context: `/session/${id}/review?question=${q?.id}${data?.revision_id ? `&revision=${data.revision_id}` : ""}`,
+                    content: `Soal ${reportQuestion.number}: ${message}`,
+                    path_context: `/session/${id}/review?question=${reportQuestion.id}${data?.revision_id ? `&revision=${data.revision_id}` : ""}`,
                   }),
                 });
                 setSent(true);
@@ -435,7 +516,7 @@ export function ReviewView({ id }: { id: string }) {
             }}
           >
             <p className="muted">
-              Konteks sesi dan soal {q?.number} akan disertakan.
+              Konteks sesi dan soal {reportQuestion?.number} akan disertakan.
             </p>
             <label className="field">
               Apa yang perlu diperiksa?
@@ -446,21 +527,17 @@ export function ReviewView({ id }: { id: string }) {
                 required
                 rows={5}
                 value={message}
-                onChange={(e) => setMessage(e.target.value)}
+                onChange={(event) => setMessage(event.target.value)}
               />
             </label>
             {sendError && <ErrorPanel message={sendError} />}
-            <button className="button" disabled={sending}>
+            <button type="submit" className="button" disabled={sending}>
               {sending ? "Mengirim…" : "Kirim laporan"}
             </button>
           </form>
         )}
       </Modal>
-      <Modal open={!!zoom} title="Gambar soal" onClose={() => setZoom(null)}>
-        {zoom && (
-          <img className="diagram-image" src={zoom} alt="Diagram diperbesar" />
-        )}
-      </Modal>
-    </AppShell>
+      <ImageDialog image={zoom} close={() => setZoom(null)} />
+    </ExamFrame>
   );
 }

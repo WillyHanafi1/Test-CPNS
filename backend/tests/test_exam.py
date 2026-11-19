@@ -3,7 +3,10 @@ Exam Lifecycle Tests — start, autosave, finish, result polling.
 """
 
 import uuid
+import pytest
 from httpx import AsyncClient
+from sqlalchemy import update
+from backend.models.models import ExamSession, Question
 from backend.tests.conftest import login_and_get_cookies
 
 
@@ -133,3 +136,28 @@ class TestExamResult:
         # Poll result
         result_resp = await client.get(f"/api/v1/exam/result/{session_id}", cookies=cookies)
         assert result_resp.status_code == 200
+        assert result_resp.json()["can_repeat"] is False
+
+    @pytest.mark.parametrize(
+        "condition,expected",
+        [("ready", True), ("weekly", False), ("pro_required", False), ("incomplete", False)],
+    )
+    async def test_repeat_available_for_ready_mandiri_result(
+        self, client, test_user, test_package_with_questions, db_session, condition, expected
+    ):
+        package = test_package_with_questions
+        package.is_weekly = condition == "weekly"
+        package.is_premium = condition == "pro_required"
+        if condition == "incomplete":
+            await db_session.execute(
+                update(Question).where(Question.package_id == package.id).values(discussion="")
+            )
+        session = ExamSession(user_id=test_user.id, package_id=package.id, status="finished")
+        db_session.add(session)
+        await db_session.commit()
+        cookies = await login_and_get_cookies(client, "testuser@example.com", "TestPassword123")
+
+        response = await client.get(f"/api/v1/exam/result/{session.id}", cookies=cookies)
+
+        assert response.status_code == 200
+        assert response.json()["can_repeat"] is expected

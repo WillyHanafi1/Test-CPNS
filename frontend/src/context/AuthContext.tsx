@@ -7,7 +7,7 @@ import React, {
   useCallback,
   ReactNode,
 } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { api, ApiError, loginDestination } from "@/lib/api";
 interface User {
   id: string;
@@ -43,6 +43,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
+  const localStudio = pathname === "/ujian/desain";
   const refreshSession = useCallback(async () => {
     try {
       const d = await api<
@@ -66,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
   useEffect(() => {
+    if (localStudio) return;
     Promise.resolve()
       .then(refreshSession)
       .catch(() => {})
@@ -75,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
     window.addEventListener("storage", handler);
     return () => window.removeEventListener("storage", handler);
-  }, [refreshSession]);
+  }, [localStudio, refreshSession]);
   const login = async (email: string, password: string) => {
     const data = new FormData();
     data.append("username", email);

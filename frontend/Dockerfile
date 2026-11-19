@@ -9,6 +9,15 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --legacy-peer-deps
 
+# Local design studio. Only the requested preview route is compiled on startup.
+FROM deps AS studio
+COPY --chown=node:node . .
+RUN mkdir -p .next && chown node:node .next
+USER node
+ENV NEXT_TELEMETRY_DISABLED=1 NODE_OPTIONS=--max-old-space-size=640
+EXPOSE 3000
+CMD ["npm", "run", "dev", "--", "--hostname", "0.0.0.0", "--port", "3000"]
+
 # ==========================================
 # Tahap 2: Build Aplikasi (builder)
 # ==========================================

@@ -330,17 +330,45 @@ async def get_exam_result(
 ):
     # Fetch session without locking (pure read-only for polling)
     result = await db.execute(
-        select(ExamSession)
+        select(ExamSession, Package)
+        .outerjoin(Package, Package.id == ExamSession.package_id)
         .where(
             ExamSession.id == session_id, 
             ExamSession.user_id == current_user.id
         )
     )
-    session = result.scalar_one_or_none()
-    if not session:
+    row = result.one_or_none()
+    if not row:
         raise HTTPException(status_code=404, detail="Session not found")
+    session, package = row
     
     revision = await db.get(PackageRevision, session.revision_id) if session.revision_id else None
+    package_title = package.title if package else None
+    if revision:
+        package_title = revision.payload.get("title") or package_title
+    can_repeat = False
+    if (
+        session.status == "finished" and not session.is_preview
+        and package and not package.is_weekly
+        and durable.access_decision(package, current_user)["has_access"]
+    ):
+        published = revision
+        if not revision or revision.id != package.published_revision_id:
+            published = (
+                await db.get(PackageRevision, package.published_revision_id)
+                if package.published_revision_id else None
+            )
+        if published:
+            can_repeat = not durable.validation_errors(published.payload)
+        else:
+            # Older packages can still start from their live questions until their first revision is published.
+            current_package = await db.scalar(
+                select(Package).where(Package.id == session.package_id)
+                .options(selectinload(Package.questions).selectinload(Question.options))
+            )
+            can_repeat = current_package is not None and not durable.validation_errors(
+                durable.snapshot(current_package)
+            )
     answers = None
     if include_answers and session.status in {"processing", "finished"}:
         if revision:
@@ -358,6 +386,8 @@ async def get_exam_result(
         "revision_id": session.revision_id,
         "status": session.status,
         "package_id": str(session.package_id),
+        "package_title": package_title,
+        "can_repeat": can_repeat,
         "total_score": getattr(session, 'total_score', 0) or 0,
         "score_twk": getattr(session, 'score_twk', 0) or 0,
         "score_tiu": getattr(session, 'score_tiu', 0) or 0,
