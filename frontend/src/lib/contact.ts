@@ -1,5 +1,5 @@
 export const SUPPORT_EMAIL =
-  process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "support@tocpns.my.id";
+  process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "hanafiwilly111@gmail.com";
 
 export const SUPPORT_WHATSAPP_DISPLAY =
   process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP_DISPLAY || "0851-1762-3819";

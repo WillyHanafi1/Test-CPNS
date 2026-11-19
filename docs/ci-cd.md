@@ -2,7 +2,7 @@
 
 Push ke `main` menjalankan workflow **CI**. Backend (Python 3.12 + PostgreSQL 16) dan frontend (Node.js 22) diperiksa paralel. Setelah CI sukses, workflow **Deploy** mengirim commit yang sama ke server lewat SSH. Pull request hanya menjalankan CI. Perubahan dokumentasi saja dilewati; tombol **Run workflow** tetap tersedia.
 
-Lint Ruff/ESLint bersifat saran dan tidak menghalangi deploy. Test backend, rehearsal migrasi pada database sementara, kedua suite unit frontend, typecheck, dan build tetap harus lolos. Tidak ada syarat coverage, format, E2E browser, atau persetujuan environment tambahan.
+Lint Ruff/ESLint bersifat saran. Test backend, rehearsal migrasi pada database sementara, kedua suite unit frontend, typecheck, build, dan Playwright tetap harus lolos. Workflow Dependency audit melaporkan advisori versi production pada perubahan lockfile dan setiap pekan. Temuan ditinjau berdasarkan dampaknya pada aplikasi, dan workflow audit berjalan di luar jalur deploy.
 
 ## Pengaturan sekali di GitHub
 

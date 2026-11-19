@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from sqlalchemy import select
 from backend.tests.conftest import login_and_get_cookies, mock_redis
-from backend.models.models import ExamSession, ExamResponse, ExamJob, QuestionOption, UserTransaction
+from backend.models.models import ExamSession, ExamResponse, ExamJob, PackageRevision, QuestionOption, UserTransaction
 from backend.services.exams import score, owned_session
 
 
@@ -24,6 +24,10 @@ def mutation(data, question=0, option=0, **changes):
             "writer_epoch": 1, "writer_id": "tab-a", **changes}
 
 
+def submission(data, mode="manual"):
+    return {"mode": mode, "writer_id": data["writer_id"], "writer_epoch": data["writer_epoch"]}
+
+
 async def test_committed_response_survives_cache_loss_and_snapshot_edit(client, test_user, test_package_with_questions, db_session):
     data = await start(client, test_package_with_questions)
     sid = data["session_id"]
@@ -37,7 +41,7 @@ async def test_committed_response_survives_cache_loss_and_snapshot_edit(client, 
     option = await db_session.get(QuestionOption, row.option_id)
     option.score = 0  # Editing draft content must not rewrite the attempt.
     await db_session.commit()
-    await client.post(f"/api/v1/exam/finish/{sid}")
+    assert (await client.post(f"/api/v1/exam/finish/{sid}", json=submission(data))).status_code == 200
     attempt = await owned_session(db_session, uuid.UUID(sid), test_user.id, lock=True)
     await score(db_session, attempt)
     result = (await client.get(f"/api/v1/exam/result/{sid}")).json()
@@ -76,16 +80,63 @@ async def test_claim_invalidates_previous_writer(client, test_user, test_package
     assert claim.status_code == 200
     assert claim.json()["writer_epoch"] == 2
     assert (await client.post(f"/api/v1/exam/autosave/{sid}", json=mutation(data))).status_code == 409
+    assert (await client.post(f"/api/v1/exam/finish/{sid}")).status_code == 409
+    stale = await client.post(f"/api/v1/exam/finish/{sid}", json=submission(data))
+    assert stale.status_code == 409 and stale.json()["detail"]["code"] == "writer_conflict"
     assert (await client.post(f"/api/v1/exam/autosave/{sid}", json=mutation(data, writer_id="tab-b", writer_epoch=2))).status_code == 200
+    assert (await client.post(f"/api/v1/exam/finish/{sid}", json=submission(claim.json()))).status_code == 200
 
 
 async def test_submit_is_durable_and_late_answers_are_rejected(client, test_user, test_package_with_questions, db_session):
     data = await start(client, test_package_with_questions); sid = data["session_id"]
     for _ in range(2):
-        assert (await client.post(f"/api/v1/exam/finish/{sid}")).status_code == 200
+        assert (await client.post(f"/api/v1/exam/finish/{sid}", json=submission(data))).status_code == 200
     jobs = (await db_session.scalars(select(ExamJob))).all()
     assert len(jobs) == 1 and jobs[0].status == "pending"
     assert (await client.post(f"/api/v1/exam/autosave/{sid}", json=mutation(data))).status_code == 403
+
+
+async def test_full_skd_submission_respects_deadline_and_scores_all_110_answers(
+    client, test_user, test_package_with_questions, db_session,
+):
+    data = await start(client, test_package_with_questions)
+    sid = data["session_id"]
+    session = await db_session.get(ExamSession, uuid.UUID(sid))
+    revision = await db_session.get(PackageRevision, session.revision_id)
+    early = await client.post(f"/api/v1/exam/finish/{sid}", json=submission(data, "deadline"))
+    assert early.status_code == 409 and early.json()["detail"]["code"] == "deadline_not_reached"
+    assert not (await db_session.scalars(select(ExamJob))).all()
+    expected = {}
+    assert len(data["package"]["questions"]) == 110
+    for index, question in enumerate(data["package"]["questions"]):
+        best = max(revision.payload["questions"][index]["options"], key=lambda option: option["score"])
+        option_index = next(i for i, option in enumerate(question["options"]) if option["id"] == best["id"])
+        body = mutation(data, question=index, option=option_index)
+        saved = await client.post(f"/api/v1/exam/autosave/{sid}", json=body)
+        assert saved.status_code == 200 and saved.json()["revision"] == 1
+        expected[question["id"]] = best["id"]
+        if index == 54:
+            replay = await client.post(f"/api/v1/exam/autosave/{sid}", json=body)
+            assert replay.status_code == 200 and replay.json()["revision"] == 1
+            resumed = (await client.get(f"/api/v1/exam/session/{sid}/state")).json()
+            assert resumed["answers"] == expected and resumed["end_time"] == data["end_time"]
+    session.end_time = datetime.now(timezone.utc) - timedelta(milliseconds=10)
+    await db_session.commit()
+    late = await client.post(f"/api/v1/exam/autosave/{sid}", json=mutation(data, option=1))
+    assert late.status_code == 403
+    for _ in range(2):
+        accepted = await client.post(f"/api/v1/exam/finish/{sid}", json=submission(data, "deadline"))
+        assert accepted.status_code == 200 and accepted.json()["status"] == "processing"
+    assert len((await db_session.scalars(select(ExamJob))).all()) == 1
+    processing = (await client.get(f"/api/v1/exam/result/{sid}?include_answers=true")).json()
+    assert processing["answers"] == expected
+    await db_session.refresh(session)
+    await score(db_session, session)
+    result = (await client.get(f"/api/v1/exam/result/{sid}")).json()
+    assert "answers" not in result
+    assert (result["score_twk"], result["score_tiu"], result["score_tkp"], result["total_score"]) == (150, 175, 225, 550)
+    review = (await client.get(f"/api/v1/exam/session/{sid}/review")).json()
+    assert {q["id"]: q["selected_option_id"] for q in review["questions"]} == expected
 
 
 async def test_deadline_is_not_reset_on_resume(client, test_user, test_package_with_questions, db_session):

@@ -8,6 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
 import MarkdownRenderer from "@/components/ui/MarkdownRenderer";
 import Modal from "@/components/Modal";
+import { useExamStore } from "@/store/useExamStore";
 type Result = {
   status: string;
   package_id: string;
@@ -18,6 +19,7 @@ type Result = {
   score_tkp: number;
   is_passed: boolean;
   passing_grades?: Record<string, number>;
+  answers?: Record<string, string>;
 };
 type ReviewOption = {
   id: string;
@@ -49,11 +51,27 @@ type Review = {
 export function ResultView({ id }: { id: string }) {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const ownerId = user?.id;
+  const pending = useExamStore(
+    (state) =>
+      state.ownerId === ownerId &&
+      state.sessionId === id &&
+      Object.keys(state.pending).length > 0,
+  );
+  const unsubmittedCount = useExamStore((state) =>
+    state.ownerId === ownerId && state.sessionId === id
+      ? state.unsubmittedCount
+      : 0,
+  );
   const { data, error, loading, reload } = useResource<Result>(
-    `/exam/result/${id}`,
+    `/exam/result/${id}${pending ? "?include_answers=true" : ""}`,
     !!user,
   );
   const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (ownerId && data?.answers)
+      useExamStore.getState().recordSubmission(ownerId, id, data.answers);
+  }, [data?.answers, id, ownerId]);
   useEffect(() => {
     if (!authLoading && !user)
       router.replace(
@@ -78,6 +96,12 @@ export function ResultView({ id }: { id: string }) {
       title="Hasil latihan"
       description="Pahami hasilmu, lalu tentukan langkah belajar berikutnya."
     >
+      {unsubmittedCount > 0 && (
+        <p className="notice notice-warning" role="status">
+          {unsubmittedCount} pilihan terakhir dari tab ini belum tercatat saat
+          ujian dikumpulkan. Hasil dihitung dari jawaban yang diterima server.
+        </p>
+      )}
       {authLoading || (!data && loading) ? (
         <Loading label="Memuat hasil latihan…" />
       ) : error ? (

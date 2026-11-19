@@ -6,6 +6,7 @@ from backend.models.models import ExamSession, Package, Question
 from backend.tests.conftest import login_and_get_cookies
 import os
 import asyncio
+import uuid
 import pytest
 from datetime import timedelta
 
@@ -78,13 +79,13 @@ async def test_scoring_recovery_keeps_acknowledged_answer_and_respects_retry_bac
     from backend.config import settings
     from backend.core import tasks
     from backend.models.models import ExamJob
-    from backend.tests.test_durable_exams import start, mutation
+    from backend.tests.test_durable_exams import start, mutation, submission
     monkeypatch.setattr(settings, 'DATABASE_URL', os.environ['TEST_DATABASE_URL'])
     state = await start(client, test_package_with_questions)
     sid = state['session_id']
     answer = mutation(state)
     assert (await client.post(f'/api/v1/exam/autosave/{sid}', json=answer)).status_code == 200
-    assert (await client.post(f'/api/v1/exam/finish/{sid}')).status_code == 200
+    assert (await client.post(f'/api/v1/exam/finish/{sid}', json=submission(state))).status_code == 200
     original = tasks.async_run_scoring
     calls = []
     async def flaky(*args):
@@ -107,3 +108,31 @@ async def test_scoring_recovery_keeps_acknowledged_answer_and_respects_retry_bac
     assert result['score_twk'] == 5
     await tasks.async_reconcile_jobs()
     assert len(calls) == 2
+
+
+@pytest.mark.skipif(not os.getenv('TEST_DATABASE_URL', '').startswith('postgresql'), reason='Worker requires a shared database')
+async def test_scheduler_finishes_an_abandoned_exam_at_its_deadline(
+    client, test_user, test_package_with_questions, db_session, monkeypatch,
+):
+    from backend.config import settings
+    from backend.core import tasks
+    from backend.models.models import ExamJob, ExamSession
+    from backend.tests.test_durable_exams import start, mutation
+
+    monkeypatch.setattr(settings, 'DATABASE_URL', os.environ['TEST_DATABASE_URL'])
+    state = await start(client, test_package_with_questions)
+    sid = uuid.UUID(state['session_id'])
+    body = mutation(state)
+    assert (await client.post(f'/api/v1/exam/autosave/{sid}', json=body)).status_code == 200
+    await tasks.async_reconcile_jobs()
+    assert await db_session.scalar(select(ExamJob.id)) is None
+
+    attempt = await db_session.get(ExamSession, sid)
+    attempt.end_time = datetime.now(timezone.utc) - timedelta(milliseconds=10)
+    await db_session.commit()
+    await tasks.async_reconcile_jobs()
+    result = (await client.get(f'/api/v1/exam/result/{sid}?include_answers=true')).json()
+    assert result['status'] == 'finished' and result['total_score'] == 5
+    assert result['answers'] == {body['question_id']: body['option_id']}
+    job = await db_session.scalar(select(ExamJob))
+    assert job.status == 'completed'

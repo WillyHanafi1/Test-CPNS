@@ -112,17 +112,35 @@ describe('useExamStore', () => {
     expect(useExamStore.getState().timeLeft).toBe(initialTimeLeft - 1);
   });
 
-  it('should auto-finish when timeLeft reaches 0 on tick', () => {
+  it('keeps the final fractional second available and uses a monotonic clock', () => {
     // Start with 1 second remaining
     initializeExam(1 / 60);
     expect(useExamStore.getState().timeLeft).toBe(1);
     expect(useExamStore.getState().isFinished).toBe(false);
 
-    // Tick once to reach 0
-    vi.advanceTimersByTime(1000);
+    vi.advanceTimersByTime(400);
+    vi.setSystemTime(new Date('2026-11-17T01:00:00Z'));
+    useExamStore.getState().tick();
+    expect(useExamStore.getState().timeLeft).toBe(1);
+    expect(useExamStore.getState().isFinished).toBe(false);
+
+    vi.advanceTimersByTime(600);
     useExamStore.getState().tick();
     expect(useExamStore.getState().timeLeft).toBe(0);
     expect(useExamStore.getState().isFinished).toBe(true);
+  });
+
+  it('checks a lost acknowledgement against the submitted answers before clearing the queue', () => {
+    initializeExam();
+    const state = useExamStore.getState();
+    state.selectOption('q1', 'o1_1');
+    state.selectOption('q2', 'o2_1');
+    state.recordSubmission('someone-else', 'sess-456', {});
+    expect(Object.keys(useExamStore.getState().pending)).toHaveLength(2);
+    state.recordSubmission('owner-123', 'sess-456', {q1: 'o1_1', q2: 'o2_2'});
+    state.recordSubmission('owner-123', 'sess-456', {q1: 'o1_1', q2: 'o2_2'});
+    expect(useExamStore.getState().pending).toEqual({});
+    expect(useExamStore.getState().unsubmittedCount).toBe(1);
   });
 
   it('should correctly finish and reset the exam', () => {

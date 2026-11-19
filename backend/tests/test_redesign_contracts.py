@@ -13,7 +13,7 @@ from backend.config import settings
 from backend.models.models import Package, PackageRevision, Question, ExamSession, ExamResponse, UserTransaction
 from backend.services.exams import owned_session, score, publish_revision
 from backend.tests.conftest import login_and_get_cookies
-from backend.tests.test_durable_exams import start, mutation
+from backend.tests.test_durable_exams import start, mutation, submission
 
 
 async def test_pro_includes_all_published_packages_and_preserves_expired_resume(client, test_user, test_package_with_questions, db_session):
@@ -117,7 +117,7 @@ async def test_ranking_separates_revisions_and_excludes_preview(client, test_use
     data = await start(client, package)
     sid = uuid.UUID(data['session_id'])
     await client.post(f'/api/v1/exam/autosave/{sid}', json=mutation(data))
-    await client.post(f'/api/v1/exam/finish/{sid}')
+    assert (await client.post(f'/api/v1/exam/finish/{sid}', json=submission(data))).status_code == 200
     attempt = await owned_session(db_session, sid, test_user.id, lock=True)
     await score(db_session, attempt)
     old_revision = attempt.revision_id
@@ -149,7 +149,7 @@ async def test_admin_preview_is_immutable_and_excluded_from_participant_stats(cl
 async def test_catalog_filters_progress_before_pagination(client, test_user, test_package_with_questions, db_session):
     package = test_package_with_questions
     data = await start(client, package)
-    await client.post(f"/api/v1/exam/finish/{data['session_id']}")
+    assert (await client.post(f"/api/v1/exam/finish/{data['session_id']}", json=submission(data))).status_code == 200
     attempt = await owned_session(db_session, uuid.UUID(data['session_id']), test_user.id, lock=True)
     await score(db_session, attempt)
     db_session.add(Package(title='A fresh package', description='Synthetic', category='SKD', is_published=True))
@@ -175,7 +175,7 @@ async def test_scheduled_packages_are_discoverable_with_honest_access_reasons(cl
     package.start_at = datetime.now(timezone.utc) - timedelta(days=1)
     await db_session.commit()
     data = await start(client, package)
-    await client.post(f"/api/v1/exam/finish/{data['session_id']}")
+    assert (await client.post(f"/api/v1/exam/finish/{data['session_id']}", json=submission(data))).status_code == 200
     attempt = await owned_session(db_session, uuid.UUID(data['session_id']), test_user.id, lock=True)
     await score(db_session, attempt)
     access = (await client.get(f'/api/v1/packages/{package.id}/access')).json()
@@ -227,7 +227,7 @@ async def test_profile_update_and_non_strict_weak_points(client, test_user, test
     data = await start(client, test_package_with_questions)
     sid = uuid.UUID(data['session_id'])
     await client.post(f'/api/v1/exam/autosave/{sid}', json=mutation(data))
-    await client.post(f'/api/v1/exam/finish/{sid}')
+    assert (await client.post(f'/api/v1/exam/finish/{sid}', json=submission(data))).status_code == 200
     attempt = await owned_session(db_session, sid, test_user.id, lock=True)
     await score(db_session, attempt)
 

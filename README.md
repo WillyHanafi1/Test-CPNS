@@ -70,7 +70,7 @@ CI/CD otomatis pada push `main`, pengaturan SSH, dan kebijakan cache/image: [doc
 - Ubah soal melalui draft, validasi, lalu terbitkan revisi. Paket dengan histori legacy disalin untuk penyuntingan; histori lama tidak dipalsukan menjadi snapshot atau dihapus saat impor.
 - Client mesin ujian baru mengirim `X-Exam-Protocol: 2` pada start/resume. Bundle lama ditolak dengan `update_required` untuk sesi mesin baru; adapter sesi legacy tetap tersedia.
 - Satu peserta memiliki satu sesi aktif dan satu writer. Jawaban diterima setelah commit, dengan mutation ID, revisi, dan antrean lokal per tab. Waktu berasal dari deadline server.
-- Submit menyimpan pekerjaan scoring di PostgreSQL. Rekonsiliasi berkala memulihkan pekerjaan yang belum selesai ketika broker/worker sempat gagal.
+- Submit dari tab aktif menyimpan pekerjaan scoring di PostgreSQL. Pengumpulan otomatis memakai tenggat server. Rekonsiliasi berkala menutup sesi yang ditinggalkan setelah tenggat dan memulihkan pekerjaan ketika broker atau worker sempat gagal.
 - Harga dan durasi penawaran datang dari backend. Grant pembayaran dilindungi lock dan deduplikasi per order. Akun lama tanpa expiry tetap dipertahankan. Pembayaran nyata membutuhkan pengujian provider tersendiri.
 - Production memakai `compose.production.yml`, image dengan digest, container tanpa root, konfigurasi privat, dan Cloudflare Tunnel. Detail akses/token berada di `.server-notes/`/`.secrets/` yang diabaikan Git.
 - Migrasi adalah langkah rilis eksplisit setelah backup dan rehearsal. Jangan memakai `stamp head`, menghapus sejarah Alembic, atau melakukan downgrade destruktif untuk menyembunyikan ketidakcocokan schema. Migrasi jawaban baru sengaja menolak downgrade yang akan menghapus data.

@@ -95,10 +95,11 @@ export default function TermsPage() {
             Apabila terjadi pembayaran ganda (*double payment*) atau dana telah
             terpotong tetapi status transaksi belum aktif setelah proses
             verifikasi server, silakan hubungi kontak resmi kami dengan
-            menyertakan <strong>ID Transaksi (Order ID)</strong> dan bukti
-            pembayaran. Kami akan membantu melakukan verifikasi manual,
-            mengaktifkan hak akses yang sesuai, atau memproses pengembalian dana
-            jika terdapat kelebihan bayar.
+            menyertakan <strong>ID Transaksi (Order ID)</strong>, waktu
+            pembayaran, dan bukti yang sudah menyamarkan informasi sensitif.
+            Kami akan mencocokkan pembayaran dengan catatan DOKU dan memberi
+            kabar tentang aktivasi akses atau pengembalian kelebihan bayar.
+            Waktu pengembalian mengikuti kanal pembayaran yang digunakan.
           </p>
         </section>
 

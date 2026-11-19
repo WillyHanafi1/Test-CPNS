@@ -258,6 +258,7 @@ async def async_auto_finish_expired():
                 select(ExamSession)
                 .where(
                     ExamSession.status.in_(["ongoing", "processing"]),
+                    ExamSession.revision_id.is_(None),
                     ExamSession.end_time.is_not(None),
                     ExamSession.end_time < cutoff_time
                 )
@@ -420,6 +421,15 @@ async def async_reconcile_jobs():
     factory = async_sessionmaker(engine, expire_on_commit=False)
     try:
         async with factory() as db:
+            now = datetime.now(timezone.utc)
+            expired = (await db.scalars(select(ExamSession).where(
+                ExamSession.status.in_(("ongoing", "processing")), ExamSession.revision_id.is_not(None),
+                ExamSession.end_time <= now,
+                ~select(ExamJob.id).where(ExamJob.session_id == ExamSession.id).exists(),
+            ).order_by(ExamSession.end_time).limit(50).with_for_update(skip_locked=True))).all()
+            for attempt in expired:
+                await durable.stage_submission(db, attempt, now)
+            await db.commit()
             jobs = (await db.execute(select(ExamJob.session_id, ExamSession.user_id, User.email)
                 .join(ExamSession, ExamSession.id == ExamJob.session_id)
                 .join(User, User.id == ExamSession.user_id)

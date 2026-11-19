@@ -1,7 +1,13 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 import uuid
 from datetime import datetime
-from typing import Optional, List
+from typing import Literal, Optional, List
+
+
+class ExamSubmission(BaseModel):
+    mode: Literal["manual", "deadline"] = "manual"
+    writer_id: str | None = Field(default=None, min_length=1, max_length=100)
+    writer_epoch: int = Field(default=1, ge=1)
 
 class ExamSessionBase(BaseModel):
     id: uuid.UUID

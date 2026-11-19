@@ -9,10 +9,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from backend.core.constants import PASSING_GRADE
+from backend.core.redis_service import redis_service
 from backend.models.models import (
     ExamJob, ExamResponse, ExamSession, Package, PackageRevision, Question, User,
 )
-
 
 def utc(value):
     return value.replace(tzinfo=timezone.utc) if value and value.tzinfo is None else value
@@ -95,7 +95,6 @@ async def owned_session(db, session_id, user_id, lock=False):
 
 async def session_payload(db, session):
     if not session.revision_id:
-        from backend.core.redis_service import redis_service
         package = await db.scalar(select(Package).where(Package.id == session.package_id)
             .options(selectinload(Package.questions).selectinload(Question.options)))
         answers = await redis_service.redis.hgetall(f"exam_answers:{session.user_id}:{session.id}")
@@ -125,10 +124,7 @@ async def start(db, package_id, user, writer_id=None, protocol=2):
     ).order_by(ExamSession.start_time.desc()).with_for_update())).all()
     for session in active:
         if utc(session.end_time) <= now:
-            session.status = "processing"
-            session.submitted_at = now
-            if not await db.scalar(select(ExamJob).where(ExamJob.session_id == session.id)):
-                db.add(ExamJob(session_id=session.id))
+            await stage_submission(db, session, now)
         elif session.package_id != package_id:
             raise HTTPException(409, {"code": "active_session", "session_id": str(session.id),
                                       "package_id": str(session.package_id),
@@ -226,8 +222,7 @@ async def save(db, session, question_id, option_id, mutation_id, expected_revisi
         return {"status": "saved", "revision": row.revision, "saved_at": row.saved_at}
     if session.status != "ongoing" or utc(session.end_time) <= now:
         raise HTTPException(403, "Waktu ujian sudah berakhir atau jawaban sudah dikumpulkan.")
-    if session.writer_epoch != writer_epoch or (session.writer_id and session.writer_id != writer_id):
-        raise HTTPException(409, {"code": "writer_conflict", "message": "Sesi dilanjutkan di tab/perangkat lain."})
+    require_writer(session, writer_epoch, writer_id)
     if (row.revision if row else 0) != expected_revision:
         raise HTTPException(409, {"code": "revision_conflict", "message": "Sinkronkan jawaban terlebih dahulu."})
     if row:
@@ -241,13 +236,37 @@ async def save(db, session, question_id, option_id, mutation_id, expected_revisi
     return {"status": "saved", "revision": row.revision, "saved_at": row.saved_at}
 
 
-async def submit(db, session):
-    if session.status == "ongoing":
+def require_writer(session, writer_epoch, writer_id):
+    if session.writer_epoch != writer_epoch or (session.writer_id and session.writer_id != writer_id):
+        raise HTTPException(409, {"code": "writer_conflict", "message": "Sesi dilanjutkan di tab/perangkat lain."})
+
+
+def check_deadline(session, mode, now):
+    if mode == "deadline" and (session.end_time is None or utc(session.end_time) > now):
+        raise HTTPException(409, {"code": "deadline_not_reached", "message": "Waktu ujian masih berjalan."})
+
+
+async def stage_submission(db, session, now):
+    """The caller holds the session lock until the job and status are committed."""
+    started_processing = session.status == "ongoing"
+    if started_processing:
         session.status = "processing"
-        session.submitted_at = datetime.now(timezone.utc)
-    if session.status != "finished" and not await db.scalar(select(ExamJob).where(ExamJob.session_id == session.id)):
+        session.submitted_at = now
+    created_job = session.status == "processing" and not await db.scalar(
+        select(ExamJob.id).where(ExamJob.session_id == session.id))
+    if created_job:
         db.add(ExamJob(session_id=session.id))
+    return started_processing or created_job
+
+
+async def submit(db, session, submission):
+    now = datetime.now(timezone.utc)
+    if session.status == "ongoing":
+        require_writer(session, submission.writer_epoch, submission.writer_id)
+        check_deadline(session, submission.mode, now)
+    dispatch = await stage_submission(db, session, now)
     await db.commit()
+    return dispatch
 
 
 async def score(db, session):

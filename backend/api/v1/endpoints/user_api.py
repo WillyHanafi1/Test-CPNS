@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.rate_limiter import limiter
-from backend.core.redis_service import redis_service
 
 from sqlalchemy import select
 from backend.db.session import get_async_session
@@ -53,16 +52,7 @@ async def get_my_mastery(
     """
     Get topic mastery statistics for the current user.
     """
-    cache_key = f"mastery_cache:{current_user.id}"
-    cached_data = await redis_service.get_cache(cache_key)
-    
-    if cached_data:
-        return cached_data
-        
-    mastery_data = await analytics_service.get_topic_mastery(db, current_user.id)
-    await redis_service.set_cache(cache_key, mastery_data, expire=300)
-    
-    return mastery_data
+    return await analytics_service.get_topic_mastery(db, current_user.id)
 
 @router.get("/me/weak-points")
 async def get_my_weak_points(

@@ -24,11 +24,11 @@ export default function Help() {
           ],
           [
             "Bagaimana jika koneksi terputus saat ujian?",
-            "Pilihan yang belum mendapat konfirmasi ditandai sebagai tertunda dan dicoba lagi ketika koneksi pulih. Waktu tetap berjalan di server; jawaban yang belum diterima sebelum batas waktu berakhir tidak dapat dinilai.",
+            "Pilihan yang belum mendapat konfirmasi ditandai sebagai tertunda dan dicoba lagi ketika koneksi pulih. Waktu tetap berjalan di server. Setelah waktu habis, kamu akan melihat hasil berdasarkan jawaban yang sudah diterima dan pemberitahuan jika ada pilihan terakhir dari tab ini yang belum tercatat.",
           ],
           [
             "Apakah hasil latihan berarti lulus seleksi resmi?",
-            "Hasil hanya menggambarkan performa simulasi berdasarkan acuan latihan yang ditampilkan (misal TWK 65 · TIU 80 · TKP 166). Keputusan seleksi resmi sepenuhnya ditentukan oleh panitia seleksi nasional/BKN.",
+            "Simulasi memakai acuan kebutuhan umum SKD CPNS 2024 dari KepmenPANRB Nomor 321 Tahun 2024 (TWK 65 · TIU 80 · TKP 166). Untuk seleksi resmi, ikuti aturan tahun dan formasi yang kamu lamar.",
           ],
           [
             "Di mana pembahasan dan analisis kelemahan topik tersedia?",

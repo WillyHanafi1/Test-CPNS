@@ -165,6 +165,27 @@ tetap memerlukan token dan route yang benar.
   uji callback/idempotensi dan samakan environment sebelum memakai uang nyata.
 - AI diuji setelah GOOGLE_API_KEY production tersedia.
 
+## Bantuan peserta dan operasi admin
+
+- **Pembayaran tertunda atau ganda.** Catat Order ID, tanggal, dan nominal dari
+  pengguna. Cocokkan masing-masing order dengan catatan server dan dashboard
+  merchant DOKU. Untuk Pro, periksa waktu aktivasi dan riwayat grant sebelum
+  melakukan koreksi. Jika DOKU mengonfirmasi kelebihan bayar, gunakan alur refund
+  merchant yang sesuai kanalnya, catat referensi refund dan status akhir, lalu
+  sampaikan hasilnya. Hindari menyimpan kredensial atau bukti yang berisi data
+  perbankan lengkap.
+- **Akses, koreksi, atau penghapusan data.** Catat permintaan melalui kanal
+  dukungan dan verifikasi kepemilikan dengan akun atau alamat email terdaftar.
+  Gunakan penonaktifan untuk menutup akses. Tinjau dan hapus atau anonimkan data
+  yang tak lagi diperlukan melalui prosedur perubahan data yang disetujui
+  operator. Catat transaksi yang tetap dibutuhkan untuk pembukuan atau sengketa,
+  dan perlakukan data di backup sesuai rotasi cadangan. Saat restore, terapkan
+  kembali penghapusan yang dilakukan setelah tanggal backup sebelum membuka akses.
+  Balas pemohon dengan perubahan yang dilakukan dan data yang masih dipertahankan.
+- **Akses admin.** Gunakan akun pribadi dengan akses minimum. Aktifkan MFA pada
+  akun Google yang dipakai operator dan pada akses GitHub, Cloudflare, Supabase,
+  serta DOKU. Pisahkan akun peserta dari akun operasional.
+
 ## Backup, pemantauan, rollback
 
 Setup backup satu kali (image PostgreSQL harus sesuai versi server):

@@ -40,15 +40,20 @@ export type ExamState = {
   doubtStatus: Record<string, boolean>;
   currentIndex: number;
   timeLeft: number;
-  serverEndTime: string | null;
-  serverTimeOffset: number;
+  clockDeadline: number | null;
   isStarted: boolean;
   isFinished: boolean;
   writerEpoch: number;
   writerId: string | null;
   saveError: string;
   saveAuthRequired: boolean;
+  unsubmittedCount: number;
   initialize: (ownerId: string, data: Attempt) => void;
+  recordSubmission: (
+    ownerId: string,
+    sessionId: string,
+    answers: Attempt["answers"],
+  ) => void;
   startExam: (
     packageId: string,
     sessionId: string,
@@ -75,14 +80,14 @@ const initial = {
   doubtStatus: {},
   currentIndex: 0,
   timeLeft: 0,
-  serverEndTime: null,
-  serverTimeOffset: 0,
+  clockDeadline: null,
   isStarted: false,
   isFinished: false,
   writerEpoch: 1,
   writerId: null,
   saveError: "",
   saveAuthRequired: false,
+  unsubmittedCount: 0,
 };
 export const useExamStore = create<ExamState>()(
   persist(
@@ -94,13 +99,9 @@ export const useExamStore = create<ExamState>()(
           previous.ownerId === ownerId &&
           previous.sessionId === data.session_id;
         const pending = same ? previous.pending : {};
-        const offset = new Date(data.server_now).getTime() - Date.now();
-        const remaining = Math.max(
-          0,
-          Math.floor(
-            (new Date(data.end_time).getTime() - (Date.now() + offset)) / 1000,
-          ),
-        );
+        const remainingMs =
+          Date.parse(data.end_time) - Date.parse(data.server_now);
+        const remaining = Math.max(0, Math.ceil(remainingMs / 1000));
         set({
           ...initial,
           ownerId,
@@ -122,13 +123,28 @@ export const useExamStore = create<ExamState>()(
           currentIndex: same
             ? Math.min(previous.currentIndex, data.package.questions.length - 1)
             : 0,
-          serverEndTime: data.end_time,
-          serverTimeOffset: offset,
+          clockDeadline: performance.now() + remainingMs,
           timeLeft: remaining,
           isStarted: data.status === "ongoing",
           isFinished: data.status !== "ongoing" || remaining === 0,
           writerEpoch: data.writer_epoch,
           writerId: data.writer_id,
+        });
+      },
+      recordSubmission: (ownerId, sessionId, answers) => {
+        const state = get();
+        if (state.ownerId !== ownerId || state.sessionId !== sessionId) return;
+        const pending = Object.entries(state.pending);
+        if (!pending.length) return;
+        set({
+          pending: {},
+          answers,
+          unsubmittedCount: pending.filter(
+            ([id, choice]) => answers[id] !== choice.optionId,
+          ).length,
+          saveError: "",
+          isStarted: false,
+          isFinished: true,
         });
       },
       startExam: (packageId, sessionId, questions, duration, end) =>
@@ -137,9 +153,9 @@ export const useExamStore = create<ExamState>()(
           sessionId,
           questions,
           isStarted: true,
-          serverEndTime:
-            end || new Date(Date.now() + duration * 60000).toISOString(),
-          serverTimeOffset: 0,
+          clockDeadline:
+            performance.now() +
+            (end ? Date.parse(end) - Date.now() : duration * 60000),
           isFinished: false,
         }),
       selectOption: (id, optionId) =>
@@ -158,17 +174,13 @@ export const useExamStore = create<ExamState>()(
       setCurrentIndex: (index) => set({ currentIndex: index }),
       tick: () =>
         set((s) => {
-          const remaining = s.serverEndTime
-            ? Math.max(
-                0,
-                Math.floor(
-                  (new Date(s.serverEndTime).getTime() -
-                    Date.now() -
-                    s.serverTimeOffset) /
-                    1000,
-                ),
-              )
-            : 0;
+          const remaining =
+            s.clockDeadline === null
+              ? 0
+              : Math.max(
+                  0,
+                  Math.ceil((s.clockDeadline - performance.now()) / 1000),
+                );
           return { timeLeft: remaining, isFinished: remaining <= 0 };
         }),
       finishExam: () => set({ isFinished: true }),
@@ -211,6 +223,7 @@ export const useExamStore = create<ExamState>()(
         revisions: s.revisions,
         doubtStatus: s.doubtStatus,
         currentIndex: s.currentIndex,
+        unsubmittedCount: s.unsubmittedCount,
       }),
     },
   ),
@@ -243,6 +256,8 @@ export function flushAnswers(): Promise<void> {
       const state = useExamStore.getState();
       if (state.sessionId !== session) return;
       if (
+        !state.isStarted ||
+        state.isFinished ||
         state.saveAuthRequired ||
         (state.writerId && state.writerId !== writerId())
       )

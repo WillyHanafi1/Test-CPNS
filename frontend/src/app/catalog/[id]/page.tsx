@@ -88,8 +88,9 @@ export default function PackageDetail() {
                 ))}
               </ul>
               <p className="muted" style={{ fontSize: 13 }}>
-                Simulasi adalah sarana latihan. Hasilnya bukan keputusan
-                kelulusan seleksi resmi.
+                Acuan simulasi kebutuhan umum adalah KepmenPANRB Nomor 321
+                Tahun 2024. Periksa aturan resmi tahun dan formasi yang kamu
+                lamar.
               </p>
             </section>
             <aside className="panel stack">

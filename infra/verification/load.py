@@ -94,8 +94,10 @@ async def main():
             await asyncio.sleep(max(0, min(interval - (perf_counter() - tick), deadline - perf_counter())))
         if soak_seconds:
             async def submit(token):
-                result = await http.post(f'/api/v1/exam/finish/{states[token]["session_id"]}',
-                    headers={'Authorization': f'Bearer {token}'})
+                state = states[token]
+                result = await http.post(f'/api/v1/exam/finish/{state["session_id"]}',
+                    headers={'Authorization': f'Bearer {token}'}, json={
+                        'writer_id': state['writer_id'], 'writer_epoch': state['writer_epoch']})
                 assert result.status_code == 200, f'submit={result.status_code}'
             await asyncio.gather(*(submit(token) for token in tokens))
             until = perf_counter() + 90

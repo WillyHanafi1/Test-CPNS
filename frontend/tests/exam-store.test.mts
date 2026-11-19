@@ -32,7 +32,7 @@ if (!globalThis.crypto)
 const { useExamStore, flushAnswers, writerId } = await import(
   "../src/store/useExamStore"
 );
-const attempt = () => ({
+const attempt = (now = Date.now()) => ({
   session_id: "session",
   package: {
     id: "package",
@@ -50,8 +50,8 @@ const attempt = () => ({
       },
     ],
   },
-  server_now: new Date().toISOString(),
-  end_time: new Date(Date.now() + 20 * 60000).toISOString(),
+  server_now: new Date(now).toISOString(),
+  end_time: new Date(now + 20 * 60000).toISOString(),
   status: "ongoing",
   writer_epoch: 1,
   writer_id: writerId(),
@@ -68,10 +68,7 @@ beforeEach(() => {
 });
 
 test("resume uses actual remaining time rather than the original full duration", () => {
-  assert.ok(
-    useExamStore.getState().timeLeft >= 1198 &&
-      useExamStore.getState().timeLeft <= 1200,
-  );
+  assert.equal(useExamStore.getState().timeLeft, 1200);
 });
 test("failed network keeps the local answer pending until an acknowledged retry", async () => {
   globalThis.fetch = async () => {

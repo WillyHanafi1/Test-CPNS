@@ -10,7 +10,7 @@ import {
   CloudOff,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import {
   useExamStore,
   Attempt,
@@ -36,6 +36,16 @@ export default function Runner({ id }: { id: string }) {
   const [storageWarning, setStorageWarning] = useState(false);
   const [zoom, setZoom] = useState<string | null>(null);
   const submitting = useRef(false);
+  const refreshAttempt = useCallback(
+    async (signal?: AbortSignal) => {
+      if (!ownerId) return;
+      const data = await api<Attempt>(`/exam/session/${id}/state`, { signal });
+      if (signal?.aborted || submitting.current) return;
+      if (data.status !== "ongoing") router.replace(`/session/${id}/result`);
+      else useExamStore.getState().initialize(ownerId, data);
+    },
+    [id, ownerId, router],
+  );
   useEffect(() => {
     const unavailable = () => setStorageWarning(true);
     const beforeLeave = (event: BeforeUnloadEvent) => {
@@ -58,14 +68,7 @@ export default function Runner({ id }: { id: string }) {
       return;
     }
     const controller = new AbortController();
-    api<Attempt>(`/exam/session/${id}/state`, { signal: controller.signal })
-      .then((data) => {
-        if (data.status !== "ongoing") {
-          router.replace(`/session/${id}/result`);
-          return;
-        }
-        useExamStore.getState().initialize(ownerId, data);
-      })
+    refreshAttempt(controller.signal)
       .catch((e) => {
         if (!controller.signal.aborted) setError(e.message);
       })
@@ -73,7 +76,7 @@ export default function Runner({ id }: { id: string }) {
         if (!controller.signal.aborted) setLoadedKey(`${ownerId}:${id}`);
       });
     return () => controller.abort();
-  }, [id, ownerId, authLoading, router]);
+  }, [id, ownerId, authLoading, router, refreshAttempt]);
   useEffect(() => {
     if (loading) return;
     const t = setInterval(() => useExamStore.getState().tick(), 1000);
@@ -106,68 +109,105 @@ export default function Runner({ id }: { id: string }) {
   }, [state.pending, loading]);
   useEffect(() => {
     if (loading || !ownerId) return;
+    const controller = new AbortController();
     const sync = () => {
       if (document.visibilityState === "visible")
-        api<Attempt>(`/exam/session/${id}/state`)
-          .then((d) => {
-            if (d.status !== "ongoing") router.replace(`/session/${id}/result`);
-            else useExamStore.getState().initialize(ownerId, d);
-          })
-          .catch(() => {});
+        void refreshAttempt(controller.signal).catch(() => {});
     };
     document.addEventListener("visibilitychange", sync);
-    return () => document.removeEventListener("visibilitychange", sync);
-  }, [id, ownerId, loading, router]);
+    return () => {
+      controller.abort();
+      document.removeEventListener("visibilitychange", sync);
+    };
+  }, [ownerId, loading, refreshAttempt]);
   const conflict =
     !loading && !!state.writerId && state.writerId !== writerId();
   const finish = useCallback(
-    async (timeout = false) => {
+    async (mode: "manual" | "deadline", submitSavedOnly = false) => {
       if (submitting.current) return;
       submitting.current = true;
       setBusy(true);
       setError("");
-      await flushAnswers();
-      if (!timeout && Object.keys(useExamStore.getState().pending).length) {
-        setError(
-          "Ada jawaban yang belum terkirim. Pulihkan koneksi dan coba lagi sebelum waktu habis.",
-        );
-        submitting.current = false;
-        setBusy(false);
-        return;
-      }
+      let submitted = false;
+      let needsRefresh = false;
       try {
-        await api(`/exam/finish/${id}`, { method: "POST" });
+        if (mode === "manual" && !submitSavedOnly) await flushAnswers();
+        const current = useExamStore.getState();
+        if (current.sessionId !== id || current.ownerId !== ownerId) return;
+        if (
+          mode === "manual" &&
+          !submitSavedOnly &&
+          Object.keys(current.pending).length
+        ) {
+          setError(
+            "Ada jawaban yang belum terkirim. Pulihkan koneksi sebelum waktu habis.",
+          );
+          return;
+        }
+        await api(`/exam/finish/${id}`, {
+          method: "POST",
+          body: JSON.stringify({
+            mode,
+            writer_id: writerId(),
+            writer_epoch: current.writerEpoch,
+          }),
+        });
+        submitted = true;
         useExamStore.setState({
-          pending: {},
           saveError: "",
           isStarted: false,
           isFinished: true,
         });
         router.replace(`/session/${id}/result`);
       } catch (e) {
-        setError(
-          e instanceof Error
-            ? e.message
-            : "Pengumpulan belum berhasil. Coba lagi.",
-        );
-        submitting.current = false;
-        setBusy(false);
+        needsRefresh =
+          e instanceof ApiError &&
+          ["writer_conflict", "deadline_not_reached"].includes(e.code);
+        if (!(e instanceof ApiError && e.code === "deadline_not_reached"))
+          setError(
+            e instanceof Error
+              ? e.message
+              : "Pengumpulan belum berhasil. Coba lagi.",
+          );
+      } finally {
+        if (!submitted) {
+          submitting.current = false;
+          setBusy(false);
+          if (needsRefresh) void refreshAttempt().catch(() => {});
+        }
       }
     },
-    [id, router],
+    [id, ownerId, refreshAttempt, router],
   );
   useEffect(() => {
     if (
-      !loading &&
-      !conflict &&
-      state.sessionId === id &&
-      state.timeLeft === 0 &&
-      !error
-    ) {
-      const timer = setTimeout(() => void finish(true), 0);
-      return () => clearTimeout(timer);
-    }
-  }, [loading, state.timeLeft, state.sessionId, conflict, id, error, finish]);
+      loading ||
+      conflict ||
+      !online ||
+      !state.isStarted ||
+      state.sessionId !== id ||
+      state.timeLeft !== 0
+    )
+      return;
+    const submitExpired = () => {
+      if (navigator.onLine) void finish("deadline");
+    };
+    const first = setTimeout(submitExpired, 0);
+    const retry = setInterval(submitExpired, 5000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(retry);
+    };
+  }, [
+    loading,
+    state.timeLeft,
+    state.sessionId,
+    state.isStarted,
+    conflict,
+    online,
+    id,
+    finish,
+  ]);
   if (loading || authLoading)
     return (
       <div className="app-surface">
@@ -245,9 +285,13 @@ export default function Runner({ id }: { id: string }) {
             <button
               className="button button-small"
               disabled={busy || conflict}
-              onClick={() => setConfirm(true)}
+              onClick={() =>
+                state.timeLeft === 0
+                  ? void finish("deadline")
+                  : setConfirm(true)
+              }
             >
-              Selesai
+              {state.timeLeft === 0 ? "Periksa pengumpulan" : "Selesai"}
             </button>
           </div>
         </div>
@@ -275,12 +319,21 @@ export default function Runner({ id }: { id: string }) {
               </Link>
             </div>
           )}
-          {!online && (
-            <div className="notice notice-warning">
-              <CloudOff size={18} />
-              Koneksi terputus. Waktu tetap berjalan; jawaban tertunda belum
-              diterima server.
-            </div>
+          {state.timeLeft === 0 ? (
+            <p className="notice" role="status">
+              Waktu ujian sudah habis.{" "}
+              {online
+                ? "Sistem sedang mengonfirmasi jawaban yang diterima."
+                : "Sambungkan kembali untuk melihat status pengumpulan."}
+            </p>
+          ) : (
+            !online && (
+              <div className="notice notice-warning">
+                <CloudOff size={18} />
+                Koneksi terputus. Waktu tetap berjalan; jawaban tertunda belum
+                diterima server.
+              </div>
+            )
           )}
           {conflict && (
             <div className="notice notice-warning">
@@ -436,10 +489,21 @@ export default function Runner({ id }: { id: string }) {
         <button
           className="button"
           disabled={busy || conflict}
-          onClick={() => void finish()}
+          onClick={() =>
+            void finish(state.timeLeft === 0 ? "deadline" : "manual")
+          }
         >
           {busy ? "Mengumpulkan…" : "Ya, kumpulkan jawaban"}
         </button>
+        {pending > 0 && online && state.timeLeft > 0 && (
+          <button
+            className="button button-secondary"
+            disabled={busy || conflict}
+            onClick={() => void finish("manual", true)}
+          >
+            Kumpulkan jawaban yang sudah tersimpan
+          </button>
+        )}
         {error && <ErrorPanel message={error} />}
       </Modal>
       <Modal open={!!zoom} title="Gambar soal" onClose={() => setZoom(null)}>

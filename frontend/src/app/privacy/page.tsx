@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
-import { SUPPORT_EMAIL, SUPPORT_WHATSAPP_DISPLAY } from "@/lib/contact";
+import {
+  mailtoHref,
+  SUPPORT_EMAIL,
+  SUPPORT_WHATSAPP_DISPLAY,
+} from "@/lib/contact";
 
 export const metadata: Metadata = {
   title: "Kebijakan Privasi — TOCPNS",
@@ -42,8 +46,8 @@ export default function PrivacyPage() {
               <span>
                 • <strong>Data transaksi:</strong> ID pesanan (`order_id`),
                 nominal, jenis transaksi (Pro atau donasi), waktu dan status
-                verifikasi pembayaran dari penyedia pembayaran resmi (DOKU). Kami
-                tidak menyimpan nomor kartu kredit/debit atau kredensial
+                verifikasi pembayaran dari penyedia pembayaran resmi (DOKU).
+                Kami tidak menyimpan nomor kartu kredit/debit atau kredensial
                 perbankanmu di server kami.
               </span>
             </li>
@@ -70,18 +74,19 @@ export default function PrivacyPage() {
           <ul className="check-list muted">
             <li>
               <span>
-                • <strong>Peringkat latihan (`/leaderboard`):</strong> hanya
-                menampilkan nama profil dan perolehan skor pada versi paket yang
-                sama agar peserta dapat melihat perbandingan hasil latihan.
+                • <strong>Peringkat latihan:</strong> peserta yang masuk dapat
+                melihat nama samaran dan skor pada versi paket yang sama.
               </span>
             </li>
             <li>
               <span>
-                • <strong>Papan dukungan (`/donasi`):</strong> kamu bebas memilih
-                untuk menampilkan nama profil atau tampil sebagai{" "}
+                • <strong>Papan dukungan (`/donasi`):</strong> kamu bebas
+                memilih untuk menampilkan nama profil atau tampil sebagai{" "}
                 <strong>Anonim</strong> saat mengirim dukungan, dan pilihan
                 tersebut dapat diubah kapan saja melalui riwayat transaksi di
-                halaman Akun (`/account`).
+                halaman Akun. Nominal dan pesan tetap tampil di papan publik
+                saat nama disembunyikan. Hindari menyertakan data pribadi dalam
+                pesan.
               </span>
             </li>
           </ul>
@@ -100,14 +105,22 @@ export default function PrivacyPage() {
         </section>
 
         <section className="panel stack">
-          <h2>5. Pengelolaan & penghapusan data</h2>
+          <h2>5. Penyimpanan & pengelolaan data</h2>
+          <p className="muted">
+            Profil dan riwayat latihan disimpan untuk menyediakan akun dan
+            progres belajar. Cadangan terenkripsi disimpan bergilir untuk
+            pemulihan layanan. Catatan transaksi yang masih diperlukan untuk
+            pembukuan atau penyelesaian sengketa dapat dipertahankan setelah
+            akun ditutup.
+          </p>
           <p className="muted">
             Kamu dapat memperbarui nama lengkap, nomor telepon, dan target
-            instansi kapan saja melalui halaman <strong>Akun</strong>. Apabila
-            kamu ingin meminta koreksi data atau penghapusan akun beserta
-            seluruh riwayatnya, hubungi kami melalui{" "}
-            <strong>{SUPPORT_EMAIL}</strong> atau WhatsApp{" "}
-            <strong>{SUPPORT_WHATSAPP_DISPLAY}</strong>.
+            instansi melalui halaman <strong>Akun</strong>. Untuk meminta akses,
+            koreksi, atau penghapusan data, hubungi kami melalui{" "}
+            <a href={mailtoHref("Permintaan data TOCPNS")}>{SUPPORT_EMAIL}</a>{" "}
+            atau WhatsApp <strong>{SUPPORT_WHATSAPP_DISPLAY}</strong>. Kami akan
+            memverifikasi kepemilikan akun dan mengabari hasil serta data yang
+            masih perlu dipertahankan.
           </p>
           <div className="inline">
             <Link className="button" href="/account">

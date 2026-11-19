@@ -62,7 +62,7 @@ async def main():
         assert health.status_code == 200, health.text
         assert health.json()['db'] == health.json()['redis'] == 'ok'
         print('PASS: gateway, database, and Redis health')
-        for name in ['x-content-type-options', 'x-frame-options', 'referrer-policy', 'strict-transport-security']:
+        for name in ['x-content-type-options', 'x-frame-options', 'referrer-policy', 'strict-transport-security', 'content-security-policy']:
             assert name in health.headers, name
         assert health.headers['cache-control'] == 'no-store'
         print('PASS: security headers and API cache prevention')
@@ -91,27 +91,38 @@ async def main():
         assert catalog.status_code == 200, f'Catalog returned {catalog.status_code}'
         print('PASS: authenticated profile and public catalog')
         auth = {'Cookie': f'access_token={token}'}
-        started = await client.post(f'/api/v1/exam/start/{package_id}', headers=auth)
+        started = await client.post(f'/api/v1/exam/start/{package_id}?writer_id=first-tab', headers=auth)
         assert started.status_code == 200, f'Exam start returned {started.status_code}'
         session_id = started.json()['session_id']
         questions = started.json()['package']['questions']
         assert len(questions) == 110
+        claimed = await client.post(f'/api/v1/exam/session/{session_id}/claim', headers=auth, json={'writer_id': 'active-tab'})
+        assert claimed.status_code == 200
+        finish = f'/api/v1/exam/finish/{session_id}'
+        old_tab = {'writer_id': 'first-tab', 'writer_epoch': started.json()['writer_epoch']}
+        active_tab = {'writer_id': 'active-tab', 'writer_epoch': claimed.json()['writer_epoch']}
+        stale = await client.post(finish, headers=auth, json=old_tab)
+        assert stale.status_code == 409 and stale.json()['detail']['code'] == 'writer_conflict'
+        early = await client.post(finish, headers=auth, json={**active_tab, 'mode': 'deadline'})
+        assert early.status_code == 409 and early.json()['detail']['code'] == 'deadline_not_reached'
         chosen = {}
         for question in questions:
             assert 'discussion' not in question
             assert all('score' not in option for option in question['options'])
-            chosen.setdefault(question['segment'], question)
-        for question in chosen.values():
             answer = next(option for option in question['options'] if option['label'] == 'A')
             saved = await client.post(f'/api/v1/exam/autosave/{session_id}', headers=auth,
-                                      json={'question_id': question['id'], 'option_id': answer['id']})
+                                      json={**active_tab, 'question_id': question['id'], 'option_id': answer['id'],
+                                            'mutation_id': str(uuid.uuid4())})
             assert saved.status_code == 200, f'Autosave returned {saved.status_code}'
+            chosen[question['id']] = answer['id']
         async with async_session_maker() as database:
             count = await database.scalar(select(func.count(models.ExamResponse.id)).where(models.ExamResponse.session_id == uuid.UUID(session_id)))
-            assert count == 3
+            assert count == 110
         await redis_service.redis.delete(f"exam_answers:{registered.json()['id']}:{session_id}")
         print('PASS: answer secrecy and database-acknowledged autosave independent of Redis answer cache')
-        submitted = await client.post(f'/api/v1/exam/finish/{session_id}', headers=auth)
+        resumed = await client.get(f'/api/v1/exam/session/{session_id}/state', headers=auth)
+        assert resumed.json()['answers'] == chosen and resumed.json()['end_time'] == started.json()['end_time']
+        submitted = await client.post(finish, headers=auth, json=active_tab)
         assert submitted.status_code == 200
         for _ in range(60):
             result = await client.get(f'/api/v1/exam/result/{session_id}', headers=auth)
@@ -121,9 +132,9 @@ async def main():
             await asyncio.sleep(0.5)
         else:
             raise AssertionError('Background scoring did not finish within 30 seconds')
-        assert result.json()['total_score'] == 15
-        assert all(result.json()[name] == 5 for name in ['score_twk', 'score_tiu', 'score_tkp'])
-        duplicate = await client.post(f'/api/v1/exam/finish/{session_id}', headers=auth)
+        assert result.json()['total_score'] == 550
+        assert [result.json()[name] for name in ['score_twk', 'score_tiu', 'score_tkp']] == [150, 175, 225]
+        duplicate = await client.post(finish, headers=auth, json=active_tab)
         assert duplicate.json()['status'] == 'finished'
         print('PASS: asynchronous Celery scoring, category totals, and idempotent duplicate submit')
         cors = await client.options('/api/v1/auth/me', headers={'Origin': 'https://tocpns.my.id', 'Access-Control-Request-Method': 'GET'})

@@ -14,7 +14,7 @@ from backend.models.models import Package, Question, QuestionOption, ExamSession
 from backend.api.v1.endpoints.auth import get_current_user
 from backend.core.redis_service import redis_service
 from backend.core.rate_limiter import limiter, authenticated_limit_key
-from backend.schemas.exam import ExamSessionListItem
+from backend.schemas.exam import ExamSessionListItem, ExamSubmission
 from backend.core.tasks import calculate_exam_score, async_run_scoring
 from backend.services import exams as durable
 from backend.models.models import PackageRevision, ExamResponse
@@ -238,32 +238,25 @@ async def finish_exam(
     request: Request,
     response: Response,
     session_id: uuid.UUID,
+    submission: ExamSubmission | None = None,
     db: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_user)
 ):
     attempt = await durable.owned_session(db, session_id, current_user.id, lock=True)
+    if submission is None and attempt.revision_id and attempt.writer_id and attempt.status == "ongoing":
+        raise HTTPException(409, {"code": "update_required", "message": "Muat ulang halaman untuk mengumpulkan ujian."})
+    submission = submission or ExamSubmission()
     if attempt.revision_id:
-        await durable.submit(db, attempt)
+        dispatch = await durable.submit(db, attempt, submission)
         # A durable job is already committed; periodic reconciliation survives broker failure.
-        if attempt.status != "finished":
+        if dispatch:
             import asyncio
             try:
                 await asyncio.to_thread(calculate_exam_score.delay, str(attempt.id), str(current_user.id), current_user.email)
             except Exception:
                 logger.warning("Scoring dispatch deferred; durable job retained")
         return {"status": attempt.status}
-    # 1. Fetch session with row-level locking to prevent race conditions (double submission)
-    result = await db.execute(
-        select(ExamSession)
-        .where(
-            ExamSession.id == session_id, 
-            ExamSession.user_id == current_user.id
-        )
-        .with_for_update()
-    )
-    session = result.scalar_one_or_none()
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+    session = attempt
     
     if session.status == "finished":
         return {
@@ -277,17 +270,7 @@ async def finish_exam(
     if session.status == "processing":
         return {"status": "processing", "message": "Result is being calculated"}
 
-    # SECURITY: Server-side time enforcement.
-    # Even if the client still has time remaining, we honor the server's end_time.
-    # This prevents client-side clock manipulation.
-    now_utc = datetime.now(timezone.utc)
-    if session.end_time:
-        end_time = session.end_time
-        if end_time.tzinfo is None:
-            end_time = end_time.replace(tzinfo=timezone.utc)
-        if now_utc > end_time:
-            # Time already expired — force-close regardless of client state
-            logger.info(f"Session {session_id} force-closed due to server-side time expiry")
+    durable.check_deadline(session, submission.mode, datetime.now(timezone.utc))
 
     # PREVENT DEADLOCK: Commit the 'processing' status and release the FOR UPDATE lock
     # BEFORE we execute calculate_exam_score or async_run_scoring
@@ -341,6 +324,7 @@ async def get_exam_result(
     request: Request,
     response: Response,
     session_id: uuid.UUID,
+    include_answers: bool = False,
     db: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_user)
 ):
@@ -357,7 +341,19 @@ async def get_exam_result(
         raise HTTPException(status_code=404, detail="Session not found")
     
     revision = await db.get(PackageRevision, session.revision_id) if session.revision_id else None
+    answers = None
+    if include_answers and session.status in {"processing", "finished"}:
+        if revision:
+            rows = await db.execute(select(ExamResponse.question_id, ExamResponse.option_id)
+                                    .where(ExamResponse.session_id == session.id))
+            answers = {str(question_id): str(option_id) for question_id, option_id in rows}
+        elif session.status == "finished":
+            from backend.models.models import Answer
+            rows = await db.execute(select(Answer.question_id, Answer.option_id)
+                                    .where(Answer.session_id == session.id, Answer.option_id.is_not(None)))
+            answers = {str(question_id): str(option_id) for question_id, option_id in rows}
     return {
+        **({"answers": answers} if answers is not None else {}),
         "passing_grades": revision.payload["passing_grades"] if revision else dict(durable.PASSING_GRADE),
         "revision_id": session.revision_id,
         "status": session.status,
