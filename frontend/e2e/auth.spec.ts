@@ -11,8 +11,18 @@ test.describe('Authentication and Landing Flow', () => {
     const ctaLink = page.getByRole('link', { name: 'Coba paket gratis' });
     await expect(ctaLink).toBeVisible();
 
-    const membershipLink = page.getByRole('link', { name: 'Lihat keanggotaan' });
+    const membershipLink = page.getByRole('link', { name: 'Lihat TOCPNS Pro' });
     await expect(membershipLink).toBeVisible();
+
+    const heroLabel = page.getByText('Ruang latihan CPNS', { exact: true });
+    await expect(heroLabel).toHaveCSS('font-size', '16px');
+
+    const guide = page.getByRole('region', { name: 'Cara berlatih' });
+    await expect(guide.getByRole('listitem')).toContainText([
+      'Pilih paket soal',
+      'Kerjakan simulasi soal dengan waktu terukur',
+      'Tinjau jawabanmu',
+    ]);
   });
 
   test('should navigate to login page and render form controls', async ({ page }) => {

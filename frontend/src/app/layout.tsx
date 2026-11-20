@@ -24,7 +24,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "TOCPNS — Ruang latihan CPNS",
   description:
-    "Simulasi CAT, hasil latihan yang jelas, dan pembahasan untuk langkah belajar berikutnya.",
+    "Latihan SKD CPNS dengan simulasi CAT, nilai per subtes TWK, TIU, dan TKP, serta pembahasan setelah ujian.",
 };
 
 export default function RootLayout({

@@ -517,6 +517,11 @@ body {
   align-items: center;
   gap: 65px;
 }
+.hero-label {
+  padding: 6px 10px;
+  font-size: 1rem;
+  line-height: 1.35;
+}
 .hero-home h1 {
   font-size: clamp(38px, 5vw, 62px);
   line-height: 1.08;
@@ -534,6 +539,29 @@ body {
 }
 .hero-art .panel {
   box-shadow: 0 14px 35px var(--accent) 15;
+}
+.hero-steps {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.hero-steps li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  line-height: 1.5;
+}
+.hero-note {
+  align-items: flex-start;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+}
+.hero-note svg {
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 .check-list {
   display: flex;
