@@ -11,14 +11,14 @@ export default function Forgot() {
   return (
     <AppShell>
       <section className="panel auth-panel stack">
-        <h1>Lupa kata sandi?</h1>
+        <h1>Lupa password?</h1>
         <p className="muted">
-          Masukkan email akunmu untuk meminta tautan pemulihan.
+          Masukkan email akunmu untuk mendapatkan link reset password.
         </p>
         {sent ? (
           <p className="notice" role="status">
-            Jika alamat tersebut terdaftar, petunjuk pemulihan akan dikirim.
-            Periksa juga folder spam.
+            Jika email tersebut terdaftar, link reset password akan segera
+            dikirim. Cek juga folder spam.
           </p>
         ) : (
           <form
@@ -55,7 +55,7 @@ export default function Forgot() {
             </label>
             {error && <ErrorPanel message={error} />}
             <button className="button" disabled={busy}>
-              {busy ? "Memproses…" : "Kirim petunjuk pemulihan"}
+              {busy ? "Memproses…" : "Kirim link reset"}
             </button>
           </form>
         )}

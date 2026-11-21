@@ -34,10 +34,10 @@ export default function Catalog() {
       action={
         !user?.is_pro ? (
           <Link className="button button-secondary" href="/catalog/upgrade">
-            Lihat keanggotaan
+            Upgrade Pro
           </Link>
         ) : (
-          <span className="badge badge-green">Seluruh paket Pro termasuk</span>
+          <span className="badge badge-green">Akses semua paket Pro aktif</span>
         )
       }
     >

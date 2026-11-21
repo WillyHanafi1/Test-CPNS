@@ -20,8 +20,8 @@ export default function Upgrade() {
   const [payError, setPayError] = useState("");
   return (
     <AppShell
-      title="Satu keanggotaan. Ruang latihan lebih luas."
-      description="Seluruh paket yang tersedia dalam cakupan Pro, dengan hasil dan pembahasan untuk setiap latihan."
+      title="Upgrade ke Paket Pro"
+      description="Buka akses semua paket soal Pro yang tersedia, lengkap dengan hasil dan pembahasan."
     >
       {loading ? (
         <Loading />
@@ -33,7 +33,7 @@ export default function Upgrade() {
             <h2>Fokus pada latihanmu.</h2>
             <ul className="check-list">
               {[
-                "Akses seluruh paket peserta Pro yang terbit dan siap.",
+                "Akses semua paket soal Pro yang terbit dan siap dikerjakan.",
                 "Pembahasan tersedia setelah latihan selesai.",
                 "Latihan mandiri dapat diulang; acara terjadwal mengikuti aturannya.",
                 "Hasil dan pembahasan sesi sendiri tetap dapat dibaca setelah Pro berakhir.",
@@ -66,7 +66,7 @@ export default function Upgrade() {
             )}
             {user?.is_pro && (
               <p className="notice">
-                Keanggotaanmu aktif{" "}
+                Paket Pro kamu aktif{" "}
                 {user.pro_expires_at
                   ? `sampai ${dateLabel(user.pro_expires_at)}`
                   : "tanpa batas waktu"}

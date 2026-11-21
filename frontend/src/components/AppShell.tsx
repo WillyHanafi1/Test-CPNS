@@ -50,7 +50,7 @@ export default function AppShell({
     ? [...links, { href: "/donasi", title: "Donasi", icon: Heart }]
     : [
         { href: "/catalog", title: "Paket Soal", icon: BookOpen },
-        { href: "/catalog/upgrade", title: "Keanggotaan", icon: UserRound },
+        { href: "/catalog/upgrade", title: "Paket Pro", icon: UserRound },
         { href: "/faq", title: "Bantuan", icon: Home },
         { href: "/donasi", title: "Donasi", icon: Heart },
       ];
@@ -118,7 +118,6 @@ export default function AppShell({
         {title && (
           <div className="page-heading">
             <div>
-              <p className="eyebrow">RUANG LATIHANMU</p>
               <h1>{title}</h1>
               {description && (
                 <p className="muted page-description">{description}</p>
@@ -132,7 +131,7 @@ export default function AppShell({
       <footer className="app-footer">
         <span>TOCPNS · Latihan dengan lebih tenang.</span>
         <Link href="/faq">Bantuan</Link>
-        <Link href="/support">Kontak & Dukungan</Link>
+        <Link href="/support">Kontak</Link>
         <Link href="/donasi">Donasi</Link>
         <Link href="/terms">Ketentuan</Link>
         <Link href="/privacy">Privasi</Link>

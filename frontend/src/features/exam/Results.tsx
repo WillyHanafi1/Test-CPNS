@@ -160,8 +160,8 @@ export function ResultView({ id }: { id: string }) {
                 className={`badge ${data.is_passed ? "badge-green" : "badge-amber"}`}
               >
                 {data.is_passed
-                  ? "Mencapai ambang latihan"
-                  : "Belum mencapai ambang latihan"}
+                  ? "Memenuhi Passing Grade"
+                  : "Belum memenuhi Passing Grade"}
               </span>
             </section>
             <div className={styles.scoreCards}>
@@ -180,7 +180,7 @@ export function ResultView({ id }: { id: string }) {
                       {segment} · {segmentNames[segment]}
                     </h2>
                     <strong>{value}</strong>
-                    <p data-met={value >= target}>Ambang latihan {target}</p>
+                    <p data-met={value >= target}>Passing Grade {target}</p>
                   </section>
                 );
               })}
@@ -216,12 +216,12 @@ export function ResultView({ id }: { id: string }) {
               >
                 Peringkat paket
               </Link>
-              <Link href="/analytics">Perkembangan belajar</Link>
+              <Link href="/analytics">Statistik & Topik</Link>
               <Link href="/history">Semua riwayat</Link>
             </nav>
             <p className="muted">
-              Ambang ini berlaku untuk simulasi. Untuk seleksi resmi, ikuti
-              aturan tahun dan formasi yang kamu lamar.
+              Passing Grade ini berlaku untuk simulasi. Untuk seleksi resmi,
+              ikuti aturan tahun dan formasi yang kamu lamar.
             </p>
           </>
         ) : (

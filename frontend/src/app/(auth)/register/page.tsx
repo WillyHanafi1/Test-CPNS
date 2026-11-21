@@ -32,7 +32,7 @@ function RegisterForm() {
       <div className="panel auth-panel stack">
         <div>
           <p className="eyebrow">LANGKAH PERTAMA</p>
-          <h1>Buat ruang latihanmu.</h1>
+          <h1>Daftar akun baru.</h1>
           <p className="muted" style={{ marginTop: 12 }}>
             Daftar gratis dan mulai dari satu paket.
           </p>
@@ -85,11 +85,11 @@ function RegisterForm() {
             />
           </label>
           <label className="field">
-            Kata sandi
+            Password
             <div className="inline" style={{ flexWrap: "nowrap" }}>
               <input
                 className="input"
-                aria-label="Kata sandi"
+                aria-label="Password"
                 type={show ? "text" : "password"}
                 autoComplete="new-password"
                 minLength={8}

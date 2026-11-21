@@ -33,7 +33,7 @@ export default function Dashboard() {
   const latest = data?.find((s) => s.status === "finished");
   return (
     <AppShell
-      title={`Halo, ${user.full_name?.split(" ")[0] || "teman belajar"}.`}
+      title={`Halo, ${user.full_name?.split(" ")[0] || "peserta"}.`}
       description="Satu latihan, satu pemahaman baru. Lanjutkan dari langkah terakhirmu."
       action={
         <Link
@@ -150,7 +150,7 @@ export default function Dashboard() {
               </p>
               <div className="inline">
                 <Link className="button button-small" href="/analytics">
-                  Perkembangan & topik
+                  Statistik & Topik
                 </Link>
                 <Link
                   className="button button-small button-secondary"

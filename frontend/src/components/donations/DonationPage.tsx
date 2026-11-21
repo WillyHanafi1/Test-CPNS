@@ -128,8 +128,8 @@ export default function DonationPage() {
           ))}
         </div>
         <p className="muted donation-small">
-          Target bulanan adalah sasaran dukungan operasional, bukan rincian
-          pengeluaran yang sudah dibelanjakan.
+          Target bulanan adalah sasaran dukungan operasional, bukan laporan
+          detail pengeluaran yang sudah dibelanjakan.
         </p>
       </section>
       <section
@@ -143,8 +143,8 @@ export default function DonationPage() {
             "Tidak. Dukungan sepenuhnya sukarela. Kamu tetap bisa menggunakan paket yang termasuk dalam akunmu tanpa berdonasi.",
           ],
           [
-            "Apakah donasi memberi keanggotaan Pro?",
-            "Donasi membantu operasional platform dan tidak mengaktifkan Pro. Keanggotaan tersedia terpisah melalui halaman Keanggotaan.",
+            "Apakah donasi memberi Paket Pro?",
+            "Donasi membantu operasional platform dan tidak mengaktifkan Pro. Paket Pro tersedia terpisah melalui halaman Paket Pro.",
           ],
           [
             "Apakah nama saya harus tampil?",

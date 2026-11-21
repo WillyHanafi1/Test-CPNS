@@ -15,17 +15,17 @@ function Form() {
   return (
     <AppShell>
       <section className="panel auth-panel stack">
-        <h1>Atur kata sandi baru.</h1>
+        <h1>Reset password.</h1>
         {!token ? (
           <>
-            <ErrorPanel message="Tautan pemulihan tidak lengkap. Minta tautan baru untuk melanjutkan." />
+            <ErrorPanel message="Link reset password tidak lengkap. Minta link baru untuk melanjutkan." />
             <Link className="button" href="/forgot-password">
-              Minta tautan baru
+              Minta link baru
             </Link>
           </>
         ) : sent ? (
           <>
-            <p className="notice">Kata sandi berhasil diperbarui.</p>
+            <p className="notice">Password berhasil diperbarui.</p>
             <Link className="button" href="/login">
               Masuk ke akun
             </Link>
@@ -37,7 +37,7 @@ function Form() {
               e.preventDefault();
               setError("");
               if (password !== confirm) {
-                setError("Kedua kata sandi belum sama.");
+                setError("Kedua password belum sama.");
                 return;
               }
               setBusy(true);
@@ -49,7 +49,9 @@ function Form() {
                 setSent(true);
               } catch (e) {
                 setError(
-                  e instanceof Error ? e.message : "Pemulihan belum berhasil.",
+                  e instanceof Error
+                    ? e.message
+                    : "Reset password belum berhasil.",
                 );
               } finally {
                 setBusy(false);
@@ -57,7 +59,7 @@ function Form() {
             }}
           >
             <label className="field">
-              Kata sandi baru
+              Password baru
               <input
                 className="input"
                 type="password"
@@ -69,7 +71,7 @@ function Form() {
               />
             </label>
             <label className="field">
-              Ulangi kata sandi
+              Ulangi password
               <input
                 className="input"
                 type="password"
@@ -82,10 +84,10 @@ function Form() {
             </label>
             {error && <ErrorPanel message={error} />}
             <button className="button" disabled={busy}>
-              {busy ? "Memperbarui…" : "Simpan kata sandi baru"}
+              {busy ? "Memperbarui…" : "Simpan password baru"}
             </button>
             <Link className="muted" href="/forgot-password">
-              Tautan kedaluwarsa? Minta yang baru
+              Link sudah kedaluwarsa? Minta yang baru
             </Link>
           </form>
         )}

@@ -28,7 +28,7 @@ function Form() {
       <div className="panel auth-panel stack">
         <div>
           <p className="eyebrow">SELAMAT DATANG KEMBALI</p>
-          <h1>Masuk ke ruang latihan.</h1>
+          <h1>Masuk ke akunmu.</h1>
           <p className="muted" style={{ marginTop: 12 }}>
             Lanjutkan perjalanan belajarmu.
           </p>
@@ -66,11 +66,11 @@ function Form() {
             />
           </label>
           <label className="field">
-            Kata sandi
+            Password
             <div className="inline" style={{ flexWrap: "nowrap" }}>
               <input
                 className="input"
-                aria-label="Kata sandi"
+                aria-label="Password"
                 type={show ? "text" : "password"}
                 autoComplete="current-password"
                 required
@@ -88,7 +88,7 @@ function Form() {
             </div>
           </label>
           <Link href="/forgot-password" className="muted">
-            Lupa kata sandi?
+            Lupa password?
           </Link>
           <button className="button" disabled={busy}>
             {busy ? "Sedang masuk…" : "Masuk"}

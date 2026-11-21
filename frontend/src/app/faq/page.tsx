@@ -19,8 +19,8 @@ export default function Help() {
             "Pilih paket pada katalog, masuk ke akun, lalu baca persiapan dan tekan Mulai ujian. Timer baru dimulai setelah sesi dibuat.",
           ],
           [
-            "Apa yang termasuk dalam Pro?",
-            "Seluruh paket peserta yang terbit dan siap dalam cakupan keanggotaan selama masa aktif (365 hari sejak pembayaran terverifikasi). Tidak ada tagihan berulang otomatis. Jadwal dan aturan percobaan tryout terjadwal tetap berlaku.",
+            "Apa yang termasuk dalam Paket Pro?",
+            "Semua paket soal peserta yang terbit dan siap selama masa aktif (365 hari sejak pembayaran terverifikasi). Tidak ada tagihan berulang otomatis. Jadwal dan aturan percobaan tryout terjadwal tetap berlaku.",
           ],
           [
             "Bagaimana jika koneksi terputus saat ujian?",
@@ -32,15 +32,15 @@ export default function Help() {
           ],
           [
             "Di mana pembahasan dan analisis kelemahan topik tersedia?",
-            "Buka Riwayat, pilih sesi yang selesai, lalu tekan Pembahasan. Untuk melihat grafik perkembangan nilai dan sub-topik yang perlu diperkuat, buka halaman Perkembangan dari Beranda atau Riwayat. Hasil latihan sendiri tetap dapat dibaca sesudah masa Pro berakhir.",
+            "Buka Riwayat, pilih sesi yang selesai, lalu tekan Pembahasan. Untuk melihat tren nilai dan sub-topik yang perlu diperkuat, buka halaman Statistik & Topik dari Beranda atau Riwayat. Hasil latihan sendiri tetap dapat dibaca sesudah masa Pro berakhir.",
           ],
           [
             "Bagaimana pembayaran diverifikasi dan bagaimana jika tertunda?",
             "Status transaksi diperiksa langsung di server melalui DOKU. Kembali dari halaman pembayaran tidak otomatis berarti transaksi berhasil. Jika status masih menunggu atau mengalami kendala, buka Riwayat Transaksi di Akun atau hubungi kami dengan menyertakan ID Transaksi (Order ID).",
           ],
           [
-            "Bagaimana jika lupa kata sandi atau kesulitan masuk akun?",
-            "Gunakan tautan Lupa kata sandi pada halaman Masuk untuk menerima tautan pemulihan melalui email, atau masuk menggunakan akun Google yang terdaftar. Jika masih terkendala, hubungi WhatsApp atau Email dukungan kami tanpa perlu masuk akun.",
+            "Bagaimana jika lupa password atau kesulitan masuk akun?",
+            "Gunakan link Lupa password pada halaman Masuk untuk menerima link reset password melalui email, atau masuk menggunakan akun Google yang terdaftar. Jika masih terkendala, hubungi WhatsApp atau Email admin kami tanpa perlu masuk akun.",
           ],
         ].map(([title, description]) => (
           <details className="panel" key={title}>
@@ -65,7 +65,7 @@ export default function Help() {
           </div>
           <div className="inline">
             <Link href="/support" className="button">
-              Kontak & dukungan
+              Kontak & Bantuan
             </Link>
             <a
               href={whatsappHref("Halo Admin TOCPNS, saya ingin bertanya...")}

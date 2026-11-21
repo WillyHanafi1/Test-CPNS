@@ -57,32 +57,36 @@ export default function Home() {
 
       <HomeTrustStrip />
 
-      <HomeExamPreview />
+      <div className="home-section">
+        <HomeExamPreview />
+      </div>
 
-      <section className="package-grid" style={{ margin: "25px 0 55px" }}>
-        {[
-          [
-            "Simulasi CAT",
-            "Pantau sisa waktu dan pindah antarsoal dengan mudah. Jawabanmu tersimpan otomatis saat berlatih.",
-          ],
-          [
-            "Pembahasan dan evaluasi",
-            "Lihat poin tiap jawaban dan topik yang perlu kamu latih lagi.",
-          ],
-          [
-            "Akses paket Pro",
-            "Kerjakan semua paket yang tersedia selama keanggotaan Pro aktif.",
-          ],
-        ].map(([title, description]) => (
-          <article className="panel stack" key={title}>
-            <Check size={21} color="var(--accent)" />
-            <h2>{title}</h2>
-            <p className="muted">{description}</p>
-          </article>
-        ))}
+      <section className="home-section">
+        <div className="package-grid">
+          {[
+            [
+              "Simulasi CAT",
+              "Pantau sisa waktu dan pindah antarsoal dengan mudah. Jawabanmu tersimpan otomatis saat berlatih.",
+            ],
+            [
+              "Pembahasan dan evaluasi",
+              "Lihat poin tiap jawaban dan topik yang perlu kamu latih lagi.",
+            ],
+            [
+              "Akses paket Pro",
+              "Kerjakan semua paket soal yang tersedia selama Paket Pro aktif.",
+            ],
+          ].map(([title, description]) => (
+            <article className="panel stack" key={title}>
+              <Check size={21} color="var(--accent)" />
+              <h2>{title}</h2>
+              <p className="muted">{description}</p>
+            </article>
+          ))}
+        </div>
       </section>
 
-      <section className="stack" style={{ marginBottom: 55 }}>
+      <section className="home-section stack">
         <h2>Paket gratis dan Pro</h2>
         <div className="two-column" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
           <article className="panel stack">
@@ -112,7 +116,7 @@ export default function Home() {
 
           <article className="panel stack" style={{ borderColor: "var(--accent-border)" }}>
             <div className="between">
-              <span className="badge">Keanggotaan Pro</span>
+              <span className="badge">Paket Pro</span>
               <strong>Rp50.000 / 365 hari</strong>
             </div>
             <h3>Latihan dengan lebih banyak paket</h3>
@@ -138,7 +142,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="stack" style={{ marginBottom: 55 }}>
+      <section className="home-section stack">
         <div className="between" style={{ flexWrap: "wrap" }}>
           <h2>Pertanyaan umum</h2>
           <div className="inline">
@@ -160,12 +164,12 @@ export default function Home() {
               "Kamu bisa memilih paket berlabel Gratis di katalog, mengerjakan simulasi CAT, dan membaca pembahasan setelah ujian.",
             ],
             [
-              "Apakah keanggotaan Pro diperpanjang otomatis?",
+              "Apakah Paket Pro diperpanjang otomatis?",
               "Satu pembayaran memberi 365 hari akses Pro. Untuk memperpanjang, kamu bisa membeli akses lagi.",
             ],
             [
               "Siapa yang bisa saya hubungi jika ada kendala akun atau pembayaran?",
-              "Hubungi admin melalui WhatsApp atau email di halaman Kontak & dukungan. Halaman tersebut bisa dibuka sebelum masuk akun.",
+              "Hubungi admin melalui WhatsApp atau email di halaman Kontak. Halaman tersebut bisa dibuka sebelum masuk akun.",
             ],
           ].map(([q, a]) => (
             <details className="panel" key={q}>
@@ -180,18 +184,20 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="feature-card between">
-        <div>
-          <h2>Siap berlatih?</h2>
-          <p className="muted" style={{ marginTop: 8 }}>
-            Pilih paket sesuai kebutuhan latihanmu.
-          </p>
-        </div>
-        <Link className="button" href="/catalog">
-          Lihat katalog soal
-          <ArrowRight size={16} />
-        </Link>
-      </section>
+      <div className="home-section">
+        <section className="feature-card between">
+          <div>
+            <h2>Siap berlatih?</h2>
+            <p className="muted" style={{ marginTop: 8 }}>
+              Pilih paket sesuai kebutuhan latihanmu.
+            </p>
+          </div>
+          <Link className="button" href="/catalog">
+            Lihat katalog soal
+            <ArrowRight size={16} />
+          </Link>
+        </section>
+      </div>
     </AppShell>
   );
 }

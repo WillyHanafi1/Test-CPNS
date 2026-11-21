@@ -74,7 +74,7 @@ export default function Progress() {
 
   return (
     <AppShell
-      title="Perkembangan & penguasaan topik"
+      title="Statistik & Topik"
       description="Ringkasan nilai asli dan penguasaan sub-materi dari latihan yang sudah selesai."
       action={
         <div className="inline">
@@ -136,13 +136,13 @@ export default function Progress() {
             </div>
             <div className="panel stack" style={{ gap: 8 }}>
               <span className="eyebrow" style={{ margin: 0 }}>
-                MEMENUHI AMBANG LATIHAN
+                MEMENUHI PASSING GRADE
               </span>
               <strong className="metric-value">
                 {passedCount} / {finished.length}
               </strong>
               <span className="muted" style={{ fontSize: 13 }}>
-                acuan TWK 65 · TIU 80 · TKP 166
+                simulasi TWK 65 · TIU 80 · TKP 166
               </span>
             </div>
           </section>
@@ -216,8 +216,8 @@ export default function Progress() {
                 <p className="eyebrow">FOKUS BELAJAR BERIKUTNYA</p>
                 <h2>Sub-topik yang perlu diperkuat</h2>
                 <p className="muted" style={{ fontSize: 13, marginTop: 6 }}>
-                  Diurutkan dari persentase perolehan poin terendah agar kamu
-                  tahu bagian mana yang sebaiknya dipelajari ulang.
+                  Diurutkan dari persentase poin terendah agar kamu tahu bagian
+                  mana yang sebaiknya dipelajari ulang.
                 </p>
               </div>
               {weakPoints.loading ? (

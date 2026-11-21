@@ -114,7 +114,7 @@ function Status() {
               <strong>Rp {data.amount.toLocaleString("id-ID")}</strong> ·{" "}
               {data.transaction_type === "donation"
                 ? "Dukungan komunitas"
-                : "Keanggotaan Pro"}
+                : "Paket Pro"}
             </p>
           )}
           {slow && data?.status === "pending" && (

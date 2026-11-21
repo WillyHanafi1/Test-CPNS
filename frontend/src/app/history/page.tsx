@@ -31,7 +31,7 @@ export default function History() {
             className="button button-small button-secondary"
             href="/analytics"
           >
-            Perkembangan & topik
+            Statistik & Topik
           </Link>
           <Link
             className="button button-small button-secondary"

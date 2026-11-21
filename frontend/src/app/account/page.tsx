@@ -66,7 +66,7 @@ export default function Account() {
   return (
     <AppShell
       title="Akunmu"
-      description="Profil, keanggotaan, transaksi, dan bantuan dalam satu tempat."
+      description="Profil, status Pro, transaksi, dan bantuan dalam satu tempat."
     >
       <div className="two-column">
         <div className="stack">
@@ -198,7 +198,7 @@ export default function Account() {
                 </p>
               </div>
               <Link className="button button-secondary" href="/catalog/upgrade">
-                {user.is_pro ? "Detail keanggotaan" : "Lihat Pro"}
+                {user.is_pro ? "Detail Pro" : "Upgrade Pro"}
               </Link>
             </div>
           </section>
@@ -235,8 +235,8 @@ export default function Account() {
                   <div>
                     <strong>
                       {t.transaction_type === "pro_upgrade"
-                        ? "Keanggotaan Pro"
-                        : "Dukungan"}
+                        ? "Paket Pro"
+                        : "Donasi"}
                     </strong>
                     <p className="muted" style={{ fontSize: 13 }}>
                       {dateLabel(t.created_at)} · Rp{" "}
@@ -257,7 +257,7 @@ export default function Account() {
                       className="button button-small button-secondary"
                       onClick={() => setReceipt(t)}
                     >
-                      Rincian
+                      Detail
                     </button>
                     {t.transaction_type === "donation" && t.order_id && (
                       <DonationVisibility
@@ -302,7 +302,7 @@ export default function Account() {
         </div>
 
         <aside className="panel stack">
-          <h2>Tampilan</h2>
+          <h2>Tema</h2>
           <label className="field">
             Tema aplikasi
             <select
@@ -323,10 +323,10 @@ export default function Account() {
           <hr style={{ borderColor: "var(--line)" }} />
           <h2>Keamanan akun</h2>
           <Link className="button button-secondary" href="/forgot-password">
-            Ubah kata sandi melalui email
+            Ganti password via email
           </Link>
           <p className="muted">
-            Mengganti kata sandi akan mengakhiri sesi masuk lama.
+            Mengganti password akan otomatis logout dari sesi lama.
           </p>
           <hr style={{ borderColor: "var(--line)" }} />
           <h2>Bantuan dan masukan</h2>
@@ -417,7 +417,7 @@ export default function Account() {
       </div>
       <Modal
         open={!!receipt}
-        title="Rincian transaksi"
+        title="Detail transaksi"
         onClose={() => setReceipt(null)}
       >
         {receipt && (

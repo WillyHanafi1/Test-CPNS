@@ -44,7 +44,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
-  const localStudio = pathname === "/ujian/desain";
+  const localStudio =
+    pathname === "/ujian/desain" || pathname === "/beranda/desain";
   const refreshSession = useCallback(async () => {
     try {
       const d = await api<

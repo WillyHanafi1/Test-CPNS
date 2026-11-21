@@ -1,5 +1,5 @@
 .trustStrip {
-  margin: 0 0 44px;
+  margin: 0;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   border: 1px solid var(--line);
@@ -31,7 +31,7 @@
 }
 
 .previewSection {
-  margin: 0 0 60px;
+  margin: 0;
 }
 .previewHead {
   display: flex;
@@ -72,6 +72,34 @@
 .modeSwitch button[aria-pressed="true"] {
   background: var(--accent-solid);
   color: var(--on-accent);
+}
+
+.haloFrame {
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid var(--accent-border);
+  background: linear-gradient(
+    180deg,
+    var(--accent-soft) 0%,
+    color-mix(in srgb, var(--surface) 75%, var(--accent-soft)) 100%
+  );
+}
+.haloRibbon {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.haloInner {
+  border: 1px solid var(--accent-border);
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--canvas);
 }
 
 .frame {
@@ -425,6 +453,9 @@
 }
 
 @media (max-width: 900px) {
+  .haloFrame {
+    padding: 10px;
+  }
   .frameBody {
     grid-template-columns: minmax(0, 1fr);
     padding: 14px;

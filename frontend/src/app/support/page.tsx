@@ -24,8 +24,8 @@ export default function Support() {
 
   return (
     <AppShell
-      title="Kontak & dukungan"
-      description="Hubungi kami secara langsung atau kirim masukan untuk merawat ruang latihan ini."
+      title="Kontak & Bantuan"
+      description="Hubungi admin secara langsung atau kirim masukan untuk membantu merawat TOCPNS."
     >
       <div className="two-column">
         <div className="stack">
@@ -35,7 +35,7 @@ export default function Support() {
               <h2>Butuh bantuan cepat?</h2>
               <p className="muted" style={{ marginTop: 8 }}>
                 Kamu dapat menghubungi admin kapan saja tanpa perlu masuk akun—baik
-                untuk kendala masuk, pemulihan kata sandi, verifikasi transaksi,
+                untuk kendala login, reset password, verifikasi transaksi,
                 maupun pertanyaan seputar layanan.
               </p>
             </div>
@@ -145,7 +145,7 @@ export default function Support() {
                   </select>
                 </label>
                 <label className="field">
-                  Pesan atau rincian kendala
+                  Pesan atau detail kendala
                   <textarea
                     className="input"
                     rows={4}
@@ -225,8 +225,8 @@ export default function Support() {
             </div>
             <p className="muted">
               Dukungan komunitas bersifat sukarela dan terpisah dari pembelian
-              keanggotaan Pro. Kontribusimu membantu biaya server dan
-              pemeliharaan ruang belajar ini.
+              Paket Pro. Kontribusimu membantu biaya server dan pemeliharaan
+              platform ini.
             </p>
             <Link className="button button-secondary" href="/donasi">
               Buka halaman donasi

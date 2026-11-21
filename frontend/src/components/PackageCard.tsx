@@ -26,8 +26,8 @@ export function PackageCard(p: PackageInfo) {
         <span className={`badge ${!p.is_premium ? "badge-green" : ""}`}>
           {p.is_premium
             ? user?.is_pro
-              ? "Termasuk keanggotaan"
-              : "Termasuk Pro"
+              ? "Termasuk Pro"
+              : "Paket Pro"
             : "Gratis"}
         </span>
       </div>

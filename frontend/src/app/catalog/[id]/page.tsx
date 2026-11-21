@@ -120,7 +120,7 @@ export default function PackageDetail() {
   } else if (user && pack.is_premium && !user.is_pro) {
     primary = (
       <Link className="button" href="/catalog/upgrade">
-        Lihat keanggotaan Pro <ArrowRight size={16} aria-hidden="true" />
+        Upgrade ke Pro <ArrowRight size={16} aria-hidden="true" />
       </Link>
     );
   } else {
@@ -156,7 +156,7 @@ export default function PackageDetail() {
           <span className={`badge ${pack.is_premium ? "" : "badge-green"}`}>
             {pack.is_premium
               ? user?.is_pro
-                ? "Termasuk keanggotaan"
+                ? "Termasuk Pro"
                 : "Paket Pro"
               : "Gratis"}
           </span>

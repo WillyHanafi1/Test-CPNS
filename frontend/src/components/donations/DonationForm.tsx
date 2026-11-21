@@ -127,7 +127,7 @@ export default function DonationForm({
           );
           if (!result.redirect_url || !result.order_id)
             throw new Error(
-              "Tautan pembayaran belum tersedia. Silakan coba lagi.",
+              "Link pembayaran belum tersedia. Silakan coba lagi.",
             );
           const target = dokuCheckoutUrl(result.redirect_url);
           rememberPayment(result.order_id, user.id);
@@ -268,11 +268,11 @@ export default function DonationForm({
       <div
         className="donation-live-preview"
         data-tier={activeTier.key}
-        aria-label="Pratinjau kartu dukungan"
+        aria-label="Preview kartu dukungan"
       >
         <div className="between donation-preview-header">
           <span className="eyebrow" style={{ margin: 0 }}>
-            PRATINJAU TAMPILAN DI PAPAN
+            PREVIEW DI PAPAN
           </span>
           <span className="donation-tier-pill" data-tier={activeTier.key}>
             <Sparkles size={12} aria-hidden="true" />
@@ -338,7 +338,7 @@ export default function DonationForm({
             : "Pembayaran melalui DOKU · Sekali bayar"}
         </p>
         <p className="muted donation-small">
-          Donasi sukarela dan terpisah dari keanggotaan Pro.
+          Donasi sukarela dan terpisah dari Paket Pro.
         </p>
       </div>
     </form>

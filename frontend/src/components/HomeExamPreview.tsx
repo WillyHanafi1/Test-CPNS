@@ -11,6 +11,7 @@ import {
   Clock3,
   Flag,
   LayoutGrid,
+  Sparkles,
   X,
 } from "lucide-react";
 import styles from "./home-preview.module.css";
@@ -26,7 +27,9 @@ interface SampleQuestion {
   discussion: string;
 }
 
-const SAMPLE_QUESTIONS: SampleQuestion[] = [
+export type PreviewMode = "exam" | "review";
+
+export const SAMPLE_QUESTIONS: SampleQuestion[] = [
   {
     number: 1,
     segment: "TWK",
@@ -137,12 +140,31 @@ function sampleOutcome(q: SampleQuestion, picked?: string) {
   };
 }
 
-export default function HomeExamPreview() {
-  const [mode, setMode] = useState<"exam" | "review">("exam");
-  const [index, setIndex] = useState(0);
-  const [answers, setAnswers] = useState<Record<number, string>>({});
-  const [doubts, setDoubts] = useState<Record<number, boolean>>({});
-
+export function ExamPreviewWindow({
+  mode,
+  onModeChange,
+  index,
+  onIndexChange,
+  answers,
+  onAnswer,
+  doubts,
+  onToggleDoubt,
+  compact = false,
+  borderless = false,
+  hideFrameHeader = false,
+}: {
+  mode: PreviewMode;
+  onModeChange: (mode: PreviewMode) => void;
+  index: number;
+  onIndexChange: (index: number) => void;
+  answers: Record<number, string>;
+  onAnswer: (questionNumber: number, label: string) => void;
+  doubts: Record<number, boolean>;
+  onToggleDoubt: (questionNumber: number) => void;
+  compact?: boolean;
+  borderless?: boolean;
+  hideFrameHeader?: boolean;
+}) {
   const q = SAMPLE_QUESTIONS[index];
   const picked = answers[q.number];
   const isDoubt = !!doubts[q.number];
@@ -151,44 +173,15 @@ export default function HomeExamPreview() {
   const isTkp = q.segment === "TKP";
 
   return (
-    <section
-      className={styles.previewSection}
-      aria-labelledby="exam-preview-title"
+    <div
+      className={styles.frame}
+      style={
+        borderless
+          ? { border: 0, borderRadius: 0, boxShadow: "none" }
+          : undefined
+      }
     >
-      <div className={styles.previewHead}>
-        <div className={styles.previewLead}>
-          <p className="eyebrow">PRATINJAU RUANG UJIAN</p>
-          <h2 id="exam-preview-title">
-            Coba langsung tampilannya sebelum daftar.
-          </h2>
-          <p className="muted">
-            Pilih jawaban pada contoh soal TWK, TIU, dan TKP di bawah ini, lalu
-            pindah ke mode Pembahasan untuk melihat penilaiannya.
-          </p>
-        </div>
-        <div
-          className={styles.modeSwitch}
-          role="group"
-          aria-label="Mode pratinjau"
-        >
-          <button
-            type="button"
-            aria-pressed={mode === "exam"}
-            onClick={() => setMode("exam")}
-          >
-            Mode Ujian
-          </button>
-          <button
-            type="button"
-            aria-pressed={mode === "review"}
-            onClick={() => setMode("review")}
-          >
-            Mode Pembahasan
-          </button>
-        </div>
-      </div>
-
-      <div className={styles.frame}>
+      {!hideFrameHeader && (
         <div className={styles.frameHeader}>
           <div className={styles.frameBrand}>
             <span className={styles.frameBrandIcon}>
@@ -196,7 +189,7 @@ export default function HomeExamPreview() {
             </span>
             <span>TOCPNS</span>
             <span className={styles.frameStage}>
-              · Pratinjau {mode === "exam" ? "Ujian" : "Pembahasan"}
+              · Preview {mode === "exam" ? "Ujian" : "Pembahasan"}
             </span>
           </div>
           {mode === "exam" && (
@@ -207,189 +200,186 @@ export default function HomeExamPreview() {
           )}
           <span className={styles.frameBadge}>Simulasi SKD</span>
         </div>
+      )}
 
-        <div className={styles.mobileTabs} aria-label="Pilih contoh soal">
-          {SAMPLE_QUESTIONS.map((item, i) => (
-            <button
-              key={item.number}
-              type="button"
-              aria-current={i === index ? "step" : undefined}
-              onClick={() => setIndex(i)}
-            >
-              {item.number} · {item.segment}
-            </button>
-          ))}
-        </div>
+      <div
+        className={styles.mobileTabs}
+        style={compact ? { display: "flex" } : undefined}
+        aria-label="Pilih contoh soal"
+      >
+        {SAMPLE_QUESTIONS.map((item, i) => (
+          <button
+            key={item.number}
+            type="button"
+            aria-current={i === index ? "step" : undefined}
+            onClick={() => onIndexChange(i)}
+          >
+            {item.number} · {item.segment}
+          </button>
+        ))}
+      </div>
 
-        <div className={styles.frameBody}>
-          <article className={styles.questionCard}>
-            <div className={styles.questionMeta}>
-              <span className={styles.questionTitle}>
-                <span className={styles.segmentPill}>{q.segment}</span>
-                Soal {q.number} dari {SAMPLE_QUESTIONS.length} · {q.topic}
-              </span>
-              {mode === "exam" ? (
-                <button
-                  type="button"
-                  className="button button-small button-secondary"
-                  aria-pressed={isDoubt}
-                  onClick={() =>
-                    setDoubts((prev) => ({
-                      ...prev,
-                      [q.number]: !prev[q.number],
-                    }))
-                  }
-                >
-                  <Flag size={14} aria-hidden="true" />
-                  {isDoubt ? "Ditandai ragu" : "Tandai ragu"}
-                </button>
-              ) : (
-                <span
-                  className={`badge ${outcome.status === "best" ? "badge-green" : "badge-amber"}`}
-                >
-                  {outcome.selected
-                    ? `${outcome.selected.score} / ${outcome.max} poin`
-                    : `Belum dijawab · maks ${outcome.max} poin`}
-                </span>
-              )}
-            </div>
-
-            <p className={styles.questionText}>{q.content}</p>
-
-            <ul className={styles.options} aria-label={`Pilihan soal ${q.number}`}>
-              {q.options.map((option) => {
-                const isSelected = picked === option.label;
-                const isBest = option.score === outcome.max;
-                let state: string | undefined;
-                if (mode === "exam") {
-                  if (isSelected) state = "selected";
-                } else {
-                  if (isBest) state = "best";
-                  else if (isSelected) state = isTkp ? "partial" : "wrong";
-                }
-                return (
-                  <li key={option.label}>
-                    <button
-                      type="button"
-                      className={styles.optionBtn}
-                      data-state={state}
-                      disabled={mode === "review"}
-                      aria-pressed={mode === "exam" ? isSelected : undefined}
-                      onClick={() =>
-                        setAnswers((prev) => ({
-                          ...prev,
-                          [q.number]: option.label,
-                        }))
-                      }
-                    >
-                      <span className={styles.letter}>{option.label}</span>
-                      <span className={styles.optionBody}>
-                        <span>{option.content}</span>
-                        {mode === "review" && (isBest || isSelected) && (
-                          <span className={styles.optionTags}>
-                            {isBest && (
-                              <span className={styles.optionTagBest}>
-                                <Check size={13} aria-hidden="true" />
-                                {isTkp ? "Bobot tertinggi" : "Jawaban benar"}
-                              </span>
-                            )}
-                            {isSelected && (
-                              <span className={styles.optionTagPicked}>
-                                {!isBest && !isTkp && (
-                                  <X size={13} aria-hidden="true" />
-                                )}
-                                Pilihan kamu
-                              </span>
-                            )}
-                          </span>
-                        )}
-                      </span>
-                      {mode === "review" && (isTkp || isBest || isSelected) && (
-                        <span className={styles.optionPoints}>
-                          {option.score} poin
-                        </span>
-                      )}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-
-            {mode === "review" ? (
-              <div className={styles.discussionBox}>
-                <BookOpen
-                  size={18}
-                  color="var(--accent)"
-                  aria-hidden="true"
-                  style={{ marginTop: 2 }}
-                />
-                <div>
-                  <h3>Pembahasan soal</h3>
-                  <p>{q.discussion}</p>
-                </div>
-              </div>
-            ) : (
-              <div className={styles.statusRow}>
-                {picked ? (
-                  <span className={styles.statusSaved}>
-                    <CheckCircle2 size={15} aria-hidden="true" />
-                    Pilihan {picked} tersimpan di pratinjau.
-                  </span>
-                ) : (
-                  <span>Klik salah satu opsi A–E untuk mencoba.</span>
-                )}
-                <button
-                  type="button"
-                  className="button button-small button-secondary"
-                  onClick={() => setMode("review")}
-                >
-                  Lihat pembahasan
-                </button>
-              </div>
-            )}
-
-            <div className={styles.cardActions}>
+      <div
+        className={styles.frameBody}
+        style={compact ? { gridTemplateColumns: "minmax(0, 1fr)" } : undefined}
+      >
+        <article className={styles.questionCard}>
+          <div className={styles.questionMeta}>
+            <span className={styles.questionTitle}>
+              <span className={styles.segmentPill}>{q.segment}</span>
+              Soal {q.number} dari {SAMPLE_QUESTIONS.length} · {q.topic}
+            </span>
+            {mode === "exam" ? (
               <button
                 type="button"
                 className="button button-small button-secondary"
-                disabled={index === 0}
-                onClick={() => setIndex((i) => Math.max(0, i - 1))}
+                aria-pressed={isDoubt}
+                onClick={() => onToggleDoubt(q.number)}
               >
-                <ArrowLeft size={15} aria-hidden="true" />
-                Sebelumnya
+                <Flag size={14} aria-hidden="true" />
+                {isDoubt ? "Ditandai ragu" : "Tandai ragu"}
               </button>
-              {index < SAMPLE_QUESTIONS.length - 1 ? (
-                <button
-                  type="button"
-                  className="button button-small"
-                  onClick={() =>
-                    setIndex((i) =>
-                      Math.min(SAMPLE_QUESTIONS.length - 1, i + 1),
-                    )
-                  }
-                >
-                  Soal berikutnya
-                  <ArrowRight size={15} aria-hidden="true" />
-                </button>
-              ) : mode === "exam" ? (
-                <button
-                  type="button"
-                  className="button button-small"
-                  onClick={() => setMode("review")}
-                >
-                  Cek pembahasan
-                  <ArrowRight size={15} aria-hidden="true" />
-                </button>
-              ) : (
-                <Link className="button button-small" href="/catalog">
-                  Coba paket asli
-                  <ArrowRight size={15} aria-hidden="true" />
-                </Link>
-              )}
-            </div>
-          </article>
+            ) : (
+              <span
+                className={`badge ${outcome.status === "best" ? "badge-green" : "badge-amber"}`}
+              >
+                {outcome.selected
+                  ? `${outcome.selected.score} / ${outcome.max} poin`
+                  : `Belum dijawab · maks ${outcome.max} poin`}
+              </span>
+            )}
+          </div>
 
-          <aside className={styles.navCard} aria-label="Peta soal pratinjau">
+          <p className={styles.questionText}>{q.content}</p>
+
+          <ul className={styles.options} aria-label={`Pilihan soal ${q.number}`}>
+            {q.options.map((option) => {
+              const isSelected = picked === option.label;
+              const isBest = option.score === outcome.max;
+              let state: string | undefined;
+              if (mode === "exam") {
+                if (isSelected) state = "selected";
+              } else {
+                if (isBest) state = "best";
+                else if (isSelected) state = isTkp ? "partial" : "wrong";
+              }
+              return (
+                <li key={option.label}>
+                  <button
+                    type="button"
+                    className={styles.optionBtn}
+                    data-state={state}
+                    disabled={mode === "review"}
+                    aria-pressed={mode === "exam" ? isSelected : undefined}
+                    onClick={() => onAnswer(q.number, option.label)}
+                  >
+                    <span className={styles.letter}>{option.label}</span>
+                    <span className={styles.optionBody}>
+                      <span>{option.content}</span>
+                      {mode === "review" && (isBest || isSelected) && (
+                        <span className={styles.optionTags}>
+                          {isBest && (
+                            <span className={styles.optionTagBest}>
+                              <Check size={13} aria-hidden="true" />
+                              {isTkp ? "Bobot tertinggi" : "Jawaban benar"}
+                            </span>
+                          )}
+                          {isSelected && (
+                            <span className={styles.optionTagPicked}>
+                              {!isBest && !isTkp && (
+                                <X size={13} aria-hidden="true" />
+                              )}
+                              Pilihan kamu
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </span>
+                    {mode === "review" && (isTkp || isBest || isSelected) && (
+                      <span className={styles.optionPoints}>
+                        {option.score} poin
+                      </span>
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+
+          {mode === "review" ? (
+            <div className={styles.discussionBox}>
+              <BookOpen
+                size={18}
+                color="var(--accent)"
+                aria-hidden="true"
+                style={{ marginTop: 2 }}
+              />
+              <div>
+                <h3>Pembahasan soal</h3>
+                <p>{q.discussion}</p>
+              </div>
+            </div>
+          ) : (
+            <div className={styles.statusRow}>
+              {picked ? (
+                <span className={styles.statusSaved}>
+                  <CheckCircle2 size={15} aria-hidden="true" />
+                  Pilihan {picked} tersimpan di preview.
+                </span>
+              ) : (
+                <span>Klik salah satu opsi A–E untuk mencoba.</span>
+              )}
+              <button
+                type="button"
+                className="button button-small button-secondary"
+                onClick={() => onModeChange("review")}
+              >
+                Lihat pembahasan
+              </button>
+            </div>
+          )}
+
+          <div className={styles.cardActions}>
+            <button
+              type="button"
+              className="button button-small button-secondary"
+              disabled={index === 0}
+              onClick={() => onIndexChange(Math.max(0, index - 1))}
+            >
+              <ArrowLeft size={15} aria-hidden="true" />
+              Sebelumnya
+            </button>
+            {index < SAMPLE_QUESTIONS.length - 1 ? (
+              <button
+                type="button"
+                className="button button-small"
+                onClick={() =>
+                  onIndexChange(Math.min(SAMPLE_QUESTIONS.length - 1, index + 1))
+                }
+              >
+                Soal berikutnya
+                <ArrowRight size={15} aria-hidden="true" />
+              </button>
+            ) : mode === "exam" ? (
+              <button
+                type="button"
+                className="button button-small"
+                onClick={() => onModeChange("review")}
+              >
+                Cek pembahasan
+                <ArrowRight size={15} aria-hidden="true" />
+              </button>
+            ) : (
+              <Link className="button button-small" href="/catalog">
+                Coba paket asli
+                <ArrowRight size={15} aria-hidden="true" />
+              </Link>
+            )}
+          </div>
+        </article>
+
+        {!compact && (
+          <aside className={styles.navCard} aria-label="Peta soal preview">
             <div className={styles.navHead}>
               <span>Daftar soal</span>
               <LayoutGrid size={16} aria-hidden="true" />
@@ -414,7 +404,7 @@ export default function HomeExamPreview() {
                     aria-current={i === index ? "step" : undefined}
                     data-status={status}
                     data-doubt={mode === "exam" && !!doubts[item.number]}
-                    onClick={() => setIndex(i)}
+                    onClick={() => onIndexChange(i)}
                   >
                     <strong>{item.number}</strong>
                     <span>{item.segment}</span>
@@ -438,6 +428,80 @@ export default function HomeExamPreview() {
               </Link>
             </div>
           </aside>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function HomeExamPreview() {
+  const [mode, setMode] = useState<PreviewMode>("exam");
+  const [index, setIndex] = useState(0);
+  const [answers, setAnswers] = useState<Record<number, string>>({});
+  const [doubts, setDoubts] = useState<Record<number, boolean>>({});
+
+  return (
+    <section
+      className={styles.previewSection}
+      aria-labelledby="exam-preview-title"
+    >
+      <div className={styles.previewHead}>
+        <div className={styles.previewLead}>
+          <p className="eyebrow">PREVIEW RUANG UJIAN</p>
+          <h2 id="exam-preview-title">
+            Coba langsung tampilannya sebelum daftar.
+          </h2>
+          <p className="muted">
+            Pilih jawaban pada contoh soal TWK, TIU, dan TKP di bawah ini, lalu
+            pindah ke mode Pembahasan untuk melihat penilaiannya.
+          </p>
+        </div>
+        <div
+          className={styles.modeSwitch}
+          role="group"
+          aria-label="Mode preview"
+        >
+          <button
+            type="button"
+            aria-pressed={mode === "exam"}
+            onClick={() => setMode("exam")}
+          >
+            Mode Ujian
+          </button>
+          <button
+            type="button"
+            aria-pressed={mode === "review"}
+            onClick={() => setMode("review")}
+          >
+            Mode Pembahasan
+          </button>
+        </div>
+      </div>
+
+      <div className={styles.haloFrame}>
+        <div className={styles.haloRibbon}>
+          <span className="inline" style={{ gap: 6 }}>
+            <Sparkles size={14} aria-hidden="true" />
+            Preview ruang ujian TOCPNS · klik opsi untuk mencoba
+          </span>
+          <span>Tanpa perlu login</span>
+        </div>
+        <div className={styles.haloInner}>
+          <ExamPreviewWindow
+            mode={mode}
+            onModeChange={setMode}
+            index={index}
+            onIndexChange={setIndex}
+            answers={answers}
+            onAnswer={(num, label) =>
+              setAnswers((prev) => ({ ...prev, [num]: label }))
+            }
+            doubts={doubts}
+            onToggleDoubt={(num) =>
+              setDoubts((prev) => ({ ...prev, [num]: !prev[num] }))
+            }
+            borderless
+          />
         </div>
       </div>
     </section>

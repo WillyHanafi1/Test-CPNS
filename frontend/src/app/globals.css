@@ -511,11 +511,31 @@ body {
   top: 10px;
 }
 .hero-home {
-  padding: 65px 0;
+  padding: 65px 0 42px;
   display: grid;
   grid-template-columns: 1.3fr 1fr;
   align-items: center;
   gap: 65px;
+}
+.home-section {
+  position: relative;
+  margin-top: 52px;
+  padding-top: 52px;
+}
+.home-section::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--line) 8%,
+    var(--line) 92%,
+    transparent 100%
+  );
 }
 .hero-label {
   padding: 6px 10px;
@@ -763,8 +783,12 @@ body {
     padding: 24px;
   }
   .hero-home {
-    padding: 20px 0 40px;
+    padding: 20px 0 32px;
     gap: 36px;
+  }
+  .home-section {
+    margin-top: 36px;
+    padding-top: 36px;
   }
   .hero-art {
     padding: 24px;

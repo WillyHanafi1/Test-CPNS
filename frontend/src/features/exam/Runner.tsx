@@ -483,7 +483,7 @@ export default function Runner({ id }: { id: string }) {
               ) : answered ? (
                 <>
                   <CheckCircle2 size={15} aria-hidden="true" /> Semua jawaban
-                  terkonfirmasi tersimpan.
+                  tersimpan di server.
                 </>
               ) : (
                 "Pilih satu jawaban."
