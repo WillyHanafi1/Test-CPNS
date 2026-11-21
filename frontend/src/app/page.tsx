@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { ArrowRight, Check, BookOpen, CheckCircle2 } from "lucide-react";
 import AppShell from "@/components/AppShell";
+import HomeTrustStrip from "@/components/HomeTrustStrip";
+import HomeExamPreview from "@/components/HomeExamPreview";
 export default function Home() {
   return (
     <AppShell>
@@ -52,6 +54,10 @@ export default function Home() {
           </div>
         </section>
       </section>
+
+      <HomeTrustStrip />
+
+      <HomeExamPreview />
 
       <section className="package-grid" style={{ margin: "25px 0 55px" }}>
         {[

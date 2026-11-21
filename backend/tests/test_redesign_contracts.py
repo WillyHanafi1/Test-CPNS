@@ -236,3 +236,34 @@ async def test_profile_update_and_non_strict_weak_points(client, test_user, test
     assert len(weak.json()) >= 1
     assert weak.json()[0]['total_answered'] == 1
 
+
+async def test_public_stats_returns_honest_counts_excluding_admin_and_preview(
+    client, test_user, admin_user, test_package_with_questions, db_session
+):
+    from backend.api.v1.endpoints.public_stats import PUBLIC_STATS_CACHE_KEY
+    from backend.core.redis_service import redis_service
+
+    await redis_service.delete_cache(PUBLIC_STATS_CACHE_KEY)
+    package = test_package_with_questions
+    db_session.add(ExamSession(
+        user_id=test_user.id, package_id=package.id, status='finished', is_preview=False,
+        total_score=350, score_twk=80, score_tiu=100, score_tkp=170,
+        start_time=datetime.now(timezone.utc), end_time=datetime.now(timezone.utc),
+    ))
+    db_session.add(ExamSession(
+        user_id=admin_user.id, package_id=package.id, status='finished', is_preview=True,
+        total_score=550, score_twk=150, score_tiu=175, score_tkp=225,
+        start_time=datetime.now(timezone.utc), end_time=datetime.now(timezone.utc),
+    ))
+    await db_session.commit()
+
+    resp = await client.get('/api/v1/public/stats')
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == {
+        'packages_count': 1,
+        'questions_count': 110,
+        'users_count': 1,
+        'completed_sessions_count': 1,
+    }
+
+
