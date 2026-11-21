@@ -45,7 +45,7 @@ frontend/public/images/figural/
 
 # Internal / Agent files
 .Jules/
-AGENT.md
+/AGENT.md
 GEMINI.md
 LESSON_LEARNED.md
 
