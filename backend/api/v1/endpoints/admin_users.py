@@ -24,9 +24,10 @@ class UserProfileSchema(BaseModel):
 
 class UserResponse(BaseModel):
     id: uuid.UUID
-    email: EmailStr
+    email: str
     role: str
     is_active: bool
+    auth_provider: str = "local"
     created_at: datetime
     profile: Optional[UserProfileSchema] = None
     is_pro: bool = False
@@ -46,6 +47,7 @@ class UserUpdate(BaseModel):
     role: Optional[str] = None
     is_active: Optional[bool] = None
     is_pro: Optional[bool] = None
+    pro_expires_at: Optional[datetime] = None
 
 @router.get("", response_model=UserListResponse)
 async def list_users_admin(
@@ -54,13 +56,14 @@ async def list_users_admin(
     search: Optional[str] = None,
     role: Optional[str] = None,
     is_active: Optional[bool] = None,
+    is_pro: Optional[bool] = None,
     db: AsyncSession = Depends(get_async_session),
     admin: User = Depends(get_current_admin)
 ):
     # 1. Create Subqueries for stats
     sess_sub = select(
         ExamSession.user_id, func.count(ExamSession.id).label("s_count")
-    ).group_by(ExamSession.user_id).subquery()
+    ).where(ExamSession.is_preview.is_(False)).group_by(ExamSession.user_id).subquery()
 
     trans_sub = select(
         UserTransaction.user_id, func.count(UserTransaction.id).label("t_count")
@@ -75,10 +78,10 @@ async def list_users_admin(
      .outerjoin(sess_sub, User.id == sess_sub.c.user_id) \
      .outerjoin(trans_sub, User.id == trans_sub.c.user_id)
 
-    # Filters
+    # Filters (outerjoin profile so users without a profile row still match by email)
     if search:
         safe_search = sanitize_search(search)
-        stmt = stmt.join(User.profile)
+        stmt = stmt.outerjoin(User.profile)
         stmt = stmt.where(or_(
             User.email.ilike(f"%{safe_search}%"),
             UserProfile.full_name.ilike(f"%{safe_search}%")
@@ -88,14 +91,15 @@ async def list_users_admin(
         stmt = stmt.where(User.role == role)
     if is_active is not None:
         stmt = stmt.where(User.is_active == is_active)
+    if is_pro is not None:
+        stmt = stmt.where(User.is_pro == is_pro)
 
     # Total count calculation - OPTIMIZED (No subquery, no selectinload)
     count_stmt = select(func.count(User.id))
     
     if search:
-        # Re-apply JOIN for search
         safe_search = sanitize_search(search)
-        count_stmt = count_stmt.join(User.profile)
+        count_stmt = count_stmt.outerjoin(User.profile)
         count_stmt = count_stmt.where(or_(
             User.email.ilike(f"%{safe_search}%"),
             UserProfile.full_name.ilike(f"%{safe_search}%")
@@ -105,6 +109,8 @@ async def list_users_admin(
         count_stmt = count_stmt.where(User.role == role)
     if is_active is not None:
         count_stmt = count_stmt.where(User.is_active == is_active)
+    if is_pro is not None:
+        count_stmt = count_stmt.where(User.is_pro == is_pro)
 
     total_result = await db.execute(count_stmt)
     total = total_result.scalar() or 0
@@ -122,6 +128,7 @@ async def list_users_admin(
             "email": user.email,
             "role": user.role,
             "is_active": user.is_active,
+            "auth_provider": user.auth_provider,
             "created_at": user.created_at,
             "profile": user.profile,
             "is_pro": user.is_pro,
@@ -152,7 +159,12 @@ async def get_user_detail_admin(
         raise HTTPException(status_code=404, detail="User not found")
     
     # Stats
-    s_count = await db.execute(select(func.count(ExamSession.id)).where(ExamSession.user_id == user.id))
+    s_count = await db.execute(
+        select(func.count(ExamSession.id)).where(
+            ExamSession.user_id == user.id,
+            ExamSession.is_preview.is_(False),
+        )
+    )
     user.total_sessions = s_count.scalar() or 0
     
     t_count = await db.execute(select(func.count(UserTransaction.id)).where(
@@ -173,15 +185,30 @@ async def update_user_admin(
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    
+
     update_data = user_in.model_dump(exclude_unset=True)
-    before = {key: getattr(user, key) for key in update_data}
+    if user.id == admin.id:
+        if update_data.get("role") and update_data["role"] != "admin":
+            raise HTTPException(status_code=400, detail="Tidak dapat menurunkan peran akun admin sendiri.")
+        if update_data.get("is_active") is False:
+            raise HTTPException(status_code=400, detail="Tidak dapat menonaktifkan akun admin sendiri.")
+    if "role" in update_data and update_data["role"] not in ("admin", "participant"):
+        raise HTTPException(status_code=422, detail="Peran harus 'admin' atau 'participant'.")
+
+    before = {
+        key: (getattr(user, key).isoformat() if isinstance(getattr(user, key), datetime) else getattr(user, key))
+        for key in update_data
+    }
+    after = {
+        key: (val.isoformat() if isinstance(val, datetime) else val)
+        for key, val in update_data.items()
+    }
     if any(key in update_data and update_data[key] != getattr(user, key) for key in ('role', 'is_active')):
         user.auth_version += 1
     for key, value in update_data.items():
         setattr(user, key, value)
     db.add(AuditEvent(actor_id=admin.id, action='admin.user_update', entity_id=str(user_id),
-        details={'before': before, 'after': update_data}))
+        details={'before': before, 'after': after}))
     
     await db.commit()
     await db.refresh(user)

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_, case
 from sqlalchemy.orm import selectinload
 import uuid
 from typing import List, Optional, Literal
@@ -33,9 +33,13 @@ class TransactionResponse(BaseModel):
     payment_status: str
     amount: int
     snap_token: Optional[str] = None
+    payment_environment: Optional[str] = None
+    payment_expires_at: Optional[datetime] = None
+    paid_at: Optional[datetime] = None
     access_expires_at: Optional[datetime] = None
     created_at: datetime
     message: Optional[str] = None
+    is_anonymous: bool = False
     user: TransactionUser
     package: Optional[TransactionPackage] = None
     
@@ -49,6 +53,10 @@ class TransactionListResponse(BaseModel):
 
 class TransactionSummaryResponse(BaseModel):
     total_revenue: int
+    pro_revenue: int = 0
+    donation_revenue: int = 0
+    pro_count: int = 0
+    donation_count: int = 0
     success_count: int
     pending_count: int
     failed_count: int
@@ -57,8 +65,9 @@ class TransactionSummaryResponse(BaseModel):
 async def list_transactions_admin(
     page: int = Query(1, ge=1),
     size: int = Query(10, ge=1, le=100),
-    search: Optional[str] = None, # User email
+    search: Optional[str] = None, # User email or Order ID
     status: Optional[str] = None, # pending, success, failed
+    transaction_type: Optional[str] = None, # pro_upgrade, donation
     package_id: Optional[uuid.UUID] = None,
     db: AsyncSession = Depends(get_async_session),
     admin: User = Depends(get_current_admin)
@@ -71,9 +80,16 @@ async def list_transactions_admin(
     # Filters
     if search:
         safe_search = sanitize_search(search)
-        stmt = stmt.join(UserTransaction.user).where(User.email.ilike(f"%{safe_search}%"))
+        stmt = stmt.outerjoin(UserTransaction.user).where(
+            or_(
+                User.email.ilike(f"%{safe_search}%"),
+                UserTransaction.order_id.ilike(f"%{safe_search}%"),
+            )
+        )
     if status:
         stmt = stmt.where(UserTransaction.payment_status == status)
+    if transaction_type:
+        stmt = stmt.where(UserTransaction.transaction_type == transaction_type)
     if package_id:
         stmt = stmt.where(UserTransaction.package_id == package_id)
 
@@ -99,10 +115,24 @@ async def get_transaction_summary_admin(
     db: AsyncSession = Depends(get_async_session),
     admin: User = Depends(get_current_admin)
 ):
-    # Total Revenue (Success only)
-    rev_stmt = select(func.sum(UserTransaction.amount)).where(UserTransaction.payment_status == "success")
-    rev_result = await db.execute(rev_stmt)
-    total_revenue = rev_result.scalar() or 0
+    # Revenue breakdown (Success only)
+    rev_row = (
+        await db.execute(
+            select(
+                func.coalesce(func.sum(UserTransaction.amount), 0),
+                func.coalesce(
+                    func.sum(case((UserTransaction.transaction_type == "donation", UserTransaction.amount), else_=0)),
+                    0,
+                ),
+                func.coalesce(
+                    func.sum(case((UserTransaction.transaction_type != "donation", UserTransaction.amount), else_=0)),
+                    0,
+                ),
+                func.count(case((UserTransaction.transaction_type == "donation", 1))),
+                func.count(case((UserTransaction.transaction_type != "donation", 1))),
+            ).where(UserTransaction.payment_status == "success")
+        )
+    ).one()
 
     # Counts by status
     count_stmt = select(
@@ -114,7 +144,11 @@ async def get_transaction_summary_admin(
     counts = {row[0]: row[1] for row in count_result.all()}
 
     return {
-        "total_revenue": total_revenue,
+        "total_revenue": int(rev_row[0] or 0),
+        "donation_revenue": int(rev_row[1] or 0),
+        "pro_revenue": int(rev_row[2] or 0),
+        "donation_count": int(rev_row[3] or 0),
+        "pro_count": int(rev_row[4] or 0),
         "success_count": counts.get("success", 0),
         "pending_count": counts.get("pending", 0),
         "failed_count": counts.get("failed", 0)

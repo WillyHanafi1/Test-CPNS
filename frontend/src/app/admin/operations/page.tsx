@@ -1,45 +1,62 @@
 "use client";
-import { useEffect, useState } from "react";
+
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { Activity, CheckCircle2, RefreshCw } from "lucide-react";
 import { useResource } from "@/lib/useResource";
 import { api, dateLabel } from "@/lib/api";
 import { ErrorPanel, Loading } from "@/components/AppShell";
 import Modal from "@/components/Modal";
+import { AdminBadge, AdminPageHeader } from "@/components/admin";
+import {
+  formatDateTimeJakarta,
+  formatTimeJakarta,
+} from "@/lib/admin-format";
+import type {
+  AdminInfrastructureHealth,
+  AdminInfrastructureJob,
+} from "@/types/admin";
 
-type Health = {
+function formatHeartbeat(seconds: number | null | undefined): {
   status: string;
-  observed_at: string;
-  scoring: Record<string, number>;
-  payment_events: Record<string, number>;
-  worker_heartbeat_age_seconds: number | null;
-  oldest_pending_seconds: number;
-  issues: { code: string; message: string; count?: number }[];
-  host?: {
-    disk_free_gib: number;
-    backup?: Record<string, { destination?: string; age_hours?: number }>;
-  } | null;
-};
-type Job = {
-  id: string;
-  kind: string;
-  status: string;
-  attempts: number;
-  created_at: string;
-  last_error: string | null;
-};
+  tone: "success" | "warning" | "neutral";
+  detail: string;
+} {
+  if (seconds === null || seconds === undefined) {
+    return {
+      status: "Belum terpantau",
+      tone: "neutral",
+      detail: "Aktifkan worker dan Beat pada rilis ini.",
+    };
+  }
+  if (seconds < 150) {
+    return {
+      status: "Terhubung",
+      tone: "success",
+      detail: `Kabar terakhir ${seconds} detik lalu`,
+    };
+  }
+  return {
+    status: "Perlu diperiksa",
+    tone: "warning",
+    detail: `Kabar terakhir ${seconds} detik lalu`,
+  };
+}
 
 export default function Operations() {
-  const health = useResource<Health>("/admin/analytics/infrastructure");
-  const queue = useResource<{ items: Job[] }>(
+  const health = useResource<AdminInfrastructureHealth>(
+    "/admin/analytics/infrastructure",
+  );
+  const queue = useResource<{ items: AdminInfrastructureJob[] }>(
     "/admin/analytics/infrastructure/queue",
   );
-  const [selected, setSelected] = useState<Job | null>(null);
+  const [selected, setSelected] = useState<AdminInfrastructureJob | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const reloadHealth = health.reload;
   const reloadQueue = queue.reload;
+
   useEffect(() => {
     const timer = setInterval(() => {
       if (document.visibilityState === "visible") {
@@ -49,33 +66,46 @@ export default function Operations() {
     }, 30000);
     return () => clearInterval(timer);
   }, [reloadHealth, reloadQueue]);
+
+  const workerInfo = formatHeartbeat(
+    health.data?.worker_heartbeat_age_seconds,
+  );
+  const paymentWorkerInfo = formatHeartbeat(
+    health.data?.payment_worker_heartbeat_age_seconds,
+  );
+  const backupAgeHours = health.data?.host?.backup?.database?.age_hours;
+
   return (
-    <div className="stack">
-      <div className="between page-heading">
-        <div>
-          <p className="eyebrow">OPERASI</p>
-          <h1>Kesehatan layanan</h1>
-          <p className="muted">
-            Periksa antrean, pembayaran, dan backup dari satu tempat.
-          </p>
-        </div>
-        <button
-          className="button button-secondary"
-          disabled={health.refreshing}
-          onClick={() => {
-            health.reload();
-            queue.reload();
-          }}
-        >
-          <RefreshCw size={16} aria-hidden="true" />
-          {health.refreshing ? "Memperbarui…" : "Perbarui"}
-        </button>
-      </div>
+    <div className="space-y-6">
+      <AdminPageHeader
+        eyebrow="Operasi"
+        title="Kesehatan layanan"
+        subtitle="Periksa antrean skoring, worker, webhook pembayaran, dan status backup dari satu tempat."
+        actions={
+          <button
+            type="button"
+            className="inline-flex h-10 items-center gap-2 rounded-xl border border-line bg-surface px-3.5 text-sm font-medium text-ink hover:bg-surface-hover disabled:opacity-50"
+            disabled={health.refreshing}
+            onClick={() => {
+              health.reload();
+              queue.reload();
+            }}
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${health.refreshing ? "animate-spin" : ""}`}
+              aria-hidden="true"
+            />
+            {health.refreshing ? "Memperbarui…" : "Perbarui"}
+          </button>
+        }
+      />
+
       {notice && (
         <p className="notice" role="status">
           {notice}
         </p>
       )}
+
       {health.loading ? (
         <Loading />
       ) : health.error ? (
@@ -84,22 +114,34 @@ export default function Operations() {
         health.data && (
           <>
             <section className="panel stack">
-              <div className="inline">
-                {health.data.issues.length ? (
-                  <Activity size={21} aria-hidden="true" />
-                ) : (
-                  <CheckCircle2 size={21} aria-hidden="true" />
-                )}
-                <h2>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="inline">
+                  {health.data.issues.length ? (
+                    <Activity size={21} aria-hidden="true" />
+                  ) : (
+                    <CheckCircle2 size={21} aria-hidden="true" />
+                  )}
+                  <h2>
+                    {health.data.issues.length
+                      ? "Ada yang perlu diperiksa"
+                      : "Layanan berjalan baik"}
+                  </h2>
+                </div>
+                <AdminBadge
+                  tone={health.data.issues.length ? "warning" : "success"}
+                  dot
+                >
                   {health.data.issues.length
-                    ? "Ada yang perlu diperiksa"
-                    : "Layanan berjalan baik"}
-                </h2>
+                    ? `${health.data.issues.length} perhatian`
+                    : "Sehat"}
+                </AdminBadge>
               </div>
-              <p className="muted">
-                Diperbarui{" "}
-                {new Date(health.data.observed_at).toLocaleTimeString("id-ID")}{" "}
-                · pemeriksaan otomatis setiap 30 detik saat halaman terbuka.
+              <p className="muted text-xs">
+                Diperbarui {formatTimeJakarta(health.data.observed_at)} ·
+                pemeriksaan otomatis setiap 30 detik saat halaman terbuka.
+                {health.data.last_acknowledged_answer_at
+                  ? ` · Jawaban terakhir tersimpan ${formatDateTimeJakarta(health.data.last_acknowledged_answer_at)}.`
+                  : ""}
               </p>
               {health.data.issues.map((issue) => (
                 <p className="notice notice-warning" key={issue.code}>
@@ -108,43 +150,58 @@ export default function Operations() {
                 </p>
               ))}
             </section>
+
             <div className="operations-grid">
               <section className="panel stack">
-                <span className="muted">Hasil menunggu</span>
+                <span className="muted text-xs">Hasil menunggu</span>
                 <strong className="metric-value">
                   {health.data.scoring.pending || 0}
                 </strong>
-                <span className="muted">
+                <span className="muted text-xs">
                   {health.data.oldest_pending_seconds > 0
                     ? `Terlama ${Math.ceil(health.data.oldest_pending_seconds / 60)} menit`
                     : "Tidak ada antrean tertahan"}
+                  {(health.data.overdue_ongoing_sessions ?? 0) > 0
+                    ? ` · ${health.data.overdue_ongoing_sessions} sesi lewat tenggat`
+                    : ""}
                 </span>
               </section>
+
               <section className="panel stack">
-                <span className="muted">Pembayaran perlu ditinjau</span>
+                <span className="muted text-xs">Pembayaran perlu ditinjau</span>
                 <strong className="metric-value">
                   {health.data.payment_events.review || 0}
                 </strong>
-                <Link href="/admin/transactions">Buka transaksi →</Link>
+                <Link
+                  href="/admin/transactions"
+                  className="text-xs font-semibold text-accent hover:underline"
+                >
+                  Buka transaksi →
+                </Link>
               </section>
+
               <section className="panel stack">
-                <span className="muted">Worker dan penjadwal</span>
-                <strong>
-                  {health.data.worker_heartbeat_age_seconds === null
-                    ? "Belum terpantau"
-                    : health.data.worker_heartbeat_age_seconds < 150
-                      ? "Terhubung"
-                      : "Perlu diperiksa"}
-                </strong>
-                <span className="muted">
-                  {health.data.worker_heartbeat_age_seconds === null
-                    ? "Aktifkan worker dan Beat pada rilis ini."
-                    : `Kabar terakhir ${health.data.worker_heartbeat_age_seconds} detik lalu`}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="muted text-xs">Worker &amp; penjadwal</span>
+                  <AdminBadge tone={workerInfo.tone} dot>
+                    {workerInfo.status}
+                  </AdminBadge>
+                </div>
+                <strong className="text-base">{workerInfo.status}</strong>
+                <span className="muted text-xs">
+                  {workerInfo.detail}
+                  {health.data.payment_worker_heartbeat_age_seconds !==
+                    undefined && (
+                    <>
+                      {" · "}Pembayaran: {paymentWorkerInfo.status}
+                    </>
+                  )}
                 </span>
               </section>
+
               <section className="panel stack">
-                <span className="muted">Backup penting</span>
-                <strong>
+                <span className="muted text-xs">Backup penting</span>
+                <strong className="text-base">
                   {health.data.host?.backup?.database?.destination ===
                   "supabase"
                     ? "Supabase privat"
@@ -152,9 +209,13 @@ export default function Operations() {
                       ? "Fallback lokal"
                       : "Belum terpantau"}
                 </strong>
-                <span className="muted">
+                <span className="muted text-xs">
                   {health.data.host
-                    ? `${health.data.host.disk_free_gib} GB disk tersedia`
+                    ? `${health.data.host.disk_free_gib} GB disk tersedia${
+                        typeof backupAgeHours === "number"
+                          ? ` · Backup ${backupAgeHours} jam lalu`
+                          : ""
+                      }`
                     : "Aktifkan timer operasi untuk status server dan backup."}
                 </span>
               </section>
@@ -162,6 +223,7 @@ export default function Operations() {
           </>
         )
       )}
+
       <section className="panel stack">
         <h2>Pekerjaan yang belum selesai</h2>
         {queue.loading ? (
@@ -169,7 +231,7 @@ export default function Operations() {
         ) : queue.error ? (
           <ErrorPanel message={queue.error} retry={queue.reload} />
         ) : !queue.data?.items.length ? (
-          <p className="muted">Tidak ada pekerjaan tertahan.</p>
+          <p className="muted text-sm">Tidak ada pekerjaan tertahan.</p>
         ) : (
           queue.data.items.map((job) => (
             <div className="history-row" key={job.id}>
@@ -179,24 +241,35 @@ export default function Operations() {
                     ? "Hasil latihan"
                     : "Notifikasi pembayaran"}
                 </strong>
-                <p className="muted">
+                <p className="muted text-xs">
                   {dateLabel(job.created_at)} · {job.attempts} kali diperiksa
                 </p>
-                <span className="badge badge-neutral">
+                <AdminBadge
+                  tone={
+                    job.status === "failed"
+                      ? "danger"
+                      : job.status === "review"
+                        ? "warning"
+                        : "neutral"
+                  }
+                >
                   {job.status === "review"
                     ? "Perlu ditinjau"
                     : job.status === "failed"
                       ? "Terhenti"
                       : "Menunggu"}
-                </span>
+                </AdminBadge>
                 {job.last_error && (
-                  <details>
-                    <summary className="muted">Detail pemeriksaan</summary>
-                    <code>{job.last_error}</code>
+                  <details className="mt-1.5">
+                    <summary className="muted text-xs cursor-pointer">
+                      Detail pemeriksaan
+                    </summary>
+                    <code className="text-xs">{job.last_error}</code>
                   </details>
                 )}
               </div>
               <button
+                type="button"
                 className="button button-small button-secondary"
                 onClick={() => {
                   setError("");
@@ -209,6 +282,7 @@ export default function Operations() {
           ))
         )}
       </section>
+
       <Modal
         open={!!selected}
         title="Periksa ulang pekerjaan?"
@@ -220,6 +294,7 @@ export default function Operations() {
         </p>
         {error && <ErrorPanel message={error} />}
         <button
+          type="button"
           className="button"
           disabled={busy}
           onClick={async () => {

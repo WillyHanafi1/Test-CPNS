@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from sqlalchemy.orm import selectinload
 import uuid
 from typing import Optional
 from backend.db.session import get_async_session
 from backend.models.models import User, Feedback
 from backend.api.v1.endpoints.auth import get_current_admin
+from backend.core.utils import sanitize_search
 from backend.schemas.feedback import FeedbackResponse, FeedbackUpdate, FeedbackListResponse
 
 router = APIRouter(prefix="/admin/feedback", tags=["admin-feedback"])
@@ -18,6 +19,7 @@ async def list_feedback_admin(
     category: Optional[str] = None,
     status: Optional[str] = None,
     priority: Optional[str] = None,
+    search: Optional[str] = None,
     db: AsyncSession = Depends(get_async_session),
     admin: User = Depends(get_current_admin)
 ):
@@ -25,25 +27,37 @@ async def list_feedback_admin(
     List all user feedback/suggestions with filters.
     """
     stmt = select(Feedback).options(selectinload(Feedback.user))
-    
+    count_stmt = select(func.count(Feedback.id))
+
+    if search:
+        safe_search = sanitize_search(search)
+        search_cond = or_(
+            Feedback.content.ilike(f"%{safe_search}%"),
+            Feedback.admin_notes.ilike(f"%{safe_search}%"),
+            User.email.ilike(f"%{safe_search}%"),
+        )
+        stmt = stmt.outerjoin(Feedback.user).where(search_cond)
+        count_stmt = count_stmt.outerjoin(Feedback.user).where(search_cond)
+
     if category:
         stmt = stmt.where(Feedback.category == category)
-    if status:
-        stmt = stmt.where(Feedback.status == status)
-    if priority:
-        stmt = stmt.where(Feedback.priority == priority)
-        
-    # Optimized Count
-    count_stmt = select(func.count(Feedback.id))
-    if category:
         count_stmt = count_stmt.where(Feedback.category == category)
     if status:
+        stmt = stmt.where(Feedback.status == status)
         count_stmt = count_stmt.where(Feedback.status == status)
     if priority:
+        stmt = stmt.where(Feedback.priority == priority)
         count_stmt = count_stmt.where(Feedback.priority == priority)
-        
+
     total_result = await db.execute(count_stmt)
     total = total_result.scalar() or 0
+
+    status_rows = (
+        await db.execute(
+            select(Feedback.status, func.count(Feedback.id)).group_by(Feedback.status)
+        )
+    ).all()
+    counts_by_status = {row[0]: int(row[1]) for row in status_rows}
 
     stmt = stmt.order_by(Feedback.created_at.desc()).offset((page - 1) * size).limit(size)
     result = await db.execute(stmt)
@@ -53,7 +67,8 @@ async def list_feedback_admin(
         "items": items,
         "total": total,
         "page": page,
-        "size": size
+        "size": size,
+        "counts_by_status": counts_by_status,
     }
 
 @router.patch("/{feedback_id}", response_model=FeedbackResponse)

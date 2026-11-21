@@ -1,10 +1,8 @@
 "use client";
-import AdminDialog from "@/components/admin/AdminDialog";
 
 import React from "react";
-import { X, AlertCircle, AlertTriangle, CheckCircle2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { AlertCircle, AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
+import AdminDialog from "./AdminDialog";
 
 interface ConfirmModalProps {
   isOpen: boolean;
@@ -31,91 +29,65 @@ export function ConfirmModal({
 }: ConfirmModalProps) {
   if (!isOpen) return null;
 
-  const getIcon = () => {
-    switch (variant) {
-      case "danger":
-        return <AlertCircle className="w-6 h-6 text-danger" />;
-      case "warning":
-        return <AlertTriangle className="w-6 h-6 text-warning" />;
-      default:
-        return <CheckCircle2 className="w-6 h-6 text-accent" />;
-    }
-  };
+  const icon =
+    variant === "danger" ? (
+      <AlertCircle className="h-5 w-5 text-danger" />
+    ) : variant === "warning" ? (
+      <AlertTriangle className="h-5 w-5 text-warning" />
+    ) : (
+      <CheckCircle2 className="h-5 w-5 text-accent" />
+    );
 
-  const getButtonStyle = () => {
-    switch (variant) {
-      case "danger":
-        return "bg-danger-solid hover:bg-danger-solid ";
-      case "warning":
-        return "bg-warning-solid hover:bg-warning-solid ";
-      default:
-        return "bg-accent-solid hover:bg-accent-solid ";
-    }
-  };
+  const iconWrap =
+    variant === "danger"
+      ? "bg-danger-soft"
+      : variant === "warning"
+        ? "bg-warning-soft"
+        : "bg-accent-soft";
+
+  const confirmClass =
+    variant === "danger"
+      ? "bg-danger-solid text-white hover:opacity-90"
+      : variant === "warning"
+        ? "bg-warning-solid text-white hover:opacity-90"
+        : "bg-accent-solid text-white hover:opacity-90";
 
   return (
-    <AdminDialog label={title} onClose={onClose}>
-      <Card className="relative w-full max-w-md bg-surface border-line border rounded-2xl shadow-sm overflow-hidden animate-in zoom-in-95 duration-300">
-        <div className="p-8">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center space-x-3">
-              <div
-                className={`w-12 h-12 rounded-2xl flex items-center justify-center border ${
-                  variant === "danger"
-                    ? "bg-danger-soft border-line"
-                    : variant === "warning"
-                      ? "bg-warning-soft border-line"
-                      : "bg-accent-soft border-accent-border"
-                }`}
-              >
-                {getIcon()}
-              </div>
-              <div>
-                <h2 className="text-xl font-semibold tracking-tight">
-                  {title}
-                </h2>
-                <p className="text-xs font-bold text-muted uppercase tracking-wide">
-                  Konfirmasi Tindakan
-                </p>
-              </div>
-            </div>
-            <button
-              aria-label="Tutup dialog"
-              onClick={onClose}
-              className="text-muted hover:text-ink transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
-
-          <p className="text-muted font-medium leading-relaxed mb-8">
-            {description}
-          </p>
-
-          <div className="flex space-x-3">
-            <Button
-              type="button"
-              variant="ghost"
-              className="flex-1 py-7 rounded-2xl font-bold text-muted"
-              onClick={onClose}
-              disabled={loading}
-            >
-              {cancelText}
-            </Button>
-            <Button
-              type="button"
-              className={`flex-1 py-7 rounded-2xl font-bold shadow-sm transition-all ${getButtonStyle()}`}
-              onClick={onConfirm}
-              disabled={loading}
-            >
-              {loading ? (
-                <div className="w-5 h-5 border border-white border-t-transparent rounded-full animate-spin mr-2" />
-              ) : null}
-              {confirmText}
-            </Button>
-          </div>
+    <AdminDialog
+      label={title}
+      title={title}
+      size="sm"
+      onClose={() => !loading && onClose()}
+      footer={
+        <>
+          <button
+            type="button"
+            disabled={loading}
+            onClick={onClose}
+            className="inline-flex h-9 items-center justify-center rounded-xl border border-line bg-surface px-4 text-sm font-medium text-ink hover:bg-surface-hover disabled:opacity-50"
+          >
+            {cancelText}
+          </button>
+          <button
+            type="button"
+            disabled={loading}
+            onClick={onConfirm}
+            className={`inline-flex h-9 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold disabled:opacity-50 ${confirmClass}`}
+          >
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+            {confirmText}
+          </button>
+        </>
+      }
+    >
+      <div className="flex items-start gap-3.5">
+        <div
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${iconWrap}`}
+        >
+          {icon}
         </div>
-      </Card>
+        <p className="text-sm text-muted leading-relaxed">{description}</p>
+      </div>
     </AdminDialog>
   );
 }

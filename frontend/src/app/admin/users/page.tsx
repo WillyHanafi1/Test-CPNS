@@ -1,489 +1,550 @@
 "use client";
-import AdminDialog from "@/components/admin/AdminDialog";
-import React, { useState, useEffect } from "react";
+
+import React, { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "react-hot-toast";
 import {
-  Plus,
-  Search,
-  Filter,
-  Trash2,
-  Shield,
-  User as UserIcon,
-  MoreVertical,
-  CheckCircle2,
-  AlertCircle,
-  X,
-  Loader2,
-  UserX,
-  UserCheck,
   Crown,
+  Loader2,
+  Shield,
+  UserCheck,
+  User as UserIcon,
+  UserX,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/context/AuthContext";
+import { api } from "@/lib/api";
+import { ErrorPanel, Loading } from "@/components/AppShell";
 import {
-  AdminPageHeader,
+  AdminBadge,
   AdminDataTable,
+  AdminDialog,
+  AdminFilterBar,
+  AdminPageHeader,
   AdminPagination,
-  ConfirmModal,
-  Column,
+  AdminSwitch,
+  type Column,
 } from "@/components/admin";
+import {
+  formatDateJakarta,
+  toLocalDatetimeInput,
+} from "@/lib/admin-format";
+import type { AdminUser, AdminUserList } from "@/types/admin";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+const PAGE_SIZE = 15;
 
-export default function UsersAdmin() {
-  const [users, setUsers] = useState<any[]>([]);
+function addDaysDatetimeInput(days: number): string {
+  const target = new Date(Date.now() + days * 86400 * 1000);
+  return toLocalDatetimeInput(target.toISOString());
+}
+
+function UsersAdminContent() {
+  const { user: currentAdmin } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
 
-  // Modals state
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<any>(null);
-  const [actionLoading, setActionLoading] = useState(false);
+  const [search, setSearch] = useState(searchParams.get("search") ?? "");
+  const [debouncedSearch, setDebouncedSearch] = useState(
+    searchParams.get("search") ?? "",
+  );
+  const [roleFilter, setRoleFilter] = useState(searchParams.get("role") ?? "");
+  const [proFilter, setProFilter] = useState(searchParams.get("is_pro") ?? "");
+  const [statusFilter, setStatusFilter] = useState(
+    searchParams.get("status") ?? "",
+  );
 
-  useEffect(() => {
-    fetchUsers();
-  }, [page, roleFilter, statusFilter]);
+  // User Detail & Edit Drawer
+  const [selected, setSelected] = useState<AdminUser | null>(null);
+  const [editRole, setEditRole] = useState("participant");
+  const [editPro, setEditPro] = useState(false);
+  const [editProExpiry, setEditProExpiry] = useState("");
+  const [editActive, setEditActive] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  // Debounced search
+  const abortRef = useRef<AbortController | null>(null);
+
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (page !== 1) setPage(1);
-      else fetchUsers();
-    }, 500);
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 350);
     return () => clearTimeout(timer);
   }, [search]);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setLoading(true);
+    setError(null);
     try {
-      let url = `${API_URL}/api/v1/admin/users?page=${page}&size=10`;
-      if (search) url += `&search=${encodeURIComponent(search)}`;
-      if (roleFilter) url += `&role=${roleFilter}`;
-      if (statusFilter !== "") url += `&is_active=${statusFilter === "active"}`;
-
-      const response = await fetch(url, {
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+      const params = new URLSearchParams({
+        page: String(page),
+        size: String(PAGE_SIZE),
       });
-      if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+      if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
+      if (roleFilter) params.set("role", roleFilter);
+      if (proFilter === "true" || proFilter === "false") {
+        params.set("is_pro", proFilter);
+      }
+      if (statusFilter === "active") params.set("is_active", "true");
+      else if (statusFilter === "inactive") params.set("is_active", "false");
 
-      const data = await response.json();
+      const data = await api<AdminUserList>(
+        `/admin/users?${params.toString()}`,
+        { signal: controller.signal },
+      );
       setUsers(data.items);
       setTotal(data.total);
-    } catch (error) {
-      console.error("Fetch users error:", error);
-      toast.error("Gagal mengambil data pengguna");
-    } finally {
-      setLoading(true); // Small hack to re-trigger pulse
-      setTimeout(() => setLoading(false), 100);
-    }
-  };
-
-  const handleToggleStatus = async (user: any) => {
-    setActionLoading(true);
-    try {
-      const response = await fetch(`${API_URL}/api/v1/admin/users/${user.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ is_active: !user.is_active }),
-        credentials: "include",
-      });
-
-      if (response.ok) {
-        toast.success(
-          `User ${!user.is_active ? "diaktifkan" : "dinonaktifkan"}`,
-        );
-        fetchUsers();
-      } else {
-        toast.error("Gagal mengubah status user");
-      }
-    } catch (error) {
-      toast.error("Terjadi kesalahan sistem");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleUpdateRole = async (newRole: string) => {
-    if (!selectedUser) return;
-    setActionLoading(true);
-    try {
-      const response = await fetch(
-        `${API_URL}/api/v1/admin/users/${selectedUser.id}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ role: newRole }),
-          credentials: "include",
-        },
+    } catch (err) {
+      if (controller.signal.aborted) return;
+      setError(
+        err instanceof Error ? err.message : "Gagal memuat data pengguna.",
       );
-
-      if (response.ok) {
-        toast.success("Role user berhasil diupdate");
-        setIsRoleModalOpen(false);
-        fetchUsers();
-      } else {
-        toast.error("Gagal update role");
-      }
-    } catch (error) {
-      toast.error("Terjadi kesalahan sistem");
     } finally {
-      setActionLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
+  }, [page, debouncedSearch, roleFilter, proFilter, statusFilter]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void fetchUsers();
+    }, 0);
+    return () => {
+      clearTimeout(timer);
+      abortRef.current?.abort();
+    };
+  }, [fetchUsers]);
+
+  const openDrawer = (u: AdminUser) => {
+    setSelected(u);
+    setEditRole(u.role);
+    setEditPro(u.is_pro);
+    setEditProExpiry(toLocalDatetimeInput(u.pro_expires_at));
+    setEditActive(u.is_active);
   };
 
-  const handleTogglePro = async (user: any) => {
-    setActionLoading(true);
+  const handleSaveUser = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!selected) return;
+    setSaving(true);
     try {
-      const response = await fetch(`${API_URL}/api/v1/admin/users/${user.id}`, {
+      const payload = {
+        role: editRole,
+        is_pro: editPro,
+        pro_expires_at:
+          editPro && editProExpiry
+            ? new Date(editProExpiry).toISOString()
+            : null,
+        is_active: editActive,
+      };
+      const updated = await api<AdminUser>(`/admin/users/${selected.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ is_pro: !user.is_pro }),
-        credentials: "include",
+        body: JSON.stringify(payload),
       });
-
-      if (response.ok) {
-        toast.success(
-          `User ${!user.is_pro ? "dijadikan PRO" : "dikembalikan ke Standard"}`,
-        );
-        fetchUsers();
-      } else {
-        toast.error("Gagal mengubah status PRO");
-      }
-    } catch (error) {
-      toast.error("Terjadi kesalahan sistem");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleDeleteUser = async () => {
-    if (!selectedUser) return;
-    setActionLoading(true);
-    try {
-      const response = await fetch(
-        `${API_URL}/api/v1/admin/users/${selectedUser.id}`,
-        {
-          method: "DELETE",
-          credentials: "include",
-        },
+      toast.success(`Perubahan akun ${updated.email} disimpan.`);
+      setSelected(updated);
+      await fetchUsers();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Gagal memperbarui pengguna.",
       );
-
-      if (response.ok) {
-        toast.success("User berhasil dihapus");
-        setIsDeleteModalOpen(false);
-        fetchUsers();
-      } else {
-        const data = await response.json();
-        toast.error(data.detail || "Gagal menghapus user");
-      }
-    } catch (error) {
-      toast.error("Terjadi kesalahan sistem");
     } finally {
-      setActionLoading(false);
+      setSaving(false);
     }
   };
 
-  const columns: Column<any>[] = [
+  const isSelf = selected?.id === currentAdmin?.id;
+
+  const columns: Column<AdminUser>[] = [
     {
       header: "Pengguna",
-      className: "max-w-xs",
-      render: (u) => (
-        <div className="flex items-center space-x-3">
-          <div
-            className={`relative w-10 h-10 rounded-xl flex items-center justify-center font-semibold border tracking-tighter ${
-              u.role === "admin"
-                ? "bg-accent-soft border-accent-border text-accent"
-                : "bg-surface-hover border-line text-muted"
-            }`}
-          >
-            {u.profile?.full_name?.charAt(0).toUpperCase() ||
-              u.email.charAt(0).toUpperCase()}
-            {u.is_pro && (
-              <div className="absolute -top-1 -right-1 w-4 h-4 bg-warning rounded-full flex items-center justify-center border border-line">
-                <Crown className="w-2 h-2 text-white fill-white" />
+      className: "min-w-[250px]",
+      render: (u) => {
+        const displayName = u.profile?.full_name || "Tanpa nama";
+        const initial = (u.profile?.full_name || u.email)
+          .charAt(0)
+          .toUpperCase();
+        return (
+          <div className="flex items-center gap-3 min-w-0">
+            <div
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border text-xs font-semibold ${
+                u.role === "admin"
+                  ? "border-accent-border bg-accent-soft text-accent"
+                  : "border-line bg-surface-subtle text-muted"
+              }`}
+            >
+              {initial}
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <p className="font-semibold text-ink truncate max-w-[180px]">
+                  {displayName}
+                </p>
+                {u.is_pro && (
+                  <AdminBadge tone="warning">
+                    <Crown className="h-3 w-3" />
+                    Pro
+                  </AdminBadge>
+                )}
               </div>
-            )}
+              <p className="text-xs text-muted truncate max-w-[220px]">
+                {u.email}
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="font-bold text-ink flex items-center gap-2">
-              {u.profile?.full_name || "No Name"}
-              {u.is_pro && (
-                <Badge className="bg-warning-soft text-warning border-0 text-[8px] h-4 px-1">
-                  PRO
-                </Badge>
-              )}
-            </p>
-            <p className="text-xs text-muted font-medium">{u.email}</p>
-          </div>
+        );
+      },
+    },
+    {
+      header: "Peran & Akses",
+      render: (u) => (
+        <div className="flex flex-col items-start gap-1">
+          <AdminBadge tone={u.role === "admin" ? "accent" : "neutral"}>
+            {u.role === "admin" ? "Admin" : "Peserta"}
+          </AdminBadge>
+          {u.is_pro && (
+            <span className="text-xs text-muted tabular-nums">
+              {u.pro_expires_at
+                ? `Pro s/d ${formatDateJakarta(u.pro_expires_at)}`
+                : "Pro tanpa batas"}
+            </span>
+          )}
         </div>
       ),
     },
     {
-      header: "Role",
+      header: "Aktivitas",
+      className: "tabular-nums whitespace-nowrap",
       render: (u) => (
-        <Badge
-          className={`rounded-xl py-1 px-3 font-bold text-xs border-none tracking-wide ${
-            u.role === "admin"
-              ? "bg-danger-soft text-danger"
-              : "bg-surface-hover text-muted"
-          }`}
-        >
-          {u.role.toUpperCase()}
-        </Badge>
-      ),
-    },
-    {
-      header: "Stats",
-      render: (u) => (
-        <div className="flex space-x-4 text-[11px] font-bold">
-          <div>
-            <span className="text-muted block">SESSIONS</span>
-            <span className="text-ink">{u.total_sessions}</span>
-          </div>
-          <div>
-            <span className="text-muted block">ORDERS</span>
-            <span className="text-ink">{u.total_transactions}</span>
-          </div>
+        <div className="text-xs text-muted">
+          <span className="font-semibold text-ink">{u.total_sessions}</span>{" "}
+          sesi ·{" "}
+          <span className="font-semibold text-ink">{u.total_transactions}</span>{" "}
+          transaksi
         </div>
       ),
     },
     {
       header: "Status",
       render: (u) => (
-        <div className="flex items-center space-x-3">
-          <Badge
-            className={`rounded-full px-3 py-1 text-[9px] font-semibold tracking-tighter ${
-              u.is_active
-                ? "bg-success-soft text-success"
-                : "bg-danger-soft text-danger"
-            }`}
-          >
-            {u.is_active ? "ACTIVE" : "BANNED"}
-          </Badge>
-          <button
-            onClick={() => handleToggleStatus(u)}
-            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
-              u.is_active
-                ? "hover:bg-danger-soft text-muted hover:text-danger"
-                : "hover:bg-success-soft text-muted hover:text-success"
-            }`}
-            title={u.is_active ? "Ban User" : "Unban User"}
-          >
-            {u.is_active ? (
-              <UserX className="w-4 h-4" />
-            ) : (
-              <UserCheck className="w-4 h-4" />
-            )}
-          </button>
-        </div>
+        <AdminBadge tone={u.is_active ? "success" : "danger"} dot>
+          {u.is_active ? "Aktif" : "Nonaktif"}
+        </AdminBadge>
       ),
     },
     {
-      header: "Registered",
-      render: (u) => (
-        <span className="text-xs font-medium text-muted">
-          {new Date(u.created_at).toLocaleDateString("id-ID", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-            timeZone: "Asia/Jakarta",
-          })}
-        </span>
-      ),
+      header: "Terdaftar",
+      className: "text-xs text-muted tabular-nums whitespace-nowrap",
+      render: (u) => formatDateJakarta(u.created_at),
     },
     {
       header: "Aksi",
-      className: "text-center",
+      headerClassName: "text-right",
+      className: "text-right whitespace-nowrap",
       render: (u) => (
-        <div className="flex items-center justify-center space-x-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            className={`w-10 h-10 rounded-xl transition-all ${
-              u.is_pro
-                ? "bg-warning-soft text-warning hover:bg-warning-soft"
-                : "hover:bg-surface-hover"
-            }`}
-            onClick={() => handleTogglePro(u)}
-            disabled={actionLoading}
-            title={u.is_pro ? "Downgrade to Standard" : "Upgrade to PRO"}
-          >
-            <Crown className={`w-4 h-4 ${u.is_pro ? "fill-amber-500" : ""}`} />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-10 h-10 rounded-xl hover:bg-surface-hover hover:text-ink"
-            onClick={() => {
-              setSelectedUser(u);
-              setIsRoleModalOpen(true);
-            }}
-            title="Ubah Role"
-          >
-            <Shield className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-10 h-10 rounded-xl hover:bg-danger-soft hover:text-danger transition-all"
-            onClick={() => {
-              setSelectedUser(u);
-              setIsDeleteModalOpen(true);
-            }}
-            title="Hapus User"
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
-        </div>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            openDrawer(u);
+          }}
+          className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-line bg-canvas px-3 text-xs font-semibold text-ink hover:bg-surface-hover"
+        >
+          Kelola
+        </button>
       ),
     },
   ];
 
+  const hasFilters = Boolean(search || roleFilter || proFilter || statusFilter);
+
   return (
-    <div className="space-y-8 pb-20">
+    <div className="space-y-5">
       <AdminPageHeader
+        eyebrow="Komunitas"
         title="Pengguna"
-        subtitle={`Daftar ${total} Pengguna Terdaftar`}
+        subtitle={`Total ${total} akun terdaftar. Klik baris pengguna untuk mengelola akses Paket Pro, peran, dan status akun.`}
       />
 
-      {/* Filters & Search */}
-      <Card className="bg-surface border-line rounded-2xl overflow-hidden">
-        <CardContent className="p-4 md:p-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1 group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted group-focus-within:text-accent transition-colors" />
-              <Input
-                placeholder="Cari email atau nama..."
-                className="pl-12 bg-surface border-line rounded-2xl py-7 font-medium md:text-lg focus:ring-accent-border focus:border-accent-border text-ink"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <div className="flex items-center space-x-3">
-              <div className="bg-surface border border-line rounded-2xl px-4 py-3 flex items-center min-w-[150px]">
-                <Shield className="w-4 h-4 text-muted mr-2" />
-                <select
-                  className="bg-transparent text-sm font-bold text-ink focus:outline-none w-full appearance-none pr-10"
-                  value={roleFilter}
-                  onChange={(e) => {
-                    setRoleFilter(e.target.value);
-                    setPage(1);
-                  }}
-                >
-                  <option value="">Semua Role</option>
-                  <option value="participant">Participant</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </div>
-              <div className="bg-surface border border-line rounded-2xl px-4 py-3 flex items-center min-w-[150px]">
-                <Filter className="w-4 h-4 text-muted mr-2" />
-                <select
-                  className="bg-transparent text-sm font-bold text-ink focus:outline-none w-full appearance-none pr-10"
-                  value={statusFilter}
-                  onChange={(e) => {
-                    setStatusFilter(e.target.value);
-                    setPage(1);
-                  }}
-                >
-                  <option value="">Semua Status</option>
-                  <option value="active">Active Only</option>
-                  <option value="inactive">Banned Only</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <AdminFilterBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Cari email atau nama lengkap…"
+        hasActiveFilters={hasFilters}
+        onResetFilters={() => {
+          setSearch("");
+          setDebouncedSearch("");
+          setRoleFilter("");
+          setProFilter("");
+          setStatusFilter("");
+          setPage(1);
+          router.replace("/admin/users", { scroll: false });
+        }}
+      >
+        <select
+          aria-label="Filter peran pengguna"
+          value={roleFilter}
+          onChange={(e) => {
+            setRoleFilter(e.target.value);
+            setPage(1);
+          }}
+          className="h-10 rounded-xl border border-control-line bg-canvas px-3 text-sm font-medium text-ink focus:border-accent focus:outline-none"
+        >
+          <option value="">Semua peran</option>
+          <option value="participant">Peserta</option>
+          <option value="admin">Admin</option>
+        </select>
 
-      <AdminDataTable
-        columns={columns}
-        data={users}
-        loading={loading}
-        emptyIcon={<UserIcon className="w-12 h-12 text-muted" />}
-        emptyText="Belum ada pengguna ditemukan"
-      />
+        <select
+          aria-label="Filter Paket Pro"
+          value={proFilter}
+          onChange={(e) => {
+            setProFilter(e.target.value);
+            setPage(1);
+          }}
+          className="h-10 rounded-xl border border-control-line bg-canvas px-3 text-sm font-medium text-ink focus:border-accent focus:outline-none"
+        >
+          <option value="">Semua paket</option>
+          <option value="true">Paket Pro</option>
+          <option value="false">Gratis</option>
+        </select>
+
+        <select
+          aria-label="Filter status akun"
+          value={statusFilter}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setPage(1);
+          }}
+          className="h-10 rounded-xl border border-control-line bg-canvas px-3 text-sm font-medium text-ink focus:border-accent focus:outline-none"
+        >
+          <option value="">Semua status</option>
+          <option value="active">Aktif</option>
+          <option value="inactive">Nonaktif</option>
+        </select>
+      </AdminFilterBar>
+
+      {error ? (
+        <ErrorPanel message={error} retry={() => void fetchUsers()} />
+      ) : (
+        <AdminDataTable
+          columns={columns}
+          data={users}
+          loading={loading}
+          emptyIcon={<UserIcon className="h-6 w-6" />}
+          emptyText="Pengguna tidak ditemukan"
+          emptyHint="Coba ubah kata kunci pencarian atau reset filter."
+          onRowClick={openDrawer}
+        />
+      )}
 
       <AdminPagination
         page={page}
         total={total}
-        pageSize={10}
+        pageSize={PAGE_SIZE}
         onPageChange={setPage}
       />
 
-      {/* Role Change Modal */}
-      {isRoleModalOpen && (
+      {/* User Management Slide-Over Drawer */}
+      {selected && (
         <AdminDialog
-          label="Ubah peran pengguna"
-          onClose={() => setIsRoleModalOpen(false)}
-        >
-          <Card className="relative w-full max-w-sm bg-surface border-line border rounded-2xl shadow-sm overflow-hidden animate-in zoom-in-95 duration-300">
-            <div className="p-8">
-              <div className="flex items-center space-x-3 mb-6">
-                <div className="w-12 h-12 bg-danger-soft rounded-2xl flex items-center justify-center border border-line">
-                  <Shield className="w-6 h-6 text-danger" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-semibold tracking-tight">
-                    Ubah Role
-                  </h2>
-                  <p className="text-xs font-bold text-muted uppercase tracking-wide">
-                    Akses Kontrol User
-                  </p>
-                </div>
-              </div>
-
-              <p className="text-sm text-muted mb-8 font-medium">
-                Ubah role untuk <strong>{selectedUser?.email}</strong>. Admin
-                memiliki akses penuh ke dashboard ini.
-              </p>
-
-              <div className="space-y-3">
-                <Button
-                  className={`w-full py-8 rounded-2xl font-semibold transition-all ${selectedUser?.role === "admin" ? "bg-danger-solid" : "bg-surface-hover hover:bg-surface-hover"}`}
-                  onClick={() => handleUpdateRole("admin")}
-                  disabled={actionLoading}
-                >
-                  ADMIN ACCESS
-                </Button>
-                <Button
-                  className={`w-full py-8 rounded-2xl font-semibold transition-all ${selectedUser?.role === "participant" ? "bg-accent-solid" : "bg-surface-hover hover:bg-surface-hover"}`}
-                  onClick={() => handleUpdateRole("participant")}
-                  disabled={actionLoading}
-                >
-                  PARTICIPANT
-                </Button>
-              </div>
-
-              <Button
-                variant="ghost"
-                className="w-full mt-4 py-6 rounded-2xl font-bold text-muted"
-                onClick={() => setIsRoleModalOpen(false)}
+          variant="drawer"
+          size="md"
+          label="Detail dan kontrol pengguna"
+          title={selected.profile?.full_name || "Pengguna tanpa nama"}
+          subtitle={selected.email}
+          onClose={() => !saving && setSelected(null)}
+          footer={
+            <>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => setSelected(null)}
+                className="inline-flex h-9 items-center rounded-xl border border-line bg-surface px-4 text-sm font-medium text-ink hover:bg-surface-hover"
               >
-                Batal
-              </Button>
-            </div>
-          </Card>
+                Tutup
+              </button>
+              <button
+                type="submit"
+                form="admin-user-edit-form"
+                disabled={saving}
+                className="inline-flex h-9 items-center gap-2 rounded-xl bg-accent-solid px-4 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+              >
+                {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                Simpan perubahan
+              </button>
+            </>
+          }
+        >
+          <form
+            id="admin-user-edit-form"
+            onSubmit={handleSaveUser}
+            className="space-y-5"
+          >
+            {/* Account Summary */}
+            <dl className="rounded-xl border border-line bg-surface-subtle/50 divide-y divide-line text-sm">
+              <div className="flex items-center justify-between gap-4 px-4 py-2.5">
+                <dt className="text-xs text-muted">Email</dt>
+                <dd className="text-xs font-medium text-ink break-all text-right">
+                  {selected.email}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-4 px-4 py-2.5">
+                <dt className="text-xs text-muted">Target instansi</dt>
+                <dd className="text-xs text-ink">
+                  {selected.profile?.target_instansi || "Belum diisi"}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-4 px-4 py-2.5">
+                <dt className="text-xs text-muted">Metode login</dt>
+                <dd className="text-xs font-medium uppercase text-muted">
+                  {selected.auth_provider || "local"}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-4 px-4 py-2.5">
+                <dt className="text-xs text-muted">Aktivitas</dt>
+                <dd className="text-xs text-ink tabular-nums">
+                  {selected.total_sessions} sesi ujian ·{" "}
+                  {selected.total_transactions} transaksi sukses
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-4 px-4 py-2.5">
+                <dt className="text-xs text-muted">Terdaftar</dt>
+                <dd className="text-xs text-ink tabular-nums">
+                  {formatDateJakarta(selected.created_at)}
+                </dd>
+              </div>
+            </dl>
+
+            {/* Paket Pro Control */}
+            <section className="space-y-3 rounded-xl border border-line bg-surface p-4">
+              <div className="flex items-center gap-2">
+                <Crown className="h-4 w-4 text-warning" />
+                <h3 className="text-sm font-semibold text-ink">
+                  Keanggotaan Paket Pro
+                </h3>
+              </div>
+
+              <AdminSwitch
+                checked={editPro}
+                onChange={(checked) => {
+                  setEditPro(checked);
+                  if (checked && !editProExpiry) {
+                    setEditProExpiry(addDaysDatetimeInput(365));
+                  }
+                }}
+                tone="warning"
+                label="Aktifkan Paket Pro"
+                description="Membuka akses seluruh paket soal berlabel Pro untuk akun ini."
+              />
+
+              {editPro && (
+                <div className="space-y-2.5 pt-1">
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      [30, "+30 hari"],
+                      [90, "+90 hari"],
+                      [365, "+365 hari"],
+                    ].map(([days, label]) => (
+                      <button
+                        key={String(days)}
+                        type="button"
+                        onClick={() =>
+                          setEditProExpiry(addDaysDatetimeInput(Number(days)))
+                        }
+                        className="rounded-lg border border-line bg-canvas px-2.5 py-1 text-xs font-semibold text-ink hover:bg-surface-hover"
+                      >
+                        {label}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setEditProExpiry("")}
+                      className="rounded-lg border border-line bg-canvas px-2.5 py-1 text-xs font-medium text-muted hover:text-ink"
+                    >
+                      Tanpa batas
+                    </button>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-muted">
+                      Berlaku hingga (kosongkan jika tanpa batas)
+                    </label>
+                    <input
+                      type="datetime-local"
+                      aria-label="Masa aktif Paket Pro"
+                      value={editProExpiry}
+                      onChange={(e) => setEditProExpiry(e.target.value)}
+                      className="h-10 w-full rounded-xl border border-control-line bg-canvas px-3 text-xs text-ink"
+                    />
+                  </div>
+                </div>
+              )}
+            </section>
+
+            {/* Role Control */}
+            <section className="space-y-3 rounded-xl border border-line bg-surface p-4">
+              <div className="flex items-center gap-2">
+                <Shield className="h-4 w-4 text-accent" />
+                <h3 className="text-sm font-semibold text-ink">Peran akun</h3>
+              </div>
+              <select
+                aria-label="Peran akun"
+                disabled={isSelf}
+                value={editRole}
+                onChange={(e) => setEditRole(e.target.value)}
+                className="h-10 w-full rounded-xl border border-control-line bg-canvas px-3 text-sm text-ink focus:border-accent focus:outline-none disabled:opacity-50"
+              >
+                <option value="participant">Peserta (Participant)</option>
+                <option value="admin">Administrator (Admin)</option>
+              </select>
+              <p className="text-xs text-muted leading-relaxed">
+                {isSelf
+                  ? "Demi keamanan, kamu tidak dapat menurunkan peran akun admin yang sedang kamu gunakan."
+                  : "Mengubah peran otomatis mencabut sesi login sebelumnya agar hak akses langsung sinkron."}
+              </p>
+            </section>
+
+            {/* Account Status (Honest Soft-Deactivation) */}
+            <section className="space-y-3 rounded-xl border border-line bg-surface p-4">
+              <div className="flex items-center gap-2">
+                {editActive ? (
+                  <UserCheck className="h-4 w-4 text-success" />
+                ) : (
+                  <UserX className="h-4 w-4 text-danger" />
+                )}
+                <h3 className="text-sm font-semibold text-ink">Status akun</h3>
+              </div>
+              <AdminSwitch
+                checked={editActive}
+                onChange={setEditActive}
+                disabled={isSelf}
+                tone="success"
+                label={editActive ? "Akun aktif" : "Akun dinonaktifkan"}
+                description={
+                  isSelf
+                    ? "Akun admin yang sedang aktif tidak dapat dinonaktifkan sendiri."
+                    : "Menonaktifkan akun langsung mencabut sesi login peserta tanpa menghapus catatan transaksi maupun histori ujian."
+                }
+              />
+            </section>
+          </form>
         </AdminDialog>
       )}
-
-      {/* Delete Modal */}
-      <ConfirmModal
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
-        onConfirm={handleDeleteUser}
-        title="Hapus Pengguna?"
-        description={`Apakah Anda yakin ingin menghapus user "${selectedUser?.email}"? Seluruh data riwayat ujian dan profil akan hilang permanen.`}
-        variant="danger"
-        loading={actionLoading}
-      />
     </div>
+  );
+}
+
+export default function UsersAdmin() {
+  return (
+    <Suspense fallback={<Loading label="Memuat pengguna…" />}>
+      <UsersAdminContent />
+    </Suspense>
   );
 }

@@ -1,53 +1,41 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
+import Link from "next/link";
 import {
+  Activity,
+  Award,
+  BarChart3,
+  ChevronRight,
+  CreditCard,
+  Target,
   TrendingUp,
   Users,
-  BookOpen,
-  CreditCard,
-  Award,
-  Calendar,
-  Filter,
-  ArrowUpRight,
-  Target,
-  Activity,
-  ChevronRight,
 } from "lucide-react";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { AdminPageHeader } from "@/components/admin";
-import {
-  LineChart,
-  Line,
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
   Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
 } from "recharts";
-import useSWR from "swr";
-import Link from "next/link";
-import { fetcher } from "@/lib/api";
+import { useResource } from "@/lib/useResource";
+import { ErrorPanel } from "@/components/AppShell";
+import {
+  AdminBadge,
+  AdminPageHeader,
+  AdminStatCard,
+} from "@/components/admin";
 import RevenueChart from "@/components/admin/charts/RevenueChart";
 import ScoreDistributionChart from "@/components/admin/charts/ScoreDistributionChart";
+import { formatRupiah } from "@/lib/admin-format";
+import type {
+  AdminExamAnalytics,
+  AdminOverviewStats,
+  AdminRevenueAnalytics,
+} from "@/types/admin";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
-
-const COLORS = [
+const CHART_COLORS = [
   "var(--chart-1)",
   "var(--chart-2)",
   "var(--chart-3)",
@@ -55,278 +43,368 @@ const COLORS = [
   "var(--chart-5)",
 ];
 
+const SUBTEST_BENCHMARKS = [
+  { key: "avg_twk" as const, label: "TWK", pg: 65, max: 150 },
+  { key: "avg_tiu" as const, label: "TIU", pg: 80, max: 175 },
+  { key: "avg_tkp" as const, label: "TKP", pg: 166, max: 225 },
+];
+
 export default function AnalyticsAdmin() {
-  const [days, setDays] = useState(7);
+  const [days, setDays] = useState<7 | 30 | 90>(30);
 
-  const {
-    data: overview,
-    error: ovError,
-    isLoading: ovLoading,
-  } = useSWR("/api/v1/admin/analytics/overview", fetcher);
-  const {
-    data: exams,
-    error: exError,
-    isLoading: exLoading,
-  } = useSWR("/api/v1/admin/analytics/exam-performance", fetcher);
-  const {
-    data: revenue,
-    error: revError,
-    isLoading: revLoading,
-  } = useSWR(`/api/v1/admin/analytics/revenue-trends?days=${days}`, fetcher);
-
-  const loading = ovLoading || exLoading || revLoading;
-
-  const StatCard = ({ title, value, icon: Icon, color, trend }: any) => (
-    <Card className="bg-surface border-line rounded-2xl overflow-hidden group">
-      <CardContent className="p-6">
-        <div className="flex justify-between items-start mb-4">
-          <div
-            className={`w-12 h-12 rounded-2xl flex items-center justify-center border transition-all duration-500  ${color}`}
-          >
-            <Icon className="w-6 h-6" />
-          </div>
-          {trend && (
-            <div className="flex items-center space-x-1 text-success font-bold text-xs bg-success-soft px-2 py-1 rounded-lg">
-              <ArrowUpRight className="w-3 h-3" />
-              <span>{trend}</span>
-            </div>
-          )}
-        </div>
-        <p className="text-xs font-semibold text-muted uppercase tracking-[0.2em] mb-1">
-          {title}
-        </p>
-        <h3 className="admin-stat-value text-3xl font-semibold text-ink tracking-tight">
-          {value}
-        </h3>
-      </CardContent>
-    </Card>
+  const overview = useResource<AdminOverviewStats>("/admin/analytics/overview");
+  const exams = useResource<AdminExamAnalytics>(
+    "/admin/analytics/exam-performance",
+  );
+  const revenue = useResource<AdminRevenueAnalytics>(
+    `/admin/analytics/revenue-trends?days=${days}`,
   );
 
+  const ov = overview.data;
+  const ex = exams.data;
+  const rev = revenue.data;
+
+  const revenueMix = rev?.revenue_by_type ?? [];
+  const topAttempted = rev?.top_attempted_packages ?? [];
+  const maxAttempts = topAttempted[0]?.attempts || 1;
+
   return (
-    <div className="space-y-8 pb-20">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <AdminPageHeader
-          title="Analitik platform"
-          subtitle="Pantau performa platform secara menyeluruh"
-        />
-        <div className="flex items-center space-x-2 bg-surface border border-line p-1.5 rounded-2xl">
-          {[7, 30, 90].map((d) => (
-            <button
-              key={d}
-              onClick={() => setDays(d)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                days === d
-                  ? "bg-accent-solid text-white shadow-lg "
-                  : "text-muted hover:text-ink"
-              }`}
-            >
-              {d} HARI
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Overview Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Total Pendapatan"
-          value={`Rp ${overview?.total_revenue?.toLocaleString() || "0"}`}
-          icon={CreditCard}
-          color="bg-success-soft border-line text-success"
-        />
-        <StatCard
-          title="Total Pengguna"
-          value={overview?.total_users || "0"}
-          icon={Users}
-          color="bg-accent-soft border-accent-border text-accent"
-        />
-        <StatCard
-          title="Sesi Ujian"
-          value={overview?.active_exams || "0"}
-          icon={Activity}
-          color="bg-danger-soft border-line text-danger"
-          trend="Live"
-        />
-        <StatCard
-          title="Memenuhi ambang latihan"
-          value={`${exams?.pass_rate || "0"}%`}
-          icon={Award}
-          color="bg-warning-soft border-line text-warning"
-        />
-      </div>
-
-      {/* Main Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Revenue Trend Area Chart */}
-        <Card className="bg-surface border-line rounded-2xl overflow-hidden">
-          <CardHeader className="p-8 pb-0">
-            <div className="flex items-center space-x-3 mb-2">
-              <div className="w-8 h-8 bg-success-soft rounded-xl flex items-center justify-center border border-line">
-                <TrendingUp className="w-4 h-4 text-success" />
-              </div>
-              <CardTitle className="text-xl font-semibold tracking-tight">
-                Tren Pendapatan Harian
-              </CardTitle>
-            </div>
-            <p className="text-xs font-bold text-muted uppercase tracking-wide">
-              Revenue Growth over {days} days
-            </p>
-          </CardHeader>
-          <CardContent className="p-8 pt-4 h-[350px]">
-            <RevenueChart
-              data={revenue?.daily_revenue || []}
-              height={350}
-              days={days}
-              loading={loading}
-            />
-          </CardContent>
-        </Card>
-
-        {/* Score Distribution Bar Chart */}
-        <Card className="bg-surface border-line rounded-2xl overflow-hidden">
-          <CardHeader className="p-8 pb-0">
-            <div className="flex items-center space-x-3 mb-2">
-              <div className="w-8 h-8 bg-accent-soft rounded-xl flex items-center justify-center border border-accent-border">
-                <Target className="w-4 h-4 text-accent" />
-              </div>
-              <CardTitle className="text-xl font-semibold tracking-tight">
-                Distribusi Skor Peserta
-              </CardTitle>
-            </div>
-            <p className="text-xs font-bold text-muted uppercase tracking-wide">
-              Distribusi nilai latihan
-            </p>
-          </CardHeader>
-          <CardContent className="p-8 pt-4 h-[350px]">
-            <ScoreDistributionChart
-              data={exams?.score_distribution || []}
-              height={350}
-              loading={loading}
-            />
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Top Packages Table */}
-        <Card className="lg:col-span-2 bg-surface border-line rounded-2xl overflow-hidden">
-          <CardHeader className="p-8">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-xl font-semibold tracking-tight mb-1">
-                  Paket Terlaris
-                </CardTitle>
-                <p className="text-xs font-bold text-muted uppercase tracking-wide">
-                  Transaksi paket tercatat
-                </p>
-              </div>
-              <Button
-                asChild
-                variant="ghost"
-                className="text-accent font-bold text-xs"
+    <div className="space-y-6">
+      <AdminPageHeader
+        eyebrow="Analitik"
+        title="Performa & keuangan platform"
+        subtitle="Pantau tren pendapatan Paket Pro vs donasi, rata-rata skor TWK/TIU/TKP, dan paket yang paling aktif dikerjakan."
+        actions={
+          <div
+            className="inline-flex items-center rounded-xl border border-line bg-surface p-1"
+            role="group"
+            aria-label="Rentang waktu analitik"
+          >
+            {([7, 30, 90] as const).map((range) => (
+              <button
+                key={range}
+                type="button"
+                onClick={() => setDays(range)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  days === range
+                    ? "bg-accent-solid text-white"
+                    : "text-muted hover:text-ink"
+                }`}
               >
-                <Link href="/admin/packages">
-                  Lihat paket <ChevronRight className="w-4 h-4 ml-1" />
-                </Link>
-              </Button>
+                {range} Hari
+              </button>
+            ))}
+          </div>
+        }
+      />
+
+      {(overview.error || exams.error || revenue.error) && (
+        <ErrorPanel
+          message={
+            overview.error ||
+            exams.error ||
+            revenue.error ||
+            "Sebagian data analitik belum dapat dimuat."
+          }
+          retry={() => {
+            overview.reload();
+            exams.reload();
+            revenue.reload();
+          }}
+        />
+      )}
+
+      {/* Top KPI Row */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <AdminStatCard
+          label="Total pendapatan"
+          value={formatRupiah(ov?.total_revenue)}
+          hint={`Pro ${formatRupiah(ov?.pro_revenue)} · Donasi ${formatRupiah(ov?.donation_revenue)}`}
+          icon={CreditCard}
+          tone="success"
+          loading={overview.loading}
+        />
+        <AdminStatCard
+          label="Rata-rata skor SKD"
+          value={ex ? ex.avg_total_score.toFixed(1) : "0"}
+          hint={`Dari ${ex?.total_finished_sessions ?? 0} sesi ujian selesai`}
+          icon={Target}
+          tone="accent"
+          loading={exams.loading}
+        />
+        <AdminStatCard
+          label="Lulus Passing Grade"
+          value={`${ex?.pass_rate ?? 0}%`}
+          hint="Ambang SKD BKN: TWK 65 · TIU 80 · TKP 166"
+          icon={Award}
+          tone="warning"
+          loading={exams.loading}
+        />
+        <AdminStatCard
+          label="Peserta & sesi live"
+          value={(ov?.participants_count ?? ov?.total_users ?? 0).toLocaleString("id-ID")}
+          hint={`${ov?.active_exams ?? 0} sedang ujian · ${ov?.pro_users_count ?? 0} Pro`}
+          icon={ov?.active_exams ? Activity : Users}
+          tone={ov?.active_exams ? "danger" : "neutral"}
+          loading={overview.loading}
+        />
+      </div>
+
+      {/* Subtest Averages vs Passing Grade */}
+      <section className="rounded-2xl border border-line bg-surface p-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-base font-semibold text-ink">
+              Rata-rata skor per subtes vs Passing Grade
+            </h2>
+            <p className="text-xs text-muted mt-0.5">
+              Perbandingan rata-rata hasil seluruh peserta (sesi preview admin
+              dikecualikan).
+            </p>
+          </div>
+          <AdminBadge tone="neutral">Standar SKD BKN</AdminBadge>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          {SUBTEST_BENCHMARKS.map((item) => {
+            const score = ex?.[item.key] ?? 0;
+            const passed = score >= item.pg;
+            const pct = Math.min(100, Math.round((score / item.max) * 100));
+            const pgPct = Math.round((item.pg / item.max) * 100);
+            return (
+              <div
+                key={item.label}
+                className="rounded-xl border border-line bg-surface-subtle/50 p-4 space-y-2.5"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold text-muted">
+                    {item.label}
+                  </span>
+                  <AdminBadge tone={passed ? "success" : "warning"}>
+                    {passed ? "Di atas PG" : "Di bawah PG"}
+                  </AdminBadge>
+                </div>
+                <div className="flex items-baseline gap-1.5 tabular-nums">
+                  <span className="text-2xl font-semibold text-ink">
+                    {exams.loading ? "—" : score.toFixed(1)}
+                  </span>
+                  <span className="text-xs text-muted">
+                    / {item.max} (PG {item.pg})
+                  </span>
+                </div>
+                <div className="relative h-2 w-full rounded-full bg-surface-hover overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${
+                      passed ? "bg-success" : "bg-accent-solid"
+                    }`}
+                    style={{ width: `${pct}%` }}
+                  />
+                  <span
+                    className="absolute top-0 bottom-0 w-0.5 bg-ink/50"
+                    style={{ left: `${pgPct}%` }}
+                    title={`Passing Grade ${item.pg}`}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Main Charts Row */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <section className="rounded-2xl border border-line bg-surface p-5">
+          <div className="mb-4 flex items-center gap-2.5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-success-soft text-success">
+              <TrendingUp className="h-4 w-4" />
+            </span>
+            <div>
+              <h2 className="text-base font-semibold text-ink">
+                Tren pendapatan harian ({days} hari)
+              </h2>
+              <p className="text-xs text-muted">
+                Transaksi Paket Pro terkonfirmasi (WIB)
+              </p>
             </div>
-          </CardHeader>
-          <CardContent className="px-8 pb-8">
-            <div className="space-y-4">
-              {revenue?.top_packages.map((pkg: any, idx: number) => (
+          </div>
+          <RevenueChart
+            data={rev?.daily_revenue ?? []}
+            height={290}
+            loading={revenue.loading}
+          />
+        </section>
+
+        <section className="rounded-2xl border border-line bg-surface p-5">
+          <div className="mb-4 flex items-center gap-2.5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent-soft text-accent">
+              <BarChart3 className="h-4 w-4" />
+            </span>
+            <div>
+              <h2 className="text-base font-semibold text-ink">
+                Distribusi skor total peserta
+              </h2>
+              <p className="text-xs text-muted">
+                Sebaran rentang nilai pada seluruh sesi selesai
+              </p>
+            </div>
+          </div>
+          <ScoreDistributionChart
+            data={ex?.score_distribution ?? []}
+            height={290}
+            loading={exams.loading}
+          />
+        </section>
+      </div>
+
+      {/* Bottom Row: Most Attempted Packages + Revenue Mix */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <section className="lg:col-span-2 rounded-2xl border border-line bg-surface p-5">
+          <div className="mb-4 flex items-center justify-between gap-2">
+            <div>
+              <h2 className="text-base font-semibold text-ink">
+                Paket paling banyak dikerjakan
+              </h2>
+              <p className="text-xs text-muted mt-0.5">
+                Berdasarkan sesi simulasi selesai peserta (non-preview)
+              </p>
+            </div>
+            <Link
+              href="/admin/packages"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:underline"
+            >
+              Kelola paket
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+
+          {revenue.loading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => (
                 <div
-                  key={idx}
-                  className="flex items-center justify-between p-4 bg-surface border border-line rounded-2xl group hover:border-accent-border transition-all"
+                  key={i}
+                  className="h-14 rounded-xl bg-surface-subtle animate-pulse"
+                />
+              ))}
+            </div>
+          ) : topAttempted.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-line bg-surface-subtle/40 p-8 text-center text-sm text-muted">
+              Belum ada sesi ujian selesai untuk meranking paket terpopuler.
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {topAttempted.map((pkg, idx) => (
+                <Link
+                  key={pkg.id}
+                  href={`/admin/questions?package_id=${pkg.id}`}
+                  className="group flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-line bg-surface-subtle/40 px-4 py-3 transition-colors hover:border-accent-border hover:bg-surface-hover/50"
                 >
-                  <div className="flex items-center space-x-4">
-                    <div className="w-10 h-10 bg-surface rounded-xl flex items-center justify-center font-semibold text-muted group-hover:text-accent">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-line bg-surface text-xs font-semibold text-muted tabular-nums group-hover:text-accent">
                       {idx + 1}
-                    </div>
-                    <div>
-                      <p className="font-bold text-ink">{pkg.title}</p>
-                      <p className="text-xs text-muted font-bold">
-                        {pkg.sales} TRANSAKSI
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-ink truncate">
+                        {pkg.title}
+                      </p>
+                      <p className="text-xs text-muted tabular-nums">
+                        {pkg.attempts} sesi · Rata-rata {pkg.avg_score} · Lulus
+                        PG {pkg.pass_rate}%
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-4">
-                    <div className="w-32 h-2 bg-surface rounded-full overflow-hidden hidden sm:block">
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="hidden sm:block h-2 w-28 rounded-full bg-surface-hover overflow-hidden">
                       <div
-                        className="h-full bg-accent-solid rounded-full"
+                        className="h-full rounded-full bg-accent-solid"
                         style={{
-                          width: `${(pkg.sales / (revenue.top_packages[0].sales || 1)) * 100}%`,
+                          width: `${Math.round((pkg.attempts / maxAttempts) * 100)}%`,
                         }}
-                      ></div>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-muted" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Categories Share (Mock Pie Chart for visuals) */}
-        <Card className="bg-surface border-line rounded-2xl overflow-hidden">
-          <CardHeader className="p-8">
-            <CardTitle className="text-xl font-semibold tracking-tight mb-1">
-              Distribusi Paket
-            </CardTitle>
-            <p className="text-xs font-bold text-muted uppercase tracking-wide">
-              Category Market Share
-            </p>
-          </CardHeader>
-          <CardContent className="p-8 pt-0 h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={
-                    revenue?.category_share?.map((c: any) => ({
-                      name: c.label,
-                      value: c.value,
-                    })) || []
-                  }
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={8}
-                  dataKey="value"
-                >
-                  {(revenue?.category_share || []).map(
-                    (entry: any, index: number) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={COLORS[index % COLORS.length]}
                       />
-                    ),
-                  )}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "var(--surface)",
-                    border: "1px solid var(--line)",
-                    color: "var(--ink)",
-                    borderRadius: "16px",
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="flex flex-wrap justify-center gap-4 mt-2">
-              {(revenue?.category_share || []).map((cat: any, idx: number) => (
-                <div key={cat.label} className="flex items-center space-x-2">
-                  <div
-                    className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: COLORS[idx % COLORS.length] }}
-                  ></div>
-                  <span className="text-xs font-bold text-muted">
-                    {cat.label}
-                  </span>
-                </div>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted group-hover:text-accent" />
+                  </div>
+                </Link>
               ))}
             </div>
-          </CardContent>
-        </Card>
+          )}
+        </section>
+
+        <section className="rounded-2xl border border-line bg-surface p-5 flex flex-col">
+          <div className="mb-3">
+            <h2 className="text-base font-semibold text-ink">
+              Komposisi pendapatan
+            </h2>
+            <p className="text-xs text-muted mt-0.5">
+              Perbandingan Paket Pro vs donasi sukses
+            </p>
+          </div>
+
+          {revenue.loading ? (
+            <div className="h-56 rounded-xl bg-surface-subtle animate-pulse" />
+          ) : revenueMix.length === 0 ? (
+            <div className="flex flex-1 min-h-[220px] items-center justify-center rounded-xl border border-dashed border-line bg-surface-subtle/40 p-6 text-center text-xs text-muted">
+              Belum ada transaksi berhasil untuk dipecah per sumber pendapatan.
+            </div>
+          ) : (
+            <>
+              <div className="h-52 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={revenueMix}
+                      dataKey="value"
+                      nameKey="label"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={52}
+                      outerRadius={82}
+                      paddingAngle={4}
+                    >
+                      {revenueMix.map((entry, idx) => (
+                        <Cell
+                          key={entry.label}
+                          fill={CHART_COLORS[idx % CHART_COLORS.length]}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value) => formatRupiah(Number(value ?? 0))}
+                      contentStyle={{
+                        backgroundColor: "var(--surface)",
+                        border: "1px solid var(--line)",
+                        color: "var(--ink)",
+                        borderRadius: "12px",
+                        fontSize: "13px",
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <ul className="mt-2 space-y-2 border-t border-line pt-3 text-xs">
+                {revenueMix.map((entry, idx) => (
+                  <li
+                    key={entry.label}
+                    className="flex items-center justify-between gap-2"
+                  >
+                    <span className="inline-flex items-center gap-2 text-muted">
+                      <span
+                        className="h-2.5 w-2.5 rounded-full shrink-0"
+                        style={{
+                          backgroundColor:
+                            CHART_COLORS[idx % CHART_COLORS.length],
+                        }}
+                      />
+                      {entry.label}
+                    </span>
+                    <strong className="text-ink tabular-nums">
+                      {formatRupiah(entry.value)}
+                    </strong>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </section>
       </div>
     </div>
   );

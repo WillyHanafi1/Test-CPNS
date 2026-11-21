@@ -7,11 +7,12 @@ from typing import List, Dict
 from pydantic import BaseModel
 
 from backend.db.session import get_async_session
-from backend.models.models import User, UserTransaction, ExamSession, Package, Question, ExamJob
+from backend.models.models import User, UserTransaction, ExamSession, Package, Question, ExamJob, Feedback, PaymentEvent
 from backend.api.v1.endpoints.auth import get_current_admin
 from backend.core.constants import PASSING_GRADE
 from backend.core.redis_service import redis_service
 from backend.services.revenue import BUSINESS_TIMEZONE, payment_time, reporting_date
+from sqlalchemy.orm import selectinload
 
 router = APIRouter(prefix="/admin/analytics", tags=["admin-analytics"])
 
@@ -57,11 +58,18 @@ async def operation_queue(db: AsyncSession = Depends(get_async_session), admin: 
 
 class OverviewStats(BaseModel):
     total_users: int
+    participants_count: int = 0
+    pro_users_count: int = 0
     total_packages: int
+    published_packages: int = 0
     total_questions: int
+    published_questions: int = 0
     total_revenue: int
+    pro_revenue: int = 0
+    donation_revenue: int = 0
     success_transactions: int
     active_exams: int
+    finished_sessions_7d: int = 0
 
 class ChartDataPoint(BaseModel):
     label: str
@@ -73,37 +81,120 @@ class ExamAnalytics(BaseModel):
     avg_tiu: float
     avg_tkp: float
     pass_rate: float
+    total_finished_sessions: int = 0
     score_distribution: List[ChartDataPoint]
 
 class RevenueAnalytics(BaseModel):
     daily_revenue: List[ChartDataPoint]
     top_packages: List[Dict]
     category_share: List[ChartDataPoint]
+    revenue_by_type: List[ChartDataPoint] = []
+    top_attempted_packages: List[Dict] = []
+
+@router.get("/action-summary")
+async def get_action_summary(
+    db: AsyncSession = Depends(get_async_session),
+    admin: User = Depends(get_current_admin)
+):
+    """Lightweight summary for Sidebar badges and Admin Command Center."""
+    from backend.services.operations import status as ops_status
+
+    cache_key = "admin:analytics:action-summary:v1"
+    cached = await redis_service.get_cache(cache_key)
+    if cached:
+        return cached
+
+    pending_feedback = await db.scalar(
+        select(func.count(Feedback.id)).where(Feedback.status == "pending")
+    ) or 0
+    pending_transactions = await db.scalar(
+        select(func.count(UserTransaction.id)).where(UserTransaction.payment_status == "pending")
+    ) or 0
+    review_payment_events = await db.scalar(
+        select(func.count(PaymentEvent.id)).where(PaymentEvent.status == "review")
+    ) or 0
+    draft_packages = await db.scalar(
+        select(func.count(Package.id)).where(Package.is_active.is_(True), Package.is_published.is_(False))
+    ) or 0
+
+    ops = await ops_status(db)
+    recent_tx_rows = (
+        await db.scalars(
+            select(UserTransaction)
+            .options(selectinload(UserTransaction.user))
+            .order_by(UserTransaction.created_at.desc())
+            .limit(5)
+        )
+    ).all()
+    recent_transactions = [
+        {
+            "id": str(tx.id),
+            "order_id": tx.order_id,
+            "email": tx.user.email if tx.user else "-",
+            "transaction_type": tx.transaction_type,
+            "amount": int(tx.amount),
+            "payment_status": tx.payment_status,
+            "created_at": tx.created_at.isoformat() if tx.created_at else None,
+        }
+        for tx in recent_tx_rows
+    ]
+
+    payload = {
+        "pending_feedback": int(pending_feedback),
+        "pending_transactions": int(pending_transactions),
+        "review_payment_events": int(review_payment_events),
+        "draft_packages": int(draft_packages),
+        "ops_status": ops["status"],
+        "ops_issues_count": len(ops["issues"]),
+        "ops_issues": ops["issues"][:3],
+        "recent_transactions": recent_transactions,
+    }
+    await redis_service.set_cache(cache_key, payload, expire=30)
+    return payload
 
 @router.get("/overview", response_model=OverviewStats)
 async def get_overview_stats(
     db: AsyncSession = Depends(get_async_session),
     admin: User = Depends(get_current_admin)
 ):
-    cache_key = "admin:analytics:overview"
+    cache_key = "admin:analytics:overview:v2"
     cached = await redis_service.get_cache(cache_key)
     if cached:
         return cached
 
-    # Single query with scalar subqueries — safe (no concurrent session usage)
-    # and efficient (one DB roundtrip)
-    two_hours_ago = datetime.now(timezone.utc) - timedelta(hours=2)
+    now = datetime.now(timezone.utc)
+    two_hours_ago = now - timedelta(hours=2)
+    seven_days_ago = now - timedelta(days=7)
 
     stats_result = await db.execute(
         select(
             func.count(User.id).label("total_users"),
-            (select(func.count()).select_from(Package)).scalar_subquery().label("total_packages"),
+            func.count(case((and_(User.role == "participant", User.is_active.is_(True)), 1))).label("participants_count"),
+            func.count(case((and_(User.is_pro.is_(True), User.is_active.is_(True)), 1))).label("pro_users_count"),
+            (select(func.count()).select_from(Package).where(Package.is_active.is_(True))).scalar_subquery().label("total_packages"),
+            (select(func.count()).select_from(Package).where(Package.is_active.is_(True), Package.is_published.is_(True))).scalar_subquery().label("published_packages"),
             (select(func.count()).select_from(Question)).scalar_subquery().label("total_questions"),
+            (
+                select(func.count(Question.id))
+                .join(Package, Question.package_id == Package.id)
+                .where(Package.is_active.is_(True), Package.is_published.is_(True))
+                .scalar_subquery()
+            ).label("published_questions"),
             func.coalesce(
                 select(func.sum(UserTransaction.amount))
                 .where(UserTransaction.payment_status == "success")
                 .scalar_subquery(), 0
             ).label("total_revenue"),
+            func.coalesce(
+                select(func.sum(UserTransaction.amount))
+                .where(UserTransaction.payment_status == "success", UserTransaction.transaction_type != "donation")
+                .scalar_subquery(), 0
+            ).label("pro_revenue"),
+            func.coalesce(
+                select(func.sum(UserTransaction.amount))
+                .where(UserTransaction.payment_status == "success", UserTransaction.transaction_type == "donation")
+                .scalar_subquery(), 0
+            ).label("donation_revenue"),
             func.coalesce(
                 select(func.count())
                 .select_from(UserTransaction)
@@ -119,17 +210,33 @@ async def get_overview_stats(
                 )
                 .scalar_subquery(), 0
             ).label("active_exams"),
+            func.coalesce(
+                select(func.count(ExamSession.id))
+                .where(
+                    ExamSession.status == "finished",
+                    ExamSession.start_time >= seven_days_ago,
+                    ExamSession.is_preview.is_(False)
+                )
+                .scalar_subquery(), 0
+            ).label("finished_sessions_7d"),
         ).select_from(User)
     )
     row = stats_result.one()
 
     result_data = {
-        "total_users": row.total_users or 0,
-        "total_packages": row.total_packages or 0,
-        "total_questions": row.total_questions or 0,
-        "total_revenue": row.total_revenue or 0,
-        "success_transactions": row.success_transactions or 0,
-        "active_exams": row.active_exams or 0
+        "total_users": int(row.total_users or 0),
+        "participants_count": int(row.participants_count or 0),
+        "pro_users_count": int(row.pro_users_count or 0),
+        "total_packages": int(row.total_packages or 0),
+        "published_packages": int(row.published_packages or 0),
+        "total_questions": int(row.total_questions or 0),
+        "published_questions": int(row.published_questions or 0),
+        "total_revenue": int(row.total_revenue or 0),
+        "pro_revenue": int(row.pro_revenue or 0),
+        "donation_revenue": int(row.donation_revenue or 0),
+        "success_transactions": int(row.success_transactions or 0),
+        "active_exams": int(row.active_exams or 0),
+        "finished_sessions_7d": int(row.finished_sessions_7d or 0),
     }
 
     # Cache for 5 minutes
@@ -142,7 +249,7 @@ async def get_exam_performance(
     db: AsyncSession = Depends(get_async_session),
     admin: User = Depends(get_current_admin)
 ):
-    cache_key = "analytics:exam_performance"
+    cache_key = "analytics:exam_performance:v2"
     cached = await redis_service.get_cache(cache_key)
     if cached:
         return cached
@@ -162,7 +269,7 @@ async def get_exam_performance(
     if not stats or stats.total_exams == 0:
         return {
             "avg_total_score": 0, "avg_twk": 0, "avg_tiu": 0, "avg_tkp": 0, 
-            "pass_rate": 0, "score_distribution": []
+            "pass_rate": 0, "total_finished_sessions": 0, "score_distribution": []
         }
 
     # 2. Hitung Pass Rate di DB (Standardized in constants.py)
@@ -206,6 +313,7 @@ async def get_exam_performance(
         "avg_tiu": round(float(stats.avg_tiu or 0), 1),
         "avg_tkp": round(float(stats.avg_tkp or 0), 1),
         "pass_rate": round(float(pass_rate), 1),
+        "total_finished_sessions": int(stats.total_exams or 0),
         "score_distribution": dist
     }
     
@@ -220,7 +328,7 @@ async def get_revenue_trends(
     db: AsyncSession = Depends(get_async_session),
     admin: User = Depends(get_current_admin)
 ):
-    cache_key = f"admin:analytics:rev_trends:paid-v1:{days}"
+    cache_key = f"admin:analytics:rev_trends:paid-v2:{days}"
     cached = await redis_service.get_cache(cache_key)
     if cached:
         return cached
@@ -229,7 +337,7 @@ async def get_revenue_trends(
                   - timedelta(days=days - 1)).astimezone(timezone.utc)
     day = reporting_date(db)
     
-    # Daily Revenue (Exclude donations for consistent package analytics)
+    # Daily Revenue (Exclude donations for consistent package/Pro analytics)
     stmt = (
         select(day, func.sum(UserTransaction.amount))
         .where(
@@ -245,7 +353,55 @@ async def get_revenue_trends(
     result = await db.execute(stmt)
     daily = [{"label": str(row[0]), "value": float(row[1])} for row in result.all()]
 
-    # Top Packages
+    # Revenue breakdown by type (Pro vs Donation)
+    type_stmt = (
+        select(UserTransaction.transaction_type, func.coalesce(func.sum(UserTransaction.amount), 0))
+        .where(UserTransaction.payment_status == "success")
+        .group_by(UserTransaction.transaction_type)
+    )
+    type_rows = (await db.execute(type_stmt)).all()
+    type_labels = {"pro_upgrade": "Paket Pro", "donation": "Donasi"}
+    rev_by_type = [
+        {"label": type_labels.get(row[0], row[0] or "Lainnya"), "value": float(row[1] or 0)}
+        for row in type_rows
+        if float(row[1] or 0) > 0
+    ]
+
+    # Top Packages by finished exam attempts (relevant under Paket Pro subscription model)
+    passed_cond = and_(
+        ExamSession.score_twk >= PASSING_GRADE["TWK"],
+        ExamSession.score_tiu >= PASSING_GRADE["TIU"],
+        ExamSession.score_tkp >= PASSING_GRADE["TKP"],
+    )
+    attempted_stmt = (
+        select(
+            Package.id,
+            Package.title,
+            Package.category,
+            func.count(ExamSession.id).label("attempts"),
+            func.avg(ExamSession.total_score).label("avg_score"),
+            func.count(case((passed_cond, 1))).label("passed_count"),
+        )
+        .join(ExamSession, ExamSession.package_id == Package.id)
+        .where(ExamSession.status == "finished", ExamSession.is_preview.is_(False))
+        .group_by(Package.id, Package.title, Package.category)
+        .order_by(func.count(ExamSession.id).desc())
+        .limit(5)
+    )
+    attempted_rows = (await db.execute(attempted_stmt)).all()
+    top_attempted = [
+        {
+            "id": str(row.id),
+            "title": row.title,
+            "category": row.category,
+            "attempts": int(row.attempts or 0),
+            "avg_score": round(float(row.avg_score or 0), 1),
+            "pass_rate": round((int(row.passed_count or 0) / int(row.attempts) * 100), 1) if row.attempts else 0.0,
+        }
+        for row in attempted_rows
+    ]
+
+    # Legacy fields kept for backward compatibility
     top_stmt = (
         select(Package.title, func.count(UserTransaction.id))
         .join(UserTransaction, UserTransaction.package_id == Package.id)
@@ -257,7 +413,6 @@ async def get_revenue_trends(
     top_result = await db.execute(top_stmt)
     top_pkgs = [{"title": row[0], "sales": row[1]} for row in top_result.all()]
 
-    # Category Share
     cat_stmt = (
         select(Package.category, func.count(UserTransaction.id))
         .join(UserTransaction, UserTransaction.package_id == Package.id)
@@ -270,7 +425,9 @@ async def get_revenue_trends(
     result_data = {
         "daily_revenue": daily,
         "top_packages": top_pkgs,
-        "category_share": cat_share
+        "category_share": cat_share,
+        "revenue_by_type": rev_by_type,
+        "top_attempted_packages": top_attempted,
     }
 
     # Cache for 15 minutes

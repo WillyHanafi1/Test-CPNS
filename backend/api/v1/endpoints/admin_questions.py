@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from typing import List, Optional
 import uuid
 
@@ -25,6 +25,7 @@ class QuestionCreate(BaseModel):
     package_id: uuid.UUID
     content: str
     segment: str
+    sub_category: Optional[str] = None
     number: int
     image_url: Optional[str] = None
     discussion: Optional[str] = None
@@ -47,6 +48,7 @@ class OptionUpdate(BaseModel):
 class QuestionUpdate(BaseModel):
     content: Optional[str] = None
     segment: Optional[str] = None
+    sub_category: Optional[str] = None
     number: Optional[int] = None
     image_url: Optional[str] = None
     discussion: Optional[str] = None
@@ -72,6 +74,7 @@ class QuestionResponse(BaseModel):
     package_id: uuid.UUID
     content: str
     segment: str
+    sub_category: Optional[str] = None
     number: int
     image_url: Optional[str] = None
     discussion: Optional[str] = None
@@ -90,6 +93,7 @@ async def list_questions(
     package_id: Optional[uuid.UUID] = None,
     segment: Optional[str] = None,
     search: Optional[str] = None,
+    missing_discussion: Optional[bool] = None,
     page: int = 1,
     size: int = 20,
     db: AsyncSession = Depends(get_async_session),
@@ -108,8 +112,16 @@ async def list_questions(
         count_query = count_query.where(Question.segment == segment)
     if search:
         safe_search = sanitize_search(search)
-        query = query.where(Question.content.ilike(f"%{safe_search}%"))
-        count_query = count_query.where(Question.content.ilike(f"%{safe_search}%"))
+        cond = or_(
+            Question.content.ilike(f"%{safe_search}%"),
+            Question.sub_category.ilike(f"%{safe_search}%"),
+        )
+        query = query.where(cond)
+        count_query = count_query.where(cond)
+    if missing_discussion is True:
+        empty_disc = or_(Question.discussion.is_(None), func.trim(Question.discussion) == "")
+        query = query.where(empty_disc)
+        count_query = count_query.where(empty_disc)
     
     # Optimized Count
     total = await db.execute(count_query)
@@ -180,8 +192,9 @@ async def create_question(
         package_id=question_in.package_id,
         content=question_in.content,
         segment=question_in.segment,
+        sub_category=(question_in.sub_category or "").strip() or None,
         number=question_in.number,
-        image_url=question_in.image_url,
+        image_url=(question_in.image_url or "").strip() or None,
         discussion=question_in.discussion
     )
     db.add(new_question)

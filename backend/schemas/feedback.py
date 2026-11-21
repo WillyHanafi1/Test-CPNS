@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Optional, List
+from typing import Optional, List, Dict
 import uuid
 from datetime import datetime
 
@@ -36,4 +36,5 @@ class FeedbackListResponse(BaseModel):
     total: int
     page: int
     size: int
+    counts_by_status: Dict[str, int] = {}
 

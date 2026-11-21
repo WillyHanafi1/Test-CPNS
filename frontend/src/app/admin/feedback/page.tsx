@@ -1,575 +1,571 @@
 "use client";
-import AdminDialog from "@/components/admin/AdminDialog";
 
-import React, { useState, useEffect } from "react";
+import React, { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "react-hot-toast";
 import {
+  CheckCircle2,
+  ExternalLink,
+  Loader2,
   MessageSquare,
   Trash2,
-  X,
-  CheckCircle2,
-  AlertCircle,
-  Loader2,
-  Filter,
-  Search,
-  MessageCircle,
-  Bug,
-  HelpCircle,
-  Clock,
-  ExternalLink,
-  ChevronRight,
-  Shield,
-  Flag,
-  MoreVertical,
-  CheckCircle,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { api } from "@/lib/api";
+import { ErrorPanel, Loading } from "@/components/AppShell";
 import {
-  AdminPageHeader,
+  AdminBadge,
   AdminDataTable,
+  AdminDialog,
+  AdminFilterBar,
+  AdminPageHeader,
   AdminPagination,
   ConfirmModal,
-  Column,
+  type AdminTone,
+  type Column,
 } from "@/components/admin";
+import { formatDateTimeJakarta } from "@/lib/admin-format";
+import type { AdminFeedback, AdminFeedbackList } from "@/types/admin";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+const PAGE_SIZE = 15;
 
-export default function FeedbackAdmin() {
-  const [feedbackList, setFeedbackList] = useState<any[]>([]);
+const STATUS_META: Record<string, { label: string; tone: AdminTone }> = {
+  pending: { label: "Pending", tone: "warning" },
+  reviewed: { label: "Ditinjau", tone: "accent" },
+  in_progress: { label: "Diproses", tone: "accent" },
+  resolved: { label: "Selesai", tone: "success" },
+};
+
+const PRIORITY_META: Record<string, { label: string; tone: AdminTone }> = {
+  urgent: { label: "Urgent", tone: "danger" },
+  high: { label: "Tinggi", tone: "warning" },
+  medium: { label: "Sedang", tone: "accent" },
+  low: { label: "Rendah", tone: "neutral" },
+};
+
+const CATEGORY_META: Record<string, { label: string; tone: AdminTone }> = {
+  bug: { label: "Bug", tone: "danger" },
+  correction: { label: "Koreksi soal", tone: "warning" },
+  suggestion: { label: "Saran", tone: "accent" },
+  other: { label: "Lainnya", tone: "neutral" },
+};
+
+function FeedbackAdminContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const [items, setItems] = useState<AdminFeedback[]>([]);
+  const [countsByStatus, setCountsByStatus] = useState<Record<string, number>>(
+    {},
+  );
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [filters, setFilters] = useState({
-    category: "",
-    status: "",
-    priority: "",
-  });
 
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedFeedback, setSelectedFeedback] = useState<any>(null);
-  const [actionLoading, setActionLoading] = useState(false);
+  const [search, setSearch] = useState(searchParams.get("search") ?? "");
+  const [debouncedSearch, setDebouncedSearch] = useState(
+    searchParams.get("search") ?? "",
+  );
+  const [statusFilter, setStatusFilter] = useState(
+    searchParams.get("status") ?? "",
+  );
+  const [categoryFilter, setCategoryFilter] = useState(
+    searchParams.get("category") ?? "",
+  );
+  const [priorityFilter, setPriorityFilter] = useState(
+    searchParams.get("priority") ?? "",
+  );
 
-  // Edit Form State
-  const [editForm, setEditForm] = useState({
-    status: "",
-    priority: "",
-    admin_notes: "",
-  });
+  // Triage drawer & delete modal
+  const [selected, setSelected] = useState<AdminFeedback | null>(null);
+  const [editStatus, setEditStatus] = useState("pending");
+  const [editPriority, setEditPriority] = useState("medium");
+  const [editNotes, setEditNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<AdminFeedback | null>(null);
+
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    fetchFeedback();
-  }, [page, filters]);
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [search]);
 
-  const fetchFeedback = async () => {
+  const fetchFeedback = useCallback(async () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setLoading(true);
+    setError(null);
     try {
-      let url = `${API_URL}/api/v1/admin/feedback?page=${page}&size=10`;
-      if (filters.category) url += `&category=${filters.category}`;
-      if (filters.status) url += `&status=${filters.status}`;
-      if (filters.priority) url += `&priority=${filters.priority}`;
-
-      const response = await fetch(url, {
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+      const params = new URLSearchParams({
+        page: String(page),
+        size: String(PAGE_SIZE),
       });
-      if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+      if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
+      if (statusFilter) params.set("status", statusFilter);
+      if (categoryFilter) params.set("category", categoryFilter);
+      if (priorityFilter) params.set("priority", priorityFilter);
 
-      const data = await response.json();
-      if (Array.isArray(data)) {
-        setFeedbackList(data);
-        setTotal(data.length);
-      } else {
-        setFeedbackList(data.items || []);
-        setTotal(data.total || 0);
-      }
-    } catch (error) {
-      console.error("Fetch feedback error:", error);
-      toast.error("Gagal mengambil data saran");
+      const data = await api<AdminFeedbackList>(
+        `/admin/feedback?${params.toString()}`,
+        { signal: controller.signal },
+      );
+      setItems(data.items ?? []);
+      setTotal(data.total ?? 0);
+      setCountsByStatus(data.counts_by_status ?? {});
+    } catch (err) {
+      if (controller.signal.aborted) return;
+      setError(
+        err instanceof Error ? err.message : "Gagal memuat data masukan.",
+      );
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
+  }, [page, debouncedSearch, statusFilter, categoryFilter, priorityFilter]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void fetchFeedback();
+    }, 0);
+    return () => {
+      clearTimeout(timer);
+      abortRef.current?.abort();
+    };
+  }, [fetchFeedback]);
+
+  const openTriage = (f: AdminFeedback) => {
+    setSelected(f);
+    setEditStatus(f.status);
+    setEditPriority(f.priority);
+    setEditNotes(f.admin_notes ?? "");
   };
 
-  const handleUpdateFeedback = async () => {
-    if (!selectedFeedback) return;
-    setActionLoading(true);
+  const handleSaveTriage = async (overrideStatus?: string) => {
+    if (!selected) return;
+    setSaving(true);
     try {
-      const response = await fetch(
-        `${API_URL}/api/v1/admin/feedback/${selectedFeedback.id}`,
+      const nextStatus = overrideStatus ?? editStatus;
+      const updated = await api<AdminFeedback>(
+        `/admin/feedback/${selected.id}`,
         {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(editForm),
-          credentials: "include",
+          body: JSON.stringify({
+            status: nextStatus,
+            priority: editPriority,
+            admin_notes: editNotes.trim() || null,
+          }),
         },
       );
-
-      if (response.ok) {
-        toast.success("Saran berhasil diperbarui");
-        setIsEditModalOpen(false);
-        fetchFeedback();
-      } else {
-        toast.error("Gagal memperbarui saran");
-      }
-    } catch (error) {
-      toast.error("Terjadi kesalahan sistem");
+      toast.success("Status masukan diperbarui.");
+      setSelected(updated);
+      setEditStatus(updated.status);
+      await fetchFeedback();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Gagal memperbarui masukan.",
+      );
     } finally {
-      setActionLoading(false);
+      setSaving(false);
     }
   };
 
-  const handleDeleteFeedback = async () => {
-    if (!selectedFeedback) return;
-    setActionLoading(true);
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setSaving(true);
     try {
-      const response = await fetch(
-        `${API_URL}/api/v1/admin/feedback/${selectedFeedback.id}`,
-        {
-          method: "DELETE",
-          credentials: "include",
-        },
+      await api(`/admin/feedback/${deleteTarget.id}`, { method: "DELETE" });
+      toast.success("Masukan dihapus.");
+      if (selected?.id === deleteTarget.id) setSelected(null);
+      setDeleteTarget(null);
+      await fetchFeedback();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Gagal menghapus masukan.",
       );
-
-      if (response.ok) {
-        toast.success("Saran berhasil dihapus");
-        setIsDeleteModalOpen(false);
-        fetchFeedback();
-      } else {
-        toast.error("Gagal menghapus saran");
-      }
-    } catch (error) {
-      toast.error("Terjadi kesalahan sistem");
     } finally {
-      setActionLoading(false);
+      setSaving(false);
     }
   };
 
-  const getStatusConfig = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case "resolved":
-        return {
-          color: "bg-success-soft text-success",
-          label: "RESOLVED",
-          icon: CheckCircle,
-        };
-      case "in_progress":
-        return {
-          color: "bg-accent-soft text-accent",
-          label: "IN PROGRESS",
-          icon: Clock,
-        };
-      case "reviewed":
-        return {
-          color: "bg-accent-soft text-accent",
-          label: "REVIEWED",
-          icon: Search,
-        };
-      default:
-        return {
-          color: "bg-surface-hover text-muted",
-          label: "PENDING",
-          icon: AlertCircle,
-        };
-    }
-  };
+  const totalAllStatuses = Object.values(countsByStatus).reduce(
+    (sum, n) => sum + n,
+    0,
+  );
 
-  const getPriorityConfig = (priority: string) => {
-    switch (priority?.toLowerCase()) {
-      case "urgent":
-        return { color: "bg-danger-solid text-white", label: "URGENT" };
-      case "high":
-        return { color: "bg-warning-soft text-warning", label: "HIGH" };
-      case "medium":
-        return { color: "bg-accent-soft text-accent", label: "MEDIUM" };
-      default:
-        return { color: "bg-surface-hover text-muted", label: "LOW" };
-    }
-  };
-
-  const columns: Column<any>[] = [
+  const columns: Column<AdminFeedback>[] = [
     {
-      header: "Pengguna & Konteks",
-      className: "w-[250px]",
+      header: "Pengirim & Konteks",
+      className: "min-w-[220px]",
       render: (f) => (
-        <div className="flex flex-col space-y-2">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 rounded-lg bg-surface-hover border border-line flex items-center justify-center font-bold text-xs text-accent">
-              {f.user?.email?.charAt(0).toUpperCase() || "?"}
-            </div>
-            <div className="overflow-hidden">
-              <p className="text-sm font-bold text-ink truncate">
-                {f.user?.email || "Unknown"}
-              </p>
-              <p className="text-xs text-muted font-medium">
-                {new Date(f.created_at).toLocaleString("id-ID", {
-                  day: "numeric",
-                  month: "short",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  timeZone: "Asia/Jakarta",
-                })}
-              </p>
-            </div>
-          </div>
+        <div className="space-y-1">
+          <p className="text-sm font-semibold text-ink truncate max-w-[210px]">
+            {f.user?.email || "Anonim"}
+          </p>
+          <p className="text-xs text-muted tabular-nums">
+            {formatDateTimeJakarta(f.created_at)}
+          </p>
           {f.path_context && (
-            <div className="flex items-center h-5 px-2 bg-surface rounded-md border border-line w-fit">
-              <ExternalLink className="w-2.5 h-2.5 text-muted mr-1.5" />
-              <span className="text-xs text-muted font-mono truncate max-w-[180px]">
-                {f.path_context}
-              </span>
-            </div>
+            <code className="inline-block max-w-[200px] truncate rounded border border-line bg-surface-subtle px-1.5 py-0.5 text-[11px] text-muted">
+              {f.path_context}
+            </code>
           )}
         </div>
       ),
     },
     {
-      header: "Kategori",
-      className: "w-32",
+      header: "Kategori & Prioritas",
+      className: "min-w-[140px]",
       render: (f) => {
-        const cat = f.category?.toLowerCase();
+        const cat = CATEGORY_META[f.category?.toLowerCase()] ?? {
+          label: f.category,
+          tone: "neutral" as AdminTone,
+        };
+        const pri = PRIORITY_META[f.priority?.toLowerCase()] ?? {
+          label: f.priority,
+          tone: "neutral" as AdminTone,
+        };
         return (
-          <div className="flex flex-col space-y-1.5">
-            <Badge
-              className={`rounded-lg py-1 px-2 font-bold text-[9px] border-none tracking-wide w-fit ${
-                cat === "bug"
-                  ? "bg-danger-soft text-danger"
-                  : cat === "correction"
-                    ? "bg-success-soft text-success"
-                    : cat === "suggestion"
-                      ? "bg-accent-soft text-accent"
-                      : "bg-surface-hover text-muted"
-              }`}
-            >
-              {f.category?.toUpperCase()}
-            </Badge>
-            <Badge
-              className={`rounded-lg py-0.5 px-2 font-semibold text-[8px] border-none tracking-wide w-fit ${getPriorityConfig(f.priority).color}`}
-            >
-              {getPriorityConfig(f.priority).label}
-            </Badge>
+          <div className="flex flex-col items-start gap-1">
+            <AdminBadge tone={cat.tone}>{cat.label}</AdminBadge>
+            <AdminBadge tone={pri.tone}>{pri.label}</AdminBadge>
           </div>
         );
       },
     },
     {
-      header: "Isi Pesan & Catatan",
-      className: "min-w-[300px]",
+      header: "Pesan & Catatan",
+      className: "min-w-[280px] max-w-md",
       render: (f) => (
-        <div className="space-y-2">
-          <div className="p-3 bg-surface rounded-xl border border-line">
-            <p className="text-sm font-medium text-ink leading-relaxed italic line-clamp-2">
-              "{f.content}"
-            </p>
-          </div>
+        <div className="space-y-1">
+          <p className="text-sm text-ink line-clamp-2 leading-relaxed">
+            {f.content}
+          </p>
           {f.admin_notes && (
-            <div className="flex items-start space-x-2 px-1">
-              <Shield className="w-3 h-3 text-accent mt-0.5" />
-              <p className="text-[11px] text-muted font-medium italic line-clamp-1">
-                Note: {f.admin_notes}
-              </p>
-            </div>
+            <p className="text-xs text-accent line-clamp-1">
+              Catatan admin: {f.admin_notes}
+            </p>
           )}
         </div>
       ),
     },
     {
       header: "Status",
-      className: "w-32",
       render: (f) => {
-        const config = getStatusConfig(f.status);
+        const meta = STATUS_META[f.status?.toLowerCase()] ?? {
+          label: f.status,
+          tone: "neutral" as AdminTone,
+        };
         return (
-          <Badge
-            className={`rounded-xl py-1.5 px-3 font-semibold text-xs border-none tracking-[0.1em] ${config.color} flex items-center gap-1.5 w-fit`}
-          >
-            <config.icon className="w-3 h-3" />
-            {config.label}
-          </Badge>
+          <AdminBadge tone={meta.tone} dot>
+            {meta.label}
+          </AdminBadge>
         );
       },
     },
     {
       header: "Aksi",
-      className: "text-center w-24",
+      headerClassName: "text-right",
+      className: "text-right whitespace-nowrap",
       render: (f) => (
-        <div className="flex items-center justify-center space-x-1">
-          <Button
-            aria-label="Kelola masukan"
-            variant="ghost"
-            size="icon"
-            className="w-9 h-9 rounded-xl hover:bg-accent-soft hover:text-accent transition-all border border-transparent hover:border-accent-border"
-            onClick={() => {
-              setSelectedFeedback(f);
-              setEditForm({
-                status: f.status,
-                priority: f.priority,
-                admin_notes: f.admin_notes || "",
-              });
-              setIsEditModalOpen(true);
+        <div className="inline-flex items-center justify-end gap-1">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              openTriage(f);
             }}
+            className="inline-flex h-8 items-center rounded-lg border border-line bg-canvas px-3 text-xs font-semibold text-ink hover:bg-surface-hover"
           >
-            <MoreVertical className="w-4 h-4" />
-          </Button>
-          <Button
-            aria-label="Hapus"
-            variant="ghost"
-            size="icon"
-            className="w-9 h-9 rounded-xl hover:bg-danger-soft hover:text-danger transition-all"
-            onClick={() => {
-              setSelectedFeedback(f);
-              setIsDeleteModalOpen(true);
+            Tinjau
+          </button>
+          <button
+            type="button"
+            aria-label="Hapus masukan"
+            onClick={(e) => {
+              e.stopPropagation();
+              setDeleteTarget(f);
             }}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-danger-soft hover:text-danger"
           >
-            <Trash2 className="w-4 h-4" />
-          </Button>
+            <Trash2 className="h-4 w-4" />
+          </button>
         </div>
       ),
     },
   ];
 
+  const hasFilters = Boolean(
+    search || statusFilter || categoryFilter || priorityFilter,
+  );
+
   return (
-    <div className="space-y-8 pb-20">
+    <div className="space-y-5">
       <AdminPageHeader
+        eyebrow="Komunitas"
         title="Masukan peserta"
-        subtitle="Manajemen feedback pelanggan dengan workflow profesional"
+        subtitle="Tinjau laporan koreksi soal, bug, dan saran pengembangan dari peserta."
       />
 
-      {/* Advanced Filters */}
-      <Card className="bg-surface border-line rounded-2xl overflow-hidden shadow-sm backdrop-blur-md">
-        <CardContent className="p-5 md:p-7">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-muted uppercase tracking-wide ml-1">
-                Kategori
-              </label>
-              <div className="bg-surface border border-line rounded-2xl px-4 py-2.5 flex items-center">
-                <Filter className="w-4 h-4 text-muted mr-2" />
-                <select
-                  className="bg-transparent text-sm font-bold text-ink focus:outline-none w-full appearance-none"
-                  value={filters.category}
-                  onChange={(e) => {
-                    setFilters({ ...filters, category: e.target.value });
-                    setPage(1);
-                  }}
+      {/* Status Tabs with Live Counters */}
+      <div
+        className="inline-flex flex-wrap items-center gap-1 rounded-xl border border-line bg-surface p-1"
+        role="tablist"
+        aria-label="Filter status masukan"
+      >
+        {(
+          [
+            ["", `Semua (${totalAllStatuses})`],
+            ["pending", `Pending (${countsByStatus.pending ?? 0})`],
+            ["reviewed", `Ditinjau (${countsByStatus.reviewed ?? 0})`],
+            ["in_progress", `Diproses (${countsByStatus.in_progress ?? 0})`],
+            ["resolved", `Selesai (${countsByStatus.resolved ?? 0})`],
+          ] as const
+        ).map(([val, label]) => (
+          <button
+            key={val || "all"}
+            type="button"
+            role="tab"
+            aria-selected={statusFilter === val}
+            onClick={() => {
+              setStatusFilter(val);
+              setPage(1);
+              const params = new URLSearchParams(searchParams.toString());
+              if (val) params.set("status", val);
+              else params.delete("status");
+              const qs = params.toString();
+              router.replace(qs ? `/admin/feedback?${qs}` : "/admin/feedback", {
+                scroll: false,
+              });
+            }}
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors tabular-nums ${
+              statusFilter === val
+                ? "bg-accent-soft text-accent"
+                : "text-muted hover:bg-surface-hover hover:text-ink"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <AdminFilterBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Cari isi pesan, catatan admin, atau email…"
+        hasActiveFilters={hasFilters}
+        onResetFilters={() => {
+          setSearch("");
+          setDebouncedSearch("");
+          setStatusFilter("");
+          setCategoryFilter("");
+          setPriorityFilter("");
+          setPage(1);
+          router.replace("/admin/feedback", { scroll: false });
+        }}
+      >
+        <select
+          aria-label="Filter kategori masukan"
+          value={categoryFilter}
+          onChange={(e) => {
+            setCategoryFilter(e.target.value);
+            setPage(1);
+          }}
+          className="h-10 rounded-xl border border-control-line bg-canvas px-3 text-sm font-medium text-ink focus:border-accent focus:outline-none"
+        >
+          <option value="">Semua kategori</option>
+          <option value="correction">Koreksi soal</option>
+          <option value="bug">Bug</option>
+          <option value="suggestion">Saran</option>
+          <option value="other">Lainnya</option>
+        </select>
+
+        <select
+          aria-label="Filter prioritas masukan"
+          value={priorityFilter}
+          onChange={(e) => {
+            setPriorityFilter(e.target.value);
+            setPage(1);
+          }}
+          className="h-10 rounded-xl border border-control-line bg-canvas px-3 text-sm font-medium text-ink focus:border-accent focus:outline-none"
+        >
+          <option value="">Semua prioritas</option>
+          <option value="urgent">Urgent</option>
+          <option value="high">Tinggi</option>
+          <option value="medium">Sedang</option>
+          <option value="low">Rendah</option>
+        </select>
+      </AdminFilterBar>
+
+      {error ? (
+        <ErrorPanel message={error} retry={() => void fetchFeedback()} />
+      ) : (
+        <AdminDataTable
+          columns={columns}
+          data={items}
+          loading={loading}
+          emptyIcon={<MessageSquare className="h-6 w-6" />}
+          emptyText="Belum ada masukan ditemukan"
+          emptyHint="Semua laporan peserta akan tampil di sini untuk ditinjau."
+          onRowClick={openTriage}
+        />
+      )}
+
+      <AdminPagination
+        page={page}
+        total={total}
+        pageSize={PAGE_SIZE}
+        onPageChange={setPage}
+      />
+
+      {/* Triage Slide-Over Drawer */}
+      {selected && (
+        <AdminDialog
+          variant="drawer"
+          size="md"
+          label="Detail dan tindak lanjut masukan"
+          title="Tindak lanjut masukan"
+          subtitle={`${selected.user?.email || "Anonim"} · ${formatDateTimeJakarta(selected.created_at)}`}
+          onClose={() => !saving && setSelected(null)}
+          footer={
+            <>
+              {selected.status !== "resolved" && (
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => void handleSaveTriage("resolved")}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-line bg-success-soft px-3.5 text-xs font-semibold text-success hover:opacity-90 mr-auto"
                 >
-                  <option value="">Semua Kategori</option>
-                  <option value="suggestion">Suggestion</option>
-                  <option value="bug">Bug Report</option>
-                  <option value="correction">Koreksi Soal</option>
-                  <option value="other">Other</option>
-                </select>
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Tandai selesai
+                </button>
+              )}
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => setSelected(null)}
+                className="inline-flex h-9 items-center rounded-xl border border-line bg-surface px-4 text-sm font-medium text-ink hover:bg-surface-hover"
+              >
+                Tutup
+              </button>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => void handleSaveTriage()}
+                className="inline-flex h-9 items-center gap-2 rounded-xl bg-accent-solid px-4 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+              >
+                {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                Simpan
+              </button>
+            </>
+          }
+        >
+          <div className="space-y-5">
+            <div className="rounded-xl border border-line bg-surface-subtle/60 p-4 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <AdminBadge
+                  tone={
+                    CATEGORY_META[selected.category?.toLowerCase()]?.tone ??
+                    "neutral"
+                  }
+                >
+                  {CATEGORY_META[selected.category?.toLowerCase()]?.label ??
+                    selected.category}
+                </AdminBadge>
+                {selected.path_context && (
+                  <a
+                    href={
+                      selected.path_context.startsWith("/")
+                        ? selected.path_context
+                        : undefined
+                    }
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-xs font-mono text-accent hover:underline"
+                  >
+                    {selected.path_context}
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
               </div>
+              <p className="text-sm text-ink leading-relaxed whitespace-pre-wrap">
+                {selected.content}
+              </p>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-muted uppercase tracking-wide ml-1">
-                Status
-              </label>
-              <div className="bg-surface border border-line rounded-2xl px-4 py-2.5 flex items-center text-success">
-                <CheckCircle className="w-4 h-4 text-muted mr-2" />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-muted">
+                  Status
+                </label>
                 <select
-                  className="bg-transparent text-sm font-bold text-ink focus:outline-none w-full appearance-none"
-                  value={filters.status}
-                  onChange={(e) => {
-                    setFilters({ ...filters, status: e.target.value });
-                    setPage(1);
-                  }}
+                  aria-label="Status masukan"
+                  value={editStatus}
+                  onChange={(e) => setEditStatus(e.target.value)}
+                  className="h-10 w-full rounded-xl border border-control-line bg-canvas px-3 text-sm text-ink focus:border-accent focus:outline-none"
                 >
-                  <option value="">Semua Status</option>
                   <option value="pending">Pending</option>
-                  <option value="reviewed">Reviewed</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="resolved">Resolved</option>
+                  <option value="reviewed">Ditinjau</option>
+                  <option value="in_progress">Diproses</option>
+                  <option value="resolved">Selesai</option>
                 </select>
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-muted uppercase tracking-wide ml-1">
-                Prioritas
-              </label>
-              <div className="bg-surface border border-line rounded-2xl px-4 py-2.5 flex items-center text-danger">
-                <Flag className="w-4 h-4 text-muted mr-2" />
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-muted">
+                  Prioritas
+                </label>
                 <select
-                  className="bg-transparent text-sm font-bold text-ink focus:outline-none w-full appearance-none"
-                  value={filters.priority}
-                  onChange={(e) => {
-                    setFilters({ ...filters, priority: e.target.value });
-                    setPage(1);
-                  }}
+                  aria-label="Prioritas masukan"
+                  value={editPriority}
+                  onChange={(e) => setEditPriority(e.target.value)}
+                  className="h-10 w-full rounded-xl border border-control-line bg-canvas px-3 text-sm text-ink focus:border-accent focus:outline-none"
                 >
-                  <option value="">Semua Prioritas</option>
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
+                  <option value="low">Rendah</option>
+                  <option value="medium">Sedang</option>
+                  <option value="high">Tinggi</option>
                   <option value="urgent">Urgent</option>
                 </select>
               </div>
             </div>
 
-            <div className="pb-1.5 pl-2">
-              <p className="text-[11px] font-bold text-muted">
-                Ditemukan <span className="text-accent">{total}</span> pesan
-                masuk
-              </p>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-muted">
+                Catatan internal admin
+              </label>
+              <textarea
+                rows={4}
+                aria-label="Catatan internal admin"
+                value={editNotes}
+                onChange={(e) => setEditNotes(e.target.value)}
+                placeholder="Catat progres perbaikan atau tindak lanjut untuk arsip internal…"
+                className="w-full rounded-xl border border-control-line bg-canvas p-3 text-sm text-ink leading-relaxed focus:border-accent focus:outline-none"
+              />
             </div>
           </div>
-        </CardContent>
-      </Card>
-
-      <AdminDataTable
-        columns={columns}
-        data={feedbackList}
-        loading={loading}
-        emptyIcon={<MessageSquare className="w-16 h-16 text-muted" />}
-        emptyText="Database saran masih kosong"
-      />
-
-      <AdminPagination
-        page={page}
-        total={total}
-        pageSize={10}
-        onPageChange={setPage}
-      />
-
-      {/* Management Modal */}
-      {isEditModalOpen && (
-        <AdminDialog
-          label="Kelola masukan"
-          onClose={() => setIsEditModalOpen(false)}
-        >
-          <Card className="w-full max-w-lg bg-surface border-line shadow-sm rounded-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-line flex items-center justify-between bg-surface">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-accent-soft rounded-xl">
-                  <Shield className="w-5 h-5 text-accent" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-ink tracking-tight">
-                    Kelola Feedback
-                  </h3>
-                  <p className="text-xs text-muted font-medium">
-                    Update status dan berikan catatan internal
-                  </p>
-                </div>
-              </div>
-              <button
-                aria-label="Tutup dialog"
-                onClick={() => setIsEditModalOpen(false)}
-                className="p-2 hover:bg-surface-hover rounded-xl text-muted hover:text-ink transition-colors"
-                disabled={actionLoading}
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <CardContent className="p-6 space-y-6">
-              <div className="p-4 bg-surface rounded-2xl border border-line space-y-2">
-                <div className="flex justify-between items-center">
-                  <p className="text-xs font-semibold text-muted uppercase tracking-[0.2em]">
-                    Pesan User
-                  </p>
-                  <Badge className="bg-accent-soft text-accent border-none text-[8px]">
-                    {selectedFeedback?.category?.toUpperCase()}
-                  </Badge>
-                </div>
-                <p className="text-sm text-ink italic">
-                  "{selectedFeedback?.content}"
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-muted uppercase tracking-wide ml-1">
-                    Set Status
-                  </label>
-                  <select
-                    aria-label="Set Status"
-                    className="w-full bg-surface border border-line rounded-xl px-4 py-3 text-sm font-bold text-ink focus:ring-2 focus:ring-accent-border transition-all outline-none appearance-none"
-                    value={editForm.status}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, status: e.target.value })
-                    }
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="reviewed">Reviewed</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="resolved">Resolved</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-muted uppercase tracking-wide ml-1">
-                    Prioritas
-                  </label>
-                  <select
-                    aria-label="Prioritas"
-                    className="w-full bg-surface border border-line rounded-xl px-4 py-3 text-sm font-bold text-ink focus:ring-2 focus:ring-accent-border transition-all outline-none appearance-none"
-                    value={editForm.priority}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, priority: e.target.value })
-                    }
-                  >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                    <option value="urgent">Urgent</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-muted uppercase tracking-wide ml-1">
-                  Catatan Admin (Internal)
-                </label>
-                <textarea
-                  aria-label="Catatan Admin (Internal)"
-                  className="w-full bg-surface border border-line rounded-xl px-4 py-3 text-sm text-ink min-h-[100px] focus:ring-2 focus:ring-accent-border transition-all outline-none resize-none"
-                  placeholder="Tuliskan catatan perbaikan atau progres untuk tim..."
-                  value={editForm.admin_notes}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, admin_notes: e.target.value })
-                  }
-                />
-              </div>
-
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  className="flex-1 py-6 rounded-2xl border-line bg-transparent text-muted hover:bg-surface-hover hover:text-ink font-bold"
-                  onClick={() => setIsEditModalOpen(false)}
-                  disabled={actionLoading}
-                >
-                  Batal
-                </Button>
-                <Button
-                  className="flex-1 py-6 rounded-2xl bg-accent-solid hover:bg-accent-solid text-white font-bold shadow-sm "
-                  onClick={handleUpdateFeedback}
-                  disabled={actionLoading}
-                >
-                  {actionLoading ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    "Simpan Perubahan"
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
         </AdminDialog>
       )}
 
-      {/* Delete Modal */}
       <ConfirmModal
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
-        onConfirm={handleDeleteFeedback}
-        title="Hapus Saran?"
-        description="Apakah Anda yakin ingin menghapus saran ini secara permanen?"
-        variant="danger"
-        loading={actionLoading}
+        isOpen={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => void handleDelete()}
+        title="Hapus masukan?"
+        description="Masukan ini akan dihapus permanen dari daftar."
+        confirmText="Hapus"
+        loading={saving}
       />
     </div>
+  );
+}
+
+export default function FeedbackAdmin() {
+  return (
+    <Suspense fallback={<Loading label="Memuat masukan…" />}>
+      <FeedbackAdminContent />
+    </Suspense>
   );
 }

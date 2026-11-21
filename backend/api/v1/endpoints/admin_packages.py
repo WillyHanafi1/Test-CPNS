@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func, or_, case
 from sqlalchemy.orm import selectinload
 import uuid
 from typing import List, Optional
@@ -50,9 +50,13 @@ class PackageResponse(BaseModel):
     is_published: bool
     is_weekly: bool
     is_active: bool
+    published_revision_id: Optional[uuid.UUID] = None
     start_at: Optional[datetime]
     end_at: Optional[datetime]
     question_count: int = 0
+    twk_count: int = 0
+    tiu_count: int = 0
+    tkp_count: int = 0
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -62,24 +66,49 @@ class PackageListResponse(BaseModel):
     page: int
     size: int
 
+async def _attach_segment_counts(db: AsyncSession, pkg: Package) -> None:
+    row = (
+        await db.execute(
+            select(
+                func.count(Question.id),
+                func.count(case((Question.segment == "TWK", 1))),
+                func.count(case((Question.segment == "TIU", 1))),
+                func.count(case((Question.segment == "TKP", 1))),
+            ).where(Question.package_id == pkg.id)
+        )
+    ).one()
+    pkg.question_count = int(row[0] or 0)
+    pkg.twk_count = int(row[1] or 0)
+    pkg.tiu_count = int(row[2] or 0)
+    pkg.tkp_count = int(row[3] or 0)
+
 @router.get("", response_model=PackageListResponse)
 async def list_packages_admin(
     page: int = Query(1, ge=1),
     size: int = Query(10, ge=1, le=100),
     search: Optional[str] = None,
     category: Optional[str] = None,
+    status_filter: Optional[str] = Query(None, alias="status"),
     include_archived: bool = Query(False),
     db: AsyncSession = Depends(get_async_session),
     admin: User = Depends(get_current_admin)
 ):
-    # Base query with question count
-    # We use a subquery to count questions per package
+    # Base query with question & segment counts per package
     q_count_sub = select(
-        Question.package_id, 
-        func.count(Question.id).label("q_count")
+        Question.package_id,
+        func.count(Question.id).label("q_count"),
+        func.count(case((Question.segment == "TWK", 1))).label("twk_count"),
+        func.count(case((Question.segment == "TIU", 1))).label("tiu_count"),
+        func.count(case((Question.segment == "TKP", 1))).label("tkp_count"),
     ).group_by(Question.package_id).subquery()
 
-    stmt = select(Package, func.coalesce(q_count_sub.c.q_count, 0)).outerjoin(
+    stmt = select(
+        Package,
+        func.coalesce(q_count_sub.c.q_count, 0),
+        func.coalesce(q_count_sub.c.twk_count, 0),
+        func.coalesce(q_count_sub.c.tiu_count, 0),
+        func.coalesce(q_count_sub.c.tkp_count, 0),
+    ).outerjoin(
         q_count_sub, Package.id == q_count_sub.c.package_id
     )
 
@@ -92,9 +121,16 @@ async def list_packages_admin(
         ))
     if category:
         stmt = stmt.where(Package.category == category)
-    
-    if not include_archived:
-        stmt = stmt.where(Package.is_active == True)
+
+    if status_filter == "archived":
+        stmt = stmt.where(Package.is_active.is_(False))
+    else:
+        if not include_archived:
+            stmt = stmt.where(Package.is_active.is_(True))
+        if status_filter == "published":
+            stmt = stmt.where(Package.is_published.is_(True))
+        elif status_filter == "draft":
+            stmt = stmt.where(Package.is_published.is_(False))
 
     # Total count
     count_stmt = select(func.count()).select_from(stmt.subquery())
@@ -108,9 +144,10 @@ async def list_packages_admin(
     items = []
     for row in result.all():
         pkg = row[0]
-        count = row[1]
-        # Attach count to pkg for schema mapping
-        pkg.question_count = count
+        pkg.question_count = int(row[1] or 0)
+        pkg.twk_count = int(row[2] or 0)
+        pkg.tiu_count = int(row[3] or 0)
+        pkg.tkp_count = int(row[4] or 0)
         items.append(pkg)
 
     return {
@@ -159,9 +196,8 @@ async def update_package_admin(
     await db.commit()
     await db.refresh(package)
     
-    # Get question count for response
-    q_count_result = await db.execute(select(func.count(Question.id)).where(Question.package_id == package_id))
-    package.question_count = q_count_result.scalar() or 0
+    # Get question & segment counts for response
+    await _attach_segment_counts(db, package)
     
     # Invalidate Cache
     await redis_service.clear_pattern("packages:*")
@@ -207,9 +243,8 @@ async def restore_package_admin(
     await db.commit()
     await db.refresh(package)
     
-    # Get question count for response
-    q_count_result = await db.execute(select(func.count(Question.id)).where(Question.package_id == package_id))
-    package.question_count = q_count_result.scalar() or 0
+    # Get question & segment counts for response
+    await _attach_segment_counts(db, package)
 
     # Invalidate Cache
     await redis_service.clear_pattern("packages:*")
@@ -218,17 +253,19 @@ async def restore_package_admin(
     return package
 
 class CopyPackageRequest(BaseModel):
-    new_start_at: datetime
-    new_end_at: datetime
+    title: Optional[str] = None
+    is_weekly: Optional[bool] = None
+    new_start_at: Optional[datetime] = None
+    new_end_at: Optional[datetime] = None
 
 @router.post("/{package_id}/copy", response_model=PackageResponse, status_code=status.HTTP_201_CREATED)
 async def copy_package_admin(
     package_id: uuid.UUID,
-    body: CopyPackageRequest = Body(...),
+    body: Optional[CopyPackageRequest] = Body(default=None),
     db: AsyncSession = Depends(get_async_session),
     admin: User = Depends(get_current_admin)
 ):
-    """Duplikasi package beserta semua soalnya untuk TO minggu berikutnya."""
+    """Duplikasi package beserta semua soalnya (untuk revisi baru atau TO minggu berikutnya)."""
     result = await db.execute(
         select(Package)
         .options(selectinload(Package.questions).selectinload(Question.options))
@@ -238,14 +275,21 @@ async def copy_package_admin(
     if not source:
         raise HTTPException(status_code=404, detail="Package not found")
 
-    # Buat package baru
+    req = body or CopyPackageRequest()
+    is_weekly = req.is_weekly if req.is_weekly is not None else source.is_weekly
+    start_at = req.new_start_at if is_weekly else None
+    end_at = req.new_end_at if is_weekly else None
+    if start_at and end_at and end_at <= start_at:
+        raise HTTPException(422, "Waktu selesai harus sesudah waktu mulai.")
+
+    # Buat package baru sebagai draft
     new_pkg = Package(
-        title=f"{source.title} (Copy)",  # Tambahkan penanda agar admin tahu ini hasil copy
+        title=(req.title or "").strip() or f"{source.title} (Salinan)",
         description=source.description,
-        is_weekly=True,
-        is_published=False,  # draft dulu, publish manual
-        start_at=body.new_start_at,  # [SECURITY] From request body, not query params
-        end_at=body.new_end_at,
+        is_weekly=is_weekly,
+        is_published=False,
+        start_at=start_at,
+        end_at=end_at,
         category=source.category,
         price=source.price,
         is_premium=source.is_premium
@@ -272,7 +316,7 @@ async def copy_package_admin(
 
     await db.commit()
     await db.refresh(new_pkg)
-    new_pkg.question_count = len(source.questions)
+    await _attach_segment_counts(db, new_pkg)
     
     # Invalidate Cache
     await redis_service.clear_pattern("packages:*")

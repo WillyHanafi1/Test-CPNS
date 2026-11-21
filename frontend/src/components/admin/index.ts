@@ -1,4 +1,10 @@
 export * from "./AdminPageHeader";
-export * from "./AdminPagination";
 export * from "./AdminDataTable";
+export * from "./AdminPagination";
 export * from "./ConfirmModal";
+export * from "./AdminBadge";
+export * from "./AdminStatCard";
+export * from "./AdminSwitch";
+export * from "./AdminFilterBar";
+export * from "./AdminCommandPalette";
+export { default as AdminDialog } from "./AdminDialog";

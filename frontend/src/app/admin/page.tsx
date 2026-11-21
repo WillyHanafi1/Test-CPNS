@@ -1,280 +1,385 @@
 "use client";
 
-import React from "react";
-import {
-  Users,
-  BookOpen,
-  CreditCard,
-  Activity,
-  ArrowUpRight,
-  TrendingUp,
-  Clock,
-  ChevronRight,
-  MessageSquare,
-} from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import React, { useState } from "react";
 import Link from "next/link";
 import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
-import useSWR from "swr";
-import { fetcher } from "@/lib/api";
+  Activity,
+  AlertTriangle,
+  ArrowRight,
+  ArrowUpRight,
+  BookOpen,
+  CheckCircle2,
+  CreditCard,
+  Heart,
+  MessageSquare,
+  Package,
+  Plus,
+  RefreshCw,
+  Users,
+} from "lucide-react";
+import { useResource } from "@/lib/useResource";
+import { ErrorPanel } from "@/components/AppShell";
+import {
+  AdminBadge,
+  AdminPageHeader,
+  AdminStatCard,
+} from "@/components/admin";
 import RevenueChart from "@/components/admin/charts/RevenueChart";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+import { formatDateTimeJakarta, formatRupiah } from "@/lib/admin-format";
+import type {
+  AdminActionSummary,
+  AdminOverviewStats,
+  AdminRevenueAnalytics,
+} from "@/types/admin";
 
 export default function AdminDashboard() {
-  const {
-    data: overview,
-    error: ovError,
-    isLoading: ovLoading,
-  } = useSWR("/api/v1/admin/analytics/overview", fetcher);
-  const {
-    data: revenue,
-    error: revError,
-    isLoading: revLoading,
-  } = useSWR("/api/v1/admin/analytics/revenue-trends?days=7", fetcher);
+  const [days, setDays] = useState<7 | 30>(7);
 
-  const loading = ovLoading || revLoading;
-  const data = overview
-    ? { ...overview, revenueTrends: revenue?.daily_revenue }
-    : null;
+  const overview = useResource<AdminOverviewStats>("/admin/analytics/overview");
+  const actions = useResource<AdminActionSummary>(
+    "/admin/analytics/action-summary",
+  );
+  const revenue = useResource<AdminRevenueAnalytics>(
+    `/admin/analytics/revenue-trends?days=${days}`,
+  );
 
-  const stats = [
+  const refreshing =
+    overview.refreshing || actions.refreshing || revenue.refreshing;
+
+  const refreshAll = () => {
+    overview.reload();
+    actions.reload();
+    revenue.reload();
+  };
+
+  const ov = overview.data;
+  const act = actions.data;
+
+  const attentionItems = [
     {
-      name: "Total Pengguna",
-      value: data?.total_users?.toLocaleString() || "0",
-      change: "",
-      icon: Users,
-      color: "text-accent",
-      bg: "bg-accent-soft",
+      key: "ops",
+      label: "Kesehatan layanan",
+      value:
+        act && act.ops_issues_count > 0
+          ? `${act.ops_issues_count} perlu diperiksa`
+          : "Berjalan baik",
+      tone: act && act.ops_issues_count > 0 ? "danger" : "success",
+      icon:
+        act && act.ops_issues_count > 0 ? AlertTriangle : CheckCircle2,
+      href: "/admin/operations",
     },
     {
-      name: "Total Soal",
-      value: data?.total_questions?.toLocaleString() || "0",
-      change: "",
-      icon: BookOpen,
-      color: "text-accent",
-      bg: "bg-accent-soft",
+      key: "feedback",
+      label: "Masukan belum dibaca",
+      value: `${act?.pending_feedback ?? 0} pending`,
+      tone: (act?.pending_feedback ?? 0) > 0 ? "warning" : "neutral",
+      icon: MessageSquare,
+      href: "/admin/feedback?status=pending",
     },
     {
-      name: "Pendapatan",
-      value: `Rp ${data?.total_revenue?.toLocaleString() || "0"}`,
-      change: "",
+      key: "payments",
+      label: "Transaksi tertunda",
+      value: `${(act?.pending_transactions ?? 0) + (act?.review_payment_events ?? 0)} antrean`,
+      tone:
+        (act?.review_payment_events ?? 0) > 0
+          ? "danger"
+          : (act?.pending_transactions ?? 0) > 0
+            ? "warning"
+            : "neutral",
       icon: CreditCard,
-      color: "text-success",
-      bg: "bg-success-soft",
+      href: "/admin/transactions?status=pending",
     },
     {
-      name: "Sesi Ujian Aktif",
-      value: data?.active_exams?.toString() || "0",
-      change: "Live",
-      icon: Activity,
-      color: "text-danger",
-      bg: "bg-danger-soft",
+      key: "drafts",
+      label: "Paket masih draft",
+      value: `${act?.draft_packages ?? 0} paket`,
+      tone: (act?.draft_packages ?? 0) > 0 ? "accent" : "neutral",
+      icon: Package,
+      href: "/admin/packages?status=draft",
     },
-  ];
+  ] as const;
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-700">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-4xl font-semibold tracking-tight mb-2">
-            Ringkasan platform
-          </h1>
-          <p className="text-muted font-medium">
-            Kelola paket, peserta, dan aktivitas platform.
-          </p>
+    <div className="space-y-6">
+      <AdminPageHeader
+        eyebrow="Command Center"
+        title="Ringkasan platform"
+        subtitle="Pantau antrean tindak lanjut, performa konten, dan aktivitas transaksi dari satu layar."
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={refreshAll}
+              disabled={refreshing}
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-line bg-surface px-3.5 text-sm font-medium text-ink hover:bg-surface-hover disabled:opacity-50"
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+              />
+              {refreshing ? "Memperbarui…" : "Perbarui"}
+            </button>
+            <Link
+              href="/admin/packages?action=create"
+              className="inline-flex h-10 items-center gap-2 rounded-xl bg-accent-solid px-4 text-sm font-semibold text-white hover:opacity-90"
+            >
+              <Plus className="h-4 w-4" />
+              Buat paket baru
+            </Link>
+          </>
+        }
+      />
+
+      {overview.error && (
+        <ErrorPanel message={overview.error} retry={overview.reload} />
+      )}
+
+      {/* Row 1: Action Queue (Needs Attention) */}
+      <section aria-label="Antrean tindak lanjut">
+        <div className="mb-2.5 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-ink">
+            Antrean tindak lanjut
+          </h2>
+          <span className="text-xs text-muted">
+            Klik kartu untuk langsung menangani
+          </span>
         </div>
-        <Button
-          asChild
-          className="rounded-2xl bg-accent-solid hover:bg-accent-solid font-bold px-6 py-6 shadow-sm "
-        >
-          <Link href="/admin/analytics">
-            Lihat analitik <ArrowUpRight className="w-4 h-4 ml-2" />
-          </Link>
-        </Button>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat) => (
-          <Card
-            key={stat.name}
-            className={`bg-surface border-line border rounded-2xl overflow-hidden hover:border-line transition-all group ${loading ? "animate-pulse" : ""}`}
-          >
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className={`p-3 rounded-2xl ${stat.bg}`}>
-                  <stat.icon className={`w-6 h-6 ${stat.color}`} />
-                </div>
-              </div>
-              <div>
-                <p className="text-sm font-bold text-muted uppercase tracking-wide">
-                  {stat.name}
-                </p>
-                <h3 className="admin-stat-value text-3xl font-semibold mt-1  transition-transform origin-left text-ink">
-                  {stat.value}
-                </h3>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Charts / Detailed Sections */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <Card className="lg:col-span-2 bg-surface border-line border rounded-2xl p-8 overflow-hidden">
-          <CardHeader className="px-0 pt-0 flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="text-2xl font-semibold">
-                Statistik Pendapatan (7 Hari)
-              </CardTitle>
-              <p className="text-sm text-muted font-medium font-mono uppercase tracking-tighter mt-1">
-                Pendapatan yang tercatat
-              </p>
-            </div>
-            <div className="flex space-x-2">
-              <div className="w-3 h-3 rounded-full bg-success" />
-              <div className="w-3 h-3 rounded-full bg-surface-hover" />
-            </div>
-          </CardHeader>
-          <CardContent className="px-0 h-[300px] mt-6 relative">
-            {loading ? (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-10 h-10 border-4 border-line border-t-indigo-500 rounded-full animate-spin" />
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={data?.revenueTrends || []}>
-                  <defs>
-                    <linearGradient
-                      id="colorValueMain"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1"
-                    >
-                      <stop
-                        offset="5%"
-                        stopColor="var(--chart-1)"
-                        stopOpacity={0.3}
-                      />
-                      <stop
-                        offset="95%"
-                        stopColor="var(--chart-1)"
-                        stopOpacity={0}
-                      />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="var(--line)"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="label"
-                    stroke="var(--muted)"
-                    fontSize={10}
-                    fontWeight="bold"
-                    tickFormatter={(str) => str.split("-").slice(2).join("/")}
-                  />
-                  <YAxis
-                    stroke="var(--muted)"
-                    fontSize={10}
-                    fontWeight="bold"
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "var(--surface)",
-                      border: "1px solid var(--line)",
-                      color: "var(--ink)",
-                      borderRadius: "16px",
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="value"
-                    stroke="var(--chart-1)"
-                    fillOpacity={1}
-                    fill="url(#colorValueMain)"
-                    strokeWidth={4}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="bg-surface border-line border rounded-2xl p-8">
-          <CardHeader className="px-0 pt-0">
-            <CardTitle className="text-2xl font-semibold">
-              Akses cepat
-            </CardTitle>
-            <p className="text-sm text-muted font-medium uppercase tracking-tighter mt-1">
-              Halaman pengelolaan
-            </p>
-          </CardHeader>
-          <CardContent className="px-0 space-y-4 mt-6">
-            {[
-              {
-                name: "Urus Paket Soal",
-                href: "/admin/packages",
-                icon: BookOpen,
-                color: "text-accent",
-              },
-              {
-                name: "Kelola Pengguna",
-                href: "/admin/users",
-                icon: Users,
-                color: "text-accent",
-              },
-              {
-                name: "Monitor Transaksi",
-                href: "/admin/transactions",
-                icon: CreditCard,
-                color: "text-success",
-              },
-              {
-                name: "Kelola Saran",
-                href: "/admin/feedback",
-                icon: MessageSquare,
-                color: "text-danger",
-              },
-            ].map((item) => (
-              <Link key={item.name} href={item.href}>
-                <div className="flex items-center justify-between p-4 bg-surface border border-line rounded-2xl group hover:border-accent-border hover:bg-surface transition-all mb-3">
-                  <div className="flex items-center space-x-3">
-                    <div className={`p-2 rounded-lg bg-surface ${item.color}`}>
-                      <item.icon className="w-5 h-5" />
-                    </div>
-                    <span className="font-bold text-ink group-hover:text-ink transition-colors">
-                      {item.name}
-                    </span>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {attentionItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.key}
+                href={item.href}
+                className="group flex items-center justify-between gap-3 rounded-2xl border border-line bg-surface px-4 py-3.5 transition-colors hover:border-accent-border hover:bg-surface-subtle/60"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <span
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                      item.tone === "danger"
+                        ? "bg-danger-soft text-danger"
+                        : item.tone === "warning"
+                          ? "bg-warning-soft text-warning"
+                          : item.tone === "success"
+                            ? "bg-success-soft text-success"
+                            : item.tone === "accent"
+                              ? "bg-accent-soft text-accent"
+                              : "bg-surface-subtle text-muted"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted truncate">{item.label}</p>
+                    <p className="text-sm font-semibold text-ink tabular-nums">
+                      {actions.loading ? "Memuat…" : item.value}
+                    </p>
                   </div>
-                  <ChevronRight className="w-5 h-5 text-muted group-hover:text-accent group-hover:translate-x-1 transition-all" />
                 </div>
+                <ArrowRight
+                  className="h-4 w-4 shrink-0 text-muted transition-transform group-hover:translate-x-0.5 group-hover:text-accent"
+                  aria-hidden="true"
+                />
               </Link>
-            ))}
-            <div className="mt-8 p-6 bg-accent-soft border border-accent-border rounded-2xl">
-              <p className="text-xs font-semibold text-accent uppercase tracking-wide mb-2">
-                Pro Tip
-              </p>
-              <p className="text-xs text-muted font-medium leading-relaxed">
-                Gunakan fitur Analitik untuk melihat statistik performa peserta
-                secara lebih detail dan mendalam.
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Row 2: Core KPIs */}
+      <section aria-label="Metrik utama">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <AdminStatCard
+            label="Peserta aktif"
+            value={(ov?.participants_count ?? ov?.total_users ?? 0).toLocaleString("id-ID")}
+            hint={`${ov?.pro_users_count ?? 0} anggota Paket Pro · ${ov?.total_users ?? 0} total akun`}
+            icon={Users}
+            tone="accent"
+            href="/admin/users"
+            loading={overview.loading}
+          />
+          <AdminStatCard
+            label="Bank soal tayang"
+            value={(ov?.published_questions ?? ov?.total_questions ?? 0).toLocaleString("id-ID")}
+            hint={`${ov?.published_packages ?? 0} dari ${ov?.total_packages ?? 0} paket aktif tayang`}
+            icon={BookOpen}
+            tone="accent"
+            href="/admin/packages"
+            loading={overview.loading}
+          />
+          <AdminStatCard
+            label="Total pendapatan"
+            value={formatRupiah(ov?.total_revenue)}
+            hint={`Pro ${formatRupiah(ov?.pro_revenue)} · Donasi ${formatRupiah(ov?.donation_revenue)}`}
+            icon={CreditCard}
+            tone="success"
+            href="/admin/transactions"
+            loading={overview.loading}
+          />
+          <AdminStatCard
+            label="Ujian sedang berjalan"
+            value={ov?.active_exams ?? 0}
+            hint={`${ov?.finished_sessions_7d ?? 0} sesi selesai dalam 7 hari terakhir`}
+            badge="Live"
+            icon={Activity}
+            tone="warning"
+            href="/admin/analytics"
+            loading={overview.loading}
+          />
+        </div>
+      </section>
+
+      {/* Row 3: Revenue Chart + Recent Transactions / Quick Links */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <section className="lg:col-span-2 rounded-2xl border border-line bg-surface p-5">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-ink">
+                Tren pendapatan Paket Pro ({days} hari)
+              </h2>
+              <p className="text-xs text-muted mt-0.5">
+                Berdasarkan tanggal konfirmasi pembayaran (WIB), tidak termasuk
+                donasi sukarela.
               </p>
             </div>
-          </CardContent>
-        </Card>
+            <div className="inline-flex items-center rounded-xl border border-line bg-surface-subtle p-1 self-start">
+              {([7, 30] as const).map((range) => (
+                <button
+                  key={range}
+                  type="button"
+                  onClick={() => setDays(range)}
+                  className={`rounded-lg px-3 py-1 text-xs font-semibold transition-colors ${
+                    days === range
+                      ? "bg-surface text-ink shadow-xs"
+                      : "text-muted hover:text-ink"
+                  }`}
+                >
+                  {range} Hari
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {revenue.error ? (
+            <ErrorPanel message={revenue.error} retry={revenue.reload} />
+          ) : (
+            <RevenueChart
+              data={revenue.data?.daily_revenue ?? []}
+              height={280}
+              loading={revenue.loading}
+            />
+          )}
+
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-xs">
+            <span className="text-muted">
+              Butuh distribusi skor TWK/TIU/TKP dan paket terpopuler?
+            </span>
+            <Link
+              href="/admin/analytics"
+              className="inline-flex items-center gap-1 font-semibold text-accent hover:underline"
+            >
+              Buka analitik lengkap
+              <ArrowUpRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-line bg-surface p-5 flex flex-col">
+          <div className="mb-4 flex items-center justify-between gap-2">
+            <div>
+              <h2 className="text-base font-semibold text-ink">
+                Transaksi terbaru
+              </h2>
+              <p className="text-xs text-muted mt-0.5">
+                5 aktivitas pembayaran terakhir
+              </p>
+            </div>
+            <Link
+              href="/admin/transactions"
+              className="text-xs font-semibold text-accent hover:underline"
+            >
+              Semua →
+            </Link>
+          </div>
+
+          {actions.loading ? (
+            <div className="space-y-2.5">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-14 rounded-xl bg-surface-subtle animate-pulse"
+                />
+              ))}
+            </div>
+          ) : !act?.recent_transactions?.length ? (
+            <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-line bg-surface-subtle/40 p-6 text-center text-xs text-muted">
+              Belum ada transaksi masuk.
+            </div>
+          ) : (
+            <ul className="space-y-2 flex-1">
+              {act.recent_transactions.map((tx) => {
+                const isDonation = tx.transaction_type === "donation";
+                const statusTone =
+                  tx.payment_status === "success"
+                    ? "success"
+                    : tx.payment_status === "pending"
+                      ? "warning"
+                      : "danger";
+                return (
+                  <li
+                    key={tx.id}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface-subtle/40 px-3 py-2.5"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        {isDonation ? (
+                          <Heart className="h-3.5 w-3.5 shrink-0 text-accent" />
+                        ) : (
+                          <CreditCard className="h-3.5 w-3.5 shrink-0 text-warning" />
+                        )}
+                        <p className="text-xs font-semibold text-ink truncate">
+                          {tx.email}
+                        </p>
+                      </div>
+                      <p className="mt-0.5 text-xs text-muted truncate">
+                        {isDonation ? "Donasi" : "Paket Pro"} ·{" "}
+                        {formatDateTimeJakarta(tx.created_at)}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-xs font-semibold text-ink tabular-nums">
+                        {formatRupiah(tx.amount)}
+                      </p>
+                      <AdminBadge tone={statusTone} className="mt-0.5">
+                        {tx.payment_status === "success"
+                          ? "Sukses"
+                          : tx.payment_status === "pending"
+                            ? "Pending"
+                            : "Gagal"}
+                      </AdminBadge>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          <div className="mt-4 grid grid-cols-2 gap-2 border-t border-line pt-4">
+            <Link
+              href="/admin/questions"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-line bg-canvas px-3 text-xs font-semibold text-ink hover:bg-surface-hover"
+            >
+              <BookOpen className="h-3.5 w-3.5 text-accent" />
+              Bank soal
+            </Link>
+            <Link
+              href="/admin/operations"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-line bg-canvas px-3 text-xs font-semibold text-ink hover:bg-surface-hover"
+            >
+              <Activity className="h-3.5 w-3.5 text-success" />
+              Cek operasi
+            </Link>
+          </div>
+        </section>
       </div>
     </div>
   );

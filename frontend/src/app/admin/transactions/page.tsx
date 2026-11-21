@@ -1,547 +1,613 @@
 "use client";
-import PaymentAudit from "@/components/admin/PaymentAudit";
-import AdminDialog from "@/components/admin/AdminDialog";
 
-import React, { useState, useEffect } from "react";
+import React, { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "react-hot-toast";
 import {
-  Search,
-  Filter,
-  CreditCard,
-  MoreVertical,
   CheckCircle2,
-  AlertCircle,
-  X,
-  Loader2,
   Clock,
-  Ban,
-  TrendingUp,
-  Package as PackageIcon,
-  User as UserIcon,
+  Copy,
+  CreditCard,
   Crown,
+  Heart,
+  Loader2,
+  Package as PackageIcon,
+  ShieldAlert,
+  TrendingUp,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { api } from "@/lib/api";
+import { ErrorPanel, Loading } from "@/components/AppShell";
 import {
-  AdminPageHeader,
+  AdminBadge,
   AdminDataTable,
+  AdminDialog,
+  AdminFilterBar,
+  AdminPageHeader,
   AdminPagination,
-  ConfirmModal,
-  Column,
+  AdminStatCard,
+  type Column,
 } from "@/components/admin";
+import PaymentAudit from "@/components/admin/PaymentAudit";
+import {
+  formatDateJakarta,
+  formatDateTimeJakarta,
+  formatRupiah,
+} from "@/lib/admin-format";
+import type {
+  AdminTransaction,
+  AdminTransactionList,
+  AdminTransactionSummary,
+} from "@/types/admin";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+const PAGE_SIZE = 15;
 
-export default function TransactionsAdmin() {
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [packages, setPackages] = useState<any[]>([]);
-  const [summary, setSummary] = useState<any>(null);
+function TransactionsAdminContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const [transactions, setTransactions] = useState<AdminTransaction[]>([]);
+  const [summary, setSummary] = useState<AdminTransactionSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [packageFilter, setPackageFilter] = useState("");
 
-  // Modals state
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
-  const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
+  const [search, setSearch] = useState(searchParams.get("search") ?? "");
+  const [debouncedSearch, setDebouncedSearch] = useState(
+    searchParams.get("search") ?? "",
+  );
+  const [statusFilter, setStatusFilter] = useState(
+    searchParams.get("status") ?? "",
+  );
+  const [typeFilter, setTypeFilter] = useState(searchParams.get("type") ?? "");
+
+  // Drawer state
+  const [selected, setSelected] = useState<AdminTransaction | null>(null);
+  const [overrideReason, setOverrideReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
 
-  useEffect(() => {
-    fetchPackages();
-    fetchSummary();
-  }, []);
+  const abortRef = useRef<AbortController | null>(null);
 
-  useEffect(() => {
-    fetchTransactions();
-  }, [page, statusFilter, packageFilter]);
-
-  // Debounced search
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (page !== 1) setPage(1);
-      else fetchTransactions();
-    }, 500);
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 350);
     return () => clearTimeout(timer);
   }, [search]);
 
-  const fetchPackages = async () => {
+  const fetchSummary = useCallback(async () => {
+    setSummaryLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/v1/admin/packages`, {
-        credentials: "include",
-      });
-      const data = await response.json();
-      setPackages(data.items || []);
-    } catch (error) {
-      console.error("Fetch packages error:", error);
-    }
-  };
-
-  const fetchSummary = async () => {
-    try {
-      const response = await fetch(
-        `${API_URL}/api/v1/admin/transactions/summary`,
-        { credentials: "include" },
+      const data = await api<AdminTransactionSummary>(
+        "/admin/transactions/summary",
       );
-      const data = await response.json();
       setSummary(data);
-    } catch (error) {
-      console.error("Fetch summary error:", error);
+    } catch {
+      /* Handled gracefully in KPI cards */
+    } finally {
+      setSummaryLoading(false);
     }
-  };
+  }, []);
 
-  const fetchTransactions = async () => {
+  const fetchTransactions = useCallback(async () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setLoading(true);
+    setError(null);
     try {
-      let url = `${API_URL}/api/v1/admin/transactions?page=${page}&size=10`;
-      if (search) url += `&search=${encodeURIComponent(search)}`;
-      if (statusFilter) url += `&status=${statusFilter}`;
-      if (packageFilter) url += `&package_id=${packageFilter}`;
-
-      const response = await fetch(url, {
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+      const params = new URLSearchParams({
+        page: String(page),
+        size: String(PAGE_SIZE),
       });
-      if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+      if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
+      if (statusFilter) params.set("status", statusFilter);
+      if (typeFilter) params.set("transaction_type", typeFilter);
 
-      const data = await response.json();
+      const data = await api<AdminTransactionList>(
+        `/admin/transactions?${params.toString()}`,
+        { signal: controller.signal },
+      );
       setTransactions(data.items);
       setTotal(data.total);
-    } catch (error) {
-      console.error("Fetch transactions error:", error);
-      toast.error("Gagal mengambil data transaksi");
+    } catch (err) {
+      if (controller.signal.aborted) return;
+      setError(
+        err instanceof Error ? err.message : "Gagal memuat data transaksi.",
+      );
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
+  }, [page, debouncedSearch, statusFilter, typeFilter]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void fetchSummary();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fetchSummary]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void fetchTransactions();
+    }, 0);
+    return () => {
+      clearTimeout(timer);
+      abortRef.current?.abort();
+    };
+  }, [fetchTransactions]);
+
+  const syncParam = (key: string, value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value) params.set(key, value);
+    else params.delete(key);
+    const qs = params.toString();
+    router.replace(qs ? `/admin/transactions?${qs}` : "/admin/transactions", {
+      scroll: false,
+    });
   };
 
-  const handleUpdateStatus = async (newStatus: string) => {
-    if (!selectedTransaction) return;
+  const handleOverrideStatus = async (newStatus: "pending" | "success" | "failed") => {
+    if (!selected) return;
+    if (!overrideReason.trim()) {
+      toast.error("Isi alasan perubahan status untuk jejak audit.");
+      return;
+    }
     setActionLoading(true);
     try {
-      const response = await fetch(
-        `${API_URL}/api/v1/admin/transactions/${selectedTransaction.id}/status?new_status=${newStatus}`,
-        {
-          method: "PUT",
-          credentials: "include",
-        },
+      const params = new URLSearchParams({
+        new_status: newStatus,
+        reason: overrideReason.trim(),
+      });
+      const res = await api<{ message: string; new_status: string }>(
+        `/admin/transactions/${selected.id}/status?${params.toString()}`,
+        { method: "PUT" },
       );
-
-      if (response.ok) {
-        toast.success("Status transaksi diperbarui");
-        setIsStatusModalOpen(false);
-        fetchTransactions();
-        fetchSummary();
-      } else {
-        toast.error("Gagal update status");
-      }
-    } catch (error) {
-      toast.error("Terjadi kesalahan sistem");
+      toast.success(res.message || "Status transaksi diperbarui.");
+      setSelected((prev) =>
+        prev ? { ...prev, payment_status: res.new_status } : null,
+      );
+      setOverrideReason("");
+      await Promise.all([fetchTransactions(), fetchSummary()]);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Gagal memperbarui status.",
+      );
     } finally {
       setActionLoading(false);
     }
   };
 
-  const columns: Column<any>[] = [
+  const columns: Column<AdminTransaction>[] = [
     {
-      header: "Order ID / Tanggal",
-      render: (t) => (
-        <div>
-          <p className="text-xs font-semibold text-accent uppercase tracking-tighter">
-            ORDER: {t.order_id || t.id.substring(0, 8)}
-          </p>
-          <p className="text-xs font-bold text-ink">
-            {new Date(t.created_at).toLocaleDateString("id-ID", {
-              day: "numeric",
-              month: "short",
-              year: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-              timeZone: "Asia/Jakarta",
-            })}
-          </p>
-        </div>
-      ),
+      header: "Order ID & Waktu",
+      className: "min-w-[200px]",
+      render: (t) => {
+        const orderLabel = t.order_id || t.id.slice(0, 8);
+        return (
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5">
+              <code className="text-xs font-semibold text-accent">
+                {orderLabel}
+              </code>
+              <button
+                type="button"
+                aria-label={`Salin order ${orderLabel}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void navigator.clipboard.writeText(t.order_id || t.id);
+                  toast.success("Order ID disalin.");
+                }}
+                className="rounded p-0.5 text-muted hover:bg-surface-hover hover:text-ink"
+              >
+                <Copy className="h-3 w-3" />
+              </button>
+            </div>
+            <p className="text-xs text-muted tabular-nums">
+              {formatDateTimeJakarta(t.paid_at || t.created_at)}
+            </p>
+          </div>
+        );
+      },
     },
     {
       header: "Pengguna",
+      className: "min-w-[190px]",
       render: (t) => (
-        <div className="flex items-center space-x-2">
-          <UserIcon className="w-4 h-4 text-muted" />
-          <p className="text-sm font-medium text-ink">{t.user.email}</p>
-        </div>
+        <p className="text-sm font-medium text-ink truncate max-w-[220px]">
+          {t.user.email}
+        </p>
       ),
     },
     {
-      header: "Paket / Type",
-      render: (t) => (
-        <div className="flex items-center space-x-2">
-          {t.transaction_type === "pro_upgrade" ? (
-            <>
-              <Crown className="w-4 h-4 text-warning" />
-              <p className="text-sm font-bold text-warning">PRO ACCOUNT</p>
-            </>
-          ) : (
-            <>
-              <PackageIcon className="w-4 h-4 text-accent" />
-              <p className="text-sm font-bold text-ink">{t.package?.title}</p>
-            </>
-          )}
-        </div>
-      ),
+      header: "Produk / Tipe",
+      className: "min-w-[190px]",
+      render: (t) => {
+        if (t.transaction_type === "donation") {
+          return (
+            <div className="space-y-0.5">
+              <AdminBadge tone="accent">
+                <Heart className="h-3 w-3" />
+                Donasi{t.is_anonymous ? " (Anonim)" : ""}
+              </AdminBadge>
+              {t.message && (
+                <p className="text-xs text-muted line-clamp-1 max-w-[220px]">
+                  &ldquo;{t.message}&rdquo;
+                </p>
+              )}
+            </div>
+          );
+        }
+        if (t.transaction_type === "pro_upgrade") {
+          return (
+            <AdminBadge tone="warning">
+              <Crown className="h-3 w-3" />
+              Paket Pro
+            </AdminBadge>
+          );
+        }
+        return (
+          <div className="inline-flex items-center gap-1.5 text-sm font-medium text-ink">
+            <PackageIcon className="h-3.5 w-3.5 text-muted" />
+            <span>{t.package?.title || t.transaction_type}</span>
+          </div>
+        );
+      },
     },
     {
-      header: "Amount",
-      render: (t) => (
-        <span className="font-semibold text-ink">
-          Rp {t.amount.toLocaleString("id-ID")}
-        </span>
-      ),
+      header: "Nominal",
+      className: "tabular-nums font-semibold text-ink whitespace-nowrap",
+      render: (t) => formatRupiah(t.amount),
     },
     {
       header: "Status",
-      render: (t) => (
-        <Badge
-          className={`rounded-full px-3 py-1 text-[9px] font-semibold tracking-tighter ${
-            t.payment_status === "success"
-              ? "bg-success-soft text-success"
-              : t.payment_status === "pending"
-                ? "bg-warning-soft text-warning"
-                : "bg-danger-soft text-danger"
-          }`}
-        >
-          {t.payment_status.toUpperCase()}
-        </Badge>
-      ),
+      render: (t) => {
+        const tone =
+          t.payment_status === "success"
+            ? "success"
+            : t.payment_status === "pending"
+              ? "warning"
+              : "danger";
+        const label =
+          t.payment_status === "success"
+            ? "Sukses"
+            : t.payment_status === "pending"
+              ? "Pending"
+              : "Gagal";
+        return (
+          <AdminBadge tone={tone} dot>
+            {label}
+          </AdminBadge>
+        );
+      },
     },
     {
       header: "Aksi",
-      className: "text-center",
+      headerClassName: "text-right",
+      className: "text-right whitespace-nowrap",
       render: (t) => (
-        <div className="flex items-center justify-center space-x-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-10 h-10 rounded-xl hover:bg-surface-hover hover:text-ink"
-            onClick={() => {
-              setSelectedTransaction(t);
-              setIsDetailModalOpen(true);
-            }}
-          >
-            <CreditCard className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-10 h-10 rounded-xl hover:bg-surface-hover hover:text-ink"
-            onClick={() => {
-              setSelectedTransaction(t);
-              setIsStatusModalOpen(true);
-            }}
-          >
-            <MoreVertical className="w-4 h-4" />
-          </Button>
-        </div>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setOverrideReason("");
+            setSelected(t);
+          }}
+          className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-line bg-canvas px-3 text-xs font-semibold text-ink hover:bg-surface-hover"
+        >
+          Detail &amp; Audit
+        </button>
       ),
     },
   ];
 
+  const hasFilters = Boolean(search || statusFilter || typeFilter);
+
   return (
-    <div className="space-y-8 pb-20">
+    <div className="space-y-5">
       <AdminPageHeader
-        title="Riwayat Transaksi"
-        subtitle="Pantau pendapatan dan akses pengguna"
+        eyebrow="Keuangan"
+        title="Transaksi & audit pembayaran"
+        subtitle="Pantau transaksi Paket Pro, donasi komunitas, dan riwayat verifikasi webhook DOKU."
       />
 
-      {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-surface border-line rounded-2xl p-6">
-          <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1">
-            Total Revenue
-          </p>
-          <div className="flex items-center justify-between">
-            <h3 className="text-2xl font-semibold text-success">
-              Rp {summary?.total_revenue.toLocaleString("id-ID") || "0"}
-            </h3>
-            <TrendingUp className="w-5 h-5 text-success opacity-50" />
-          </div>
-        </Card>
-        <Card className="bg-surface border-line rounded-2xl p-6">
-          <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1">
-            Success Orders
-          </p>
-          <div className="flex items-center justify-between">
-            <h3 className="text-2xl font-semibold text-ink">
-              {summary?.success_count || "0"}
-            </h3>
-            <CheckCircle2 className="w-5 h-5 text-success opacity-50" />
-          </div>
-        </Card>
-        <Card className="bg-surface border-line rounded-2xl p-6">
-          <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1">
-            Pending Orders
-          </p>
-          <div className="flex items-center justify-between">
-            <h3 className="text-2xl font-semibold text-ink">
-              {summary?.pending_count || "0"}
-            </h3>
-            <Clock className="w-5 h-5 text-warning opacity-50" />
-          </div>
-        </Card>
-        <Card className="bg-surface border-line rounded-2xl p-6">
-          <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1">
-            Failed Orders
-          </p>
-          <div className="flex items-center justify-between">
-            <h3 className="text-2xl font-semibold text-ink">
-              {summary?.failed_count || "0"}
-            </h3>
-            <Ban className="w-5 h-5 text-danger opacity-50" />
-          </div>
-        </Card>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <AdminStatCard
+          label="Pendapatan Paket Pro"
+          value={formatRupiah(summary?.pro_revenue)}
+          hint={`${summary?.pro_count ?? 0} transaksi Pro berhasil`}
+          icon={TrendingUp}
+          tone="success"
+          loading={summaryLoading}
+        />
+        <AdminStatCard
+          label="Donasi komunitas"
+          value={formatRupiah(summary?.donation_revenue)}
+          hint={`${summary?.donation_count ?? 0} dukungan tercatat`}
+          icon={Heart}
+          tone="accent"
+          loading={summaryLoading}
+        />
+        <AdminStatCard
+          label="Transaksi sukses"
+          value={summary?.success_count ?? 0}
+          hint={`Total ${formatRupiah(summary?.total_revenue)}`}
+          icon={CheckCircle2}
+          tone="success"
+          loading={summaryLoading}
+        />
+        <AdminStatCard
+          label="Menunggu konfirmasi"
+          value={summary?.pending_count ?? 0}
+          hint={`${summary?.failed_count ?? 0} transaksi gagal / kedaluwarsa`}
+          icon={Clock}
+          tone={(summary?.pending_count ?? 0) > 0 ? "warning" : "neutral"}
+          loading={summaryLoading}
+        />
       </div>
 
-      {/* Filters & Search */}
-      <Card className="bg-surface border-line rounded-2xl overflow-hidden">
-        <CardContent className="p-4 md:p-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1 group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted group-focus-within:text-accent transition-colors" />
-              <Input
-                placeholder="Cari user email..."
-                className="pl-12 bg-surface border-line rounded-2xl py-7 font-medium md:text-lg focus:ring-accent-border focus:border-accent-border text-ink"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <div className="flex items-center space-x-3">
-              <div className="bg-surface border border-line rounded-2xl px-4 py-3 flex items-center min-w-[150px]">
-                <Filter className="w-4 h-4 text-muted mr-2" />
-                <select
-                  className="bg-transparent text-sm font-bold text-ink focus:outline-none w-full appearance-none pr-10"
-                  value={statusFilter}
-                  onChange={(e) => {
-                    setStatusFilter(e.target.value);
-                    setPage(1);
-                  }}
-                >
-                  <option value="">Semua Status</option>
-                  <option value="success">Success</option>
-                  <option value="pending">Pending</option>
-                  <option value="failed">Failed</option>
-                </select>
-              </div>
-              <div className="bg-surface border border-line rounded-2xl px-4 py-3 flex items-center min-w-[150px]">
-                <PackageIcon className="w-4 h-4 text-muted mr-2" />
-                <select
-                  className="bg-transparent text-sm font-bold text-ink focus:outline-none w-full appearance-none pr-10"
-                  value={packageFilter}
-                  onChange={(e) => {
-                    setPackageFilter(e.target.value);
-                    setPage(1);
-                  }}
-                >
-                  <option value="">Semua Paket</option>
-                  {packages.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <AdminFilterBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Cari email pengguna atau Order ID…"
+        hasActiveFilters={hasFilters}
+        onResetFilters={() => {
+          setSearch("");
+          setDebouncedSearch("");
+          setStatusFilter("");
+          setTypeFilter("");
+          setPage(1);
+          router.replace("/admin/transactions", { scroll: false });
+        }}
+      >
+        <select
+          aria-label="Filter tipe transaksi"
+          value={typeFilter}
+          onChange={(e) => {
+            setTypeFilter(e.target.value);
+            setPage(1);
+            syncParam("type", e.target.value);
+          }}
+          className="h-10 rounded-xl border border-control-line bg-canvas px-3 text-sm font-medium text-ink focus:border-accent focus:outline-none"
+        >
+          <option value="">Semua tipe</option>
+          <option value="pro_upgrade">Paket Pro</option>
+          <option value="donation">Donasi</option>
+        </select>
 
-      <AdminDataTable
-        columns={columns}
-        data={transactions}
-        loading={loading}
-        emptyIcon={<CreditCard className="w-12 h-12 text-muted" />}
-        emptyText="Belum ada transaksi ditemukan"
-      />
+        <select
+          aria-label="Filter status pembayaran"
+          value={statusFilter}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setPage(1);
+            syncParam("status", e.target.value);
+          }}
+          className="h-10 rounded-xl border border-control-line bg-canvas px-3 text-sm font-medium text-ink focus:border-accent focus:outline-none"
+        >
+          <option value="">Semua status</option>
+          <option value="success">Sukses</option>
+          <option value="pending">Pending</option>
+          <option value="failed">Gagal</option>
+        </select>
+      </AdminFilterBar>
+
+      {error ? (
+        <ErrorPanel message={error} retry={() => void fetchTransactions()} />
+      ) : (
+        <AdminDataTable
+          columns={columns}
+          data={transactions}
+          loading={loading}
+          emptyIcon={<CreditCard className="h-6 w-6" />}
+          emptyText="Belum ada transaksi ditemukan"
+          emptyHint="Coba ubah filter tipe, status, atau kata kunci Order ID."
+          onRowClick={(t) => {
+            setOverrideReason("");
+            setSelected(t);
+          }}
+        />
+      )}
 
       <AdminPagination
         page={page}
         total={total}
-        pageSize={10}
+        pageSize={PAGE_SIZE}
         onPageChange={setPage}
       />
 
-      {/* Detail Modal */}
-      {isDetailModalOpen && selectedTransaction && (
+      {/* Detail & Audit Slide-Over Drawer */}
+      {selected && (
         <AdminDialog
-          label="Dialog pengelolaan"
-          onClose={() => setIsDetailModalOpen(false)}
+          variant="drawer"
+          size="md"
+          label="Detail dan audit transaksi"
+          title={`Order ${selected.order_id || selected.id.slice(0, 8)}`}
+          subtitle={`${selected.user.email} · ${formatRupiah(selected.amount)}`}
+          onClose={() => !actionLoading && setSelected(null)}
+          footer={
+            <button
+              type="button"
+              onClick={() => setSelected(null)}
+              className="inline-flex h-9 items-center rounded-xl border border-line bg-surface px-4 text-sm font-medium text-ink hover:bg-surface-hover"
+            >
+              Tutup
+            </button>
+          }
         >
-          <Card className="relative w-full max-w-lg bg-surface border-line border rounded-2xl shadow-sm overflow-hidden animate-in zoom-in-95 duration-300">
-            <div className="p-8">
-              <div className="flex items-center justify-between mb-8">
-                <h2 className="text-2xl font-semibold tracking-tight">
-                  Detail Transaksi
-                </h2>
-                <button
-                  aria-label="Tutup dialog"
-                  onClick={() => setIsDetailModalOpen(false)}
-                  className="text-muted hover:text-ink transition-colors"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-
-              <div className="space-y-6">
-                <div className="bg-surface p-6 rounded-2xl border border-line space-y-4">
-                  <div className="flex justify-between">
-                    <span className="text-xs font-bold text-muted uppercase tracking-wide">
-                      Transaction ID
-                    </span>
-                    <span className="text-xs font-mono text-ink">
-                      {selectedTransaction.id}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-xs font-bold text-muted uppercase tracking-wide">
-                      Snap Token
-                    </span>
-                    <span className="text-xs font-mono text-accent">
-                      {selectedTransaction.snap_token || "N/A"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between border-t border-line pt-4">
-                    <span className="text-xs font-bold text-muted uppercase tracking-wide">
-                      Type
-                    </span>
-                    <Badge
-                      variant="outline"
-                      className="text-xs uppercase font-semibold"
-                    >
-                      {selectedTransaction.transaction_type.replace("_", " ")}
-                    </Badge>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-xs font-bold text-muted uppercase tracking-wide">
-                      User Email
-                    </span>
-                    <span className="text-sm font-bold text-ink">
-                      {selectedTransaction.user.email}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-xs font-bold text-muted uppercase tracking-wide">
-                      Paket
-                    </span>
-                    <span className="text-sm font-bold text-ink">
-                      {selectedTransaction.package?.title || "GLOBAL PRO"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-xs font-bold text-muted uppercase tracking-wide">
-                      Status
-                    </span>
-                    <Badge
-                      className={`rounded-xl py-0.5 px-3 font-semibold text-[9px] ${
-                        selectedTransaction.payment_status === "success"
-                          ? "bg-success-soft text-success"
-                          : selectedTransaction.payment_status === "pending"
-                            ? "bg-warning-soft text-warning"
-                            : "bg-danger-soft text-danger"
-                      }`}
-                    >
-                      {selectedTransaction.payment_status.toUpperCase()}
-                    </Badge>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-xs font-bold text-muted uppercase tracking-wide">
-                      Expires At
-                    </span>
-                    <span className="text-sm font-bold text-muted">
-                      {selectedTransaction.access_expires_at
-                        ? new Date(
-                            selectedTransaction.access_expires_at,
-                          ).toLocaleDateString()
-                        : "N/A"}
-                    </span>
-                  </div>
-                </div>
-
-                <PaymentAudit id={selectedTransaction.id} />
-
-                <div className="flex space-x-3 pt-2">
-                  <Button
-                    className="flex-1 py-7 rounded-2xl bg-surface-hover hover:bg-surface-hover font-bold"
-                    onClick={() => setIsDetailModalOpen(false)}
+          <div className="space-y-6">
+            {/* Core Metadata */}
+            <dl className="rounded-xl border border-line bg-surface-subtle/50 divide-y divide-line text-sm">
+              <div className="flex items-center justify-between gap-4 px-4 py-2.5">
+                <dt className="text-xs text-muted">Status pembayaran</dt>
+                <dd>
+                  <AdminBadge
+                    tone={
+                      selected.payment_status === "success"
+                        ? "success"
+                        : selected.payment_status === "pending"
+                          ? "warning"
+                          : "danger"
+                    }
+                    dot
                   >
-                    Tutup
-                  </Button>
-                </div>
+                    {selected.payment_status === "success"
+                      ? "Sukses"
+                      : selected.payment_status === "pending"
+                        ? "Pending"
+                        : "Gagal"}
+                  </AdminBadge>
+                </dd>
               </div>
-            </div>
-          </Card>
-        </AdminDialog>
-      )}
-
-      {/* Status Override Modal */}
-      {isStatusModalOpen && selectedTransaction && (
-        <AdminDialog
-          label="Dialog pengelolaan"
-          onClose={() => setIsStatusModalOpen(false)}
-        >
-          <Card className="relative w-full max-w-sm bg-surface border-line border rounded-2xl shadow-sm overflow-hidden animate-in zoom-in-95 duration-300">
-            <div className="p-8">
-              <div className="flex items-center space-x-3 mb-6">
-                <div className="w-12 h-12 bg-warning-soft rounded-2xl flex items-center justify-center border border-line">
-                  <TrendingUp className="w-6 h-6 text-warning" />
+              <div className="flex items-center justify-between gap-4 px-4 py-2.5">
+                <dt className="text-xs text-muted">Tipe transaksi</dt>
+                <dd className="font-medium text-ink">
+                  {selected.transaction_type === "donation"
+                    ? `Donasi${selected.is_anonymous ? " (Anonim)" : ""}`
+                    : selected.transaction_type === "pro_upgrade"
+                      ? "Paket Pro"
+                      : selected.package?.title || selected.transaction_type}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-4 px-4 py-2.5">
+                <dt className="text-xs text-muted">Order ID</dt>
+                <dd className="font-mono text-xs text-ink break-all text-right">
+                  {selected.order_id || "—"}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-4 px-4 py-2.5">
+                <dt className="text-xs text-muted">Transaction ID</dt>
+                <dd className="font-mono text-xs text-muted break-all text-right">
+                  {selected.id}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-4 px-4 py-2.5">
+                <dt className="text-xs text-muted">Dibuat</dt>
+                <dd className="text-xs text-ink tabular-nums">
+                  {formatDateTimeJakarta(selected.created_at)}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-4 px-4 py-2.5">
+                <dt className="text-xs text-muted">Dikonfirmasi bayar</dt>
+                <dd className="text-xs text-ink tabular-nums">
+                  {formatDateTimeJakarta(selected.paid_at)}
+                </dd>
+              </div>
+              {selected.payment_environment && (
+                <div className="flex items-center justify-between gap-4 px-4 py-2.5">
+                  <dt className="text-xs text-muted">Lingkungan DOKU</dt>
+                  <dd className="text-xs font-semibold uppercase text-muted">
+                    {selected.payment_environment}
+                  </dd>
                 </div>
-                <div>
-                  <h2 className="text-2xl font-semibold tracking-tight">
-                    Ubah Status
-                  </h2>
-                  <p className="text-xs font-bold text-muted uppercase tracking-wide">
-                    Override Payment Status
+              )}
+              {selected.transaction_type !== "donation" && (
+                <div className="flex items-center justify-between gap-4 px-4 py-2.5">
+                  <dt className="text-xs text-muted">Akses berlaku hingga</dt>
+                  <dd className="text-xs text-ink tabular-nums">
+                    {formatDateJakarta(selected.access_expires_at)}
+                  </dd>
+                </div>
+              )}
+              {selected.message && (
+                <div className="px-4 py-3 space-y-1">
+                  <dt className="text-xs text-muted">Pesan dukungan</dt>
+                  <dd className="text-sm text-ink italic">
+                    &ldquo;{selected.message}&rdquo;
+                  </dd>
+                </div>
+              )}
+            </dl>
+
+            {/* DOKU Provider Events & Audit Trail */}
+            <div className="rounded-xl border border-line bg-surface p-4">
+              <PaymentAudit id={selected.id} />
+            </div>
+
+            {/* Audited Status Override */}
+            <section className="rounded-xl border border-line bg-surface p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="h-4 w-4 text-warning" />
+                <h3 className="text-sm font-semibold text-ink">
+                  Pembaruan status manual (tercatat di audit)
+                </h3>
+              </div>
+
+              {selected.payment_status === "success" ? (
+                <p className="text-xs text-muted leading-relaxed">
+                  Transaksi ini sudah berstatus <strong>Sukses</strong> dan
+                  terkunci agar hak akses Paket Pro / catatan keuangan tidak
+                  berubah tidak sengaja.
+                </p>
+              ) : (
+                <>
+                  <p className="text-xs text-muted leading-relaxed">
+                    Gunakan hanya jika bukti transfer/mutasi DOKU sudah
+                    terverifikasi secara manual.
                   </p>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <Button
-                  className={`w-full py-8 rounded-2xl font-semibold transition-all ${selectedTransaction.payment_status === "success" ? "bg-success" : "bg-surface-hover"}`}
-                  onClick={() => handleUpdateStatus("success")}
-                  disabled={actionLoading}
-                >
-                  SET SUCCESS
-                </Button>
-                <Button
-                  className={`w-full py-8 rounded-2xl font-semibold transition-all ${selectedTransaction.payment_status === "pending" ? "bg-warning" : "bg-surface-hover"}`}
-                  onClick={() => handleUpdateStatus("pending")}
-                  disabled={actionLoading}
-                >
-                  SET PENDING
-                </Button>
-                <Button
-                  className={`w-full py-8 rounded-2xl font-semibold transition-all ${selectedTransaction.payment_status === "failed" ? "bg-danger-solid" : "bg-surface-hover"}`}
-                  onClick={() => handleUpdateStatus("failed")}
-                  disabled={actionLoading}
-                >
-                  SET FAILED
-                </Button>
-              </div>
-
-              <Button
-                variant="ghost"
-                className="w-full mt-4 py-6 rounded-2xl font-bold text-muted"
-                onClick={() => setIsStatusModalOpen(false)}
-              >
-                Batal
-              </Button>
-            </div>
-          </Card>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-muted">
+                      Alasan perubahan (wajib untuk log audit)
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={200}
+                      value={overrideReason}
+                      onChange={(e) => setOverrideReason(e.target.value)}
+                      placeholder="Contoh: Mutasi DOKU terkonfirmasi manual ref #1234"
+                      className="h-10 w-full rounded-xl border border-control-line bg-canvas px-3 text-sm text-ink focus:border-accent focus:outline-none"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 pt-1">
+                    <button
+                      type="button"
+                      disabled={actionLoading}
+                      onClick={() => void handleOverrideStatus("success")}
+                      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-success px-3 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                    >
+                      {actionLoading && (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      )}
+                      Tandai Sukses
+                    </button>
+                    <button
+                      type="button"
+                      disabled={
+                        actionLoading || selected.payment_status === "pending"
+                      }
+                      onClick={() => void handleOverrideStatus("pending")}
+                      className="inline-flex h-9 items-center justify-center rounded-xl border border-line bg-canvas px-3 text-xs font-semibold text-ink hover:bg-surface-hover disabled:opacity-45"
+                    >
+                      Set Pending
+                    </button>
+                    <button
+                      type="button"
+                      disabled={
+                        actionLoading || selected.payment_status === "failed"
+                      }
+                      onClick={() => void handleOverrideStatus("failed")}
+                      className="inline-flex h-9 items-center justify-center rounded-xl bg-danger-soft px-3 text-xs font-semibold text-danger hover:opacity-90 disabled:opacity-45"
+                    >
+                      Tandai Gagal
+                    </button>
+                  </div>
+                </>
+              )}
+            </section>
+          </div>
         </AdminDialog>
       )}
     </div>
+  );
+}
+
+export default function TransactionsAdmin() {
+  return (
+    <Suspense fallback={<Loading label="Memuat transaksi…" />}>
+      <TransactionsAdminContent />
+    </Suspense>
   );
 }

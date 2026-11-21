@@ -2,7 +2,6 @@
 
 import React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 interface AdminPaginationProps {
   page: number;
@@ -19,38 +18,37 @@ export function AdminPagination({
 }: AdminPaginationProps) {
   const start = total ? (page - 1) * pageSize + 1 : 0;
   const end = Math.min(page * pageSize, total);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
-    <div className="bg-surface px-8 py-6 flex items-center justify-between border-t border-line">
-      <p className="text-xs font-bold text-muted uppercase tracking-wide">
-        Menampilkan <span className="text-ink">{start}</span>–{" "}
-        <span className="text-ink">{end}</span> dari{" "}
-        <span className="text-ink">{total}</span>
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-line bg-surface px-4 py-3">
+      <p className="text-xs text-muted tabular-nums">
+        Menampilkan <strong className="text-ink">{start}</strong>–
+        <strong className="text-ink">{end}</strong> dari{" "}
+        <strong className="text-ink">{total}</strong> data
       </p>
-      <div className="flex items-center space-x-2">
-        <Button
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
           aria-label="Halaman sebelumnya"
-          variant="outline"
-          size="icon"
-          className="w-10 h-10 rounded-xl border-line bg-canvas"
           onClick={() => onPageChange(Math.max(1, page - 1))}
-          disabled={page === 1}
+          disabled={page <= 1}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-line bg-canvas text-ink hover:bg-surface-hover disabled:opacity-45"
         >
-          <ChevronLeft className="w-4 h-4" />
-        </Button>
-        <div className="bg-accent-solid text-white w-10 h-10 rounded-xl flex items-center justify-center text-sm font-semibold shadow-lg ">
-          {page}
-        </div>
-        <Button
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <span className="min-w-[84px] text-center text-xs font-semibold text-ink tabular-nums">
+          Hal {page} / {totalPages}
+        </span>
+        <button
+          type="button"
           aria-label="Halaman berikutnya"
-          variant="outline"
-          size="icon"
-          className="w-10 h-10 rounded-xl border-line bg-canvas"
-          onClick={() => onPageChange(page + 1)}
-          disabled={page * pageSize >= total}
+          onClick={() => onPageChange(Math.min(totalPages, page + 1))}
+          disabled={page >= totalPages}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-line bg-canvas text-ink hover:bg-surface-hover disabled:opacity-45"
         >
-          <ChevronRight className="w-4 h-4" />
-        </Button>
+          <ChevronRight className="h-4 w-4" />
+        </button>
       </div>
     </div>
   );
