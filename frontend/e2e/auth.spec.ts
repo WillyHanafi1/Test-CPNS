@@ -30,7 +30,7 @@ test.describe('Authentication and Landing Flow', () => {
 
     await expect(page).toHaveURL(/\/login/);
 
-    const heading = page.locator('h1', { hasText: 'Masuk ke ruang latihan.' });
+    const heading = page.locator('h1', { hasText: 'Masuk ke akunmu.' });
     await expect(heading).toBeVisible();
 
     const emailInput = page.locator('input[type="email"]');

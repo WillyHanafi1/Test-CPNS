@@ -367,7 +367,7 @@ test("public visitors and account users see the same named donors, anonymous mes
     .getByLabel("Email", { exact: true })
     .fill("synthetic@example.test");
   await page
-    .getByLabel("Kata sandi", { exact: true })
+    .getByLabel("Password", { exact: true })
     .fill("SyntheticOnly123!");
   await page.getByRole("button", { name: "Masuk", exact: true }).click();
   await expect(page).toHaveURL(/\/donasi\?amount=5000$/);
@@ -395,7 +395,7 @@ test("guest selection and message survive login, including an admin returning to
     .getByLabel("Email", { exact: true })
     .fill("synthetic@example.test");
   await page
-    .getByLabel("Kata sandi", { exact: true })
+    .getByLabel("Password", { exact: true })
     .fill("SyntheticOnly123!");
   await page.getByRole("button", { name: "Masuk", exact: true }).click();
   await expect(page).toHaveURL(/\/donasi\?amount=7500$/);
@@ -422,10 +422,10 @@ test("donation shows name by default, supports one-click anonymous toggle, rejec
   const nameCheckbox = page.getByLabel("Tampilkan nama singkat saya");
   await expect(nameCheckbox).toBeChecked();
   await nameCheckbox.uncheck();
-  await expect(page.getByLabel("Pratinjau kartu dukungan")).toContainText(
+  await expect(page.getByLabel("Preview kartu dukungan")).toContainText(
     "Anonim",
   );
-  await expect(page.getByLabel("Pratinjau kartu dukungan")).not.toContainText(
+  await expect(page.getByLabel("Preview kartu dukungan")).not.toContainText(
     "Sinta Wijaya",
   );
   await expect(
@@ -505,7 +505,7 @@ test("quick message chips and live preview update immediately and submit public 
   await expect(page.getByLabel("Pesan untuk komunitas")).toHaveValue(
     "Bismillah lulus CPNS tahun ini!",
   );
-  const preview = page.getByLabel("Pratinjau kartu dukungan");
+  const preview = page.getByLabel("Preview kartu dukungan");
   await expect(preview).toContainText("Sinta Wijaya");
   await expect(preview).toContainText("Bismillah lulus CPNS tahun ini!");
   await page.getByRole("button", { name: "Lanjutkan · Rp 5.000" }).click();
