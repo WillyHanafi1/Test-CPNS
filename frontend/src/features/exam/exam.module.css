@@ -614,6 +614,43 @@ label.optionHit {
 .prepareStats svg {
   color: var(--accent);
 }
+.filterCount {
+  display: inline-block;
+  margin-left: 0.42rem;
+  padding: 0.06rem 0.42rem;
+  border-radius: 999px;
+  font-size: 0.78em;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  background: var(--surface-subtle);
+  color: inherit;
+}
+:global(.filter[aria-pressed="true"]) .filterCount {
+  background: var(--surface);
+}
+.shortcutHint {
+  margin-top: 0.75rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-align: center;
+}
+.shortcutHint kbd {
+  display: inline-block;
+  padding: 0.04rem 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface-subtle);
+  color: var(--ink);
+  font:
+    600 0.74rem/1.3 var(--font-geist-mono),
+    monospace;
+}
+
+@media (max-width: 56rem), (hover: none) {
+  .shortcutHint {
+    display: none;
+  }
+}
 
 @media (max-width: 56rem) {
   .workspace {

@@ -165,6 +165,22 @@ async def register(request: Request, response: Response, user_in: UserCreate, db
     
     await db.commit()
     await db.refresh(new_user)
+
+    # Auto-login newly registered user with the same HttpOnly cookie policy as /login
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": new_user.email, "version": new_user.auth_version},
+        expires_delta=access_token_expires,
+    )
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        expires=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        samesite="lax",
+        secure=app_settings.COOKIE_SECURE,
+    )
     return new_user
 
 @router.post("/login")

@@ -17,6 +17,10 @@ class TestRegister:
         data = resp.json()
         assert data["email"] == "newuser@test.com"
         assert "id" in data
+        assert "access_token" in resp.cookies
+        me = await client.get("/api/v1/auth/me", cookies=resp.cookies)
+        assert me.status_code == 200
+        assert me.json()["email"] == "newuser@test.com"
 
     async def test_register_duplicate_email(self, client: AsyncClient, test_user):
         resp = await client.post("/api/v1/auth/register", json={

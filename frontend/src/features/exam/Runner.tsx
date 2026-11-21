@@ -31,6 +31,7 @@ import {
   type ExamImage,
   type NavigatorItem,
 } from "./ExamLayout";
+import { resolveExamShortcut } from "./shortcuts";
 import styles from "./exam.module.css";
 export default function Runner({ id }: { id: string }) {
   const { user, loading: authLoading } = useAuth();
@@ -220,6 +221,56 @@ export default function Runner({ id }: { id: string }) {
     id,
     finish,
   ]);
+  const goTo = useCallback((index: number) => {
+    useExamStore.getState().setCurrentIndex(index);
+    setNav(false);
+    requestAnimationFrame(() => questionHeading.current?.focus());
+  }, []);
+  useEffect(() => {
+    if (loading || authLoading || nav || confirm || !!zoom) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      const current = useExamStore.getState();
+      if (
+        !current.questions.length ||
+        current.sessionId !== id ||
+        current.ownerId !== ownerId
+      )
+        return;
+      const action = resolveExamShortcut(event);
+      if (!action) return;
+      const activeQuestion = current.questions[current.currentIndex];
+      if (!activeQuestion) return;
+
+      if (action.type === "prev") {
+        if (current.currentIndex > 0) {
+          event.preventDefault();
+          goTo(current.currentIndex - 1);
+        }
+        return;
+      }
+      if (action.type === "next") {
+        if (current.currentIndex < current.questions.length - 1) {
+          event.preventDefault();
+          goTo(current.currentIndex + 1);
+        }
+        return;
+      }
+      if (conflict || busy || current.timeLeft === 0) return;
+      if (action.type === "doubt") {
+        event.preventDefault();
+        current.toggleDoubt(activeQuestion.id);
+        return;
+      }
+      if (action.type === "select") {
+        const option = activeQuestion.options[action.index];
+        if (!option) return;
+        event.preventDefault();
+        current.selectOption(activeQuestion.id, option.id);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [loading, authLoading, nav, confirm, zoom, id, ownerId, conflict, busy, goTo]);
   if (loading || authLoading)
     return (
       <ExamFrame stage="Ujian">
@@ -261,12 +312,6 @@ export default function Runner({ id }: { id: string }) {
         : "blank",
     flagged: state.doubtStatus[item.id],
   }));
-
-  function goTo(index: number) {
-    state.setCurrentIndex(index);
-    setNav(false);
-    requestAnimationFrame(() => questionHeading.current?.focus());
-  }
 
   function requestFinish() {
     if (!canFinish) return;
@@ -462,6 +507,11 @@ export default function Runner({ id }: { id: string }) {
                   : undefined
               }
             />
+            <p className={styles.shortcutHint}>
+              Pintasan keyboard: <kbd>A</kbd>–<kbd>E</kbd> atau <kbd>1</kbd>–
+              <kbd>5</kbd> pilih jawaban · <kbd>←</kbd>/<kbd>→</kbd> pindah soal
+              · <kbd>R</kbd> tandai ragu
+            </p>
           </article>
         </div>
         <aside className={styles.navigator}>

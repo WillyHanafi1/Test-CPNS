@@ -45,10 +45,14 @@ function RegisterForm() {
             setBusy(true);
             setError("");
             try {
-              await register(email, password, name);
-              router.push(
-                `/login?registered=true&next=${encodeURIComponent(next)}`,
-              );
+              const signedIn = await register(email, password, name);
+              if (signedIn) {
+                router.replace(destination);
+              } else {
+                router.push(
+                  `/login?registered=true&next=${encodeURIComponent(next)}`,
+                );
+              }
             } catch (e) {
               setError(
                 e instanceof Error ? e.message : "Pendaftaran belum berhasil.",

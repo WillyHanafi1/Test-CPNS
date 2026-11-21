@@ -28,7 +28,7 @@ interface Auth {
     email: string,
     password: string,
     fullName: string,
-  ) => Promise<void>;
+  ) => Promise<boolean>;
   refreshSession: () => Promise<void>;
 }
 const Context = createContext<Auth | undefined>(undefined);
@@ -154,6 +154,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       method: "POST",
       body: JSON.stringify({ email, password, full_name }),
     });
+    try {
+      await refreshSession();
+      notifyOtherTabs();
+      return true;
+    } catch {
+      return false;
+    }
   };
   return (
     <Context.Provider

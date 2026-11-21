@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -30,6 +30,7 @@ import {
   type ExamImage,
   type ReviewQuestion,
 } from "./ExamLayout";
+import { resolveExamShortcut } from "./shortcuts";
 import styles from "./exam.module.css";
 
 type Result = {
@@ -302,16 +303,58 @@ export function ReviewView({
   }, [user, authLoading, id, router]);
 
   const questions = data?.questions ?? [];
+  const counts: Record<ReviewFilter, number> = {
+    all: questions.length,
+    "needs-review": 0,
+    wrong: 0,
+    blank: 0,
+    partial: 0,
+  };
+  for (const question of questions) {
+    const { status: outcome } = reviewOutcome(question);
+    if (outcome !== "best") counts["needs-review"] += 1;
+    if (outcome === "wrong") counts.wrong += 1;
+    else if (outcome === "blank") counts.blank += 1;
+    else if (outcome === "partial") counts.partial += 1;
+  }
   const items = questions.filter((question) => matchFilter(question, filter));
   const q = items.find((question) => question.id === active) ?? items[0];
   const index = items.findIndex((question) => question.id === q?.id);
   const status = q && reviewOutcome(q);
 
-  function goTo(questionId: string) {
+  const goTo = useCallback((questionId: string) => {
     setActive(questionId);
     setMapOpen(false);
     requestAnimationFrame(() => heading.current?.focus());
-  }
+  }, []);
+
+  useEffect(() => {
+    if (authLoading || !user || loading || mapOpen || !!reportQuestion || !!zoom)
+      return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      const action = resolveExamShortcut(event);
+      if (!action) return;
+      if (action.type === "prev" && index > 0) {
+        event.preventDefault();
+        goTo(items[index - 1].id);
+      } else if (action.type === "next" && index >= 0 && index < items.length - 1) {
+        event.preventDefault();
+        goTo(items[index + 1].id);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [
+    authLoading,
+    user,
+    loading,
+    mapOpen,
+    reportQuestion,
+    zoom,
+    index,
+    items,
+    goTo,
+  ]);
 
   function openReport(question: ReviewQuestion) {
     setReportQuestion(question);
@@ -372,6 +415,7 @@ export function ReviewView({
                   onClick={() => setFilter(key)}
                 >
                   {name}
+                  <span className={styles.filterCount}>{counts[key]}</span>
                 </button>
               ))}
             </div>
