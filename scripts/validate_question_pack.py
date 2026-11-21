@@ -260,7 +260,8 @@ def validate_pack(
     *,
     partial: bool = False,
     reference_questions: list[tuple[str, dict[str, Any]]] | None = None,
-    similarity_threshold: float = 0.35,
+    similarity_threshold: float = 0.50,
+    tiu_similarity_threshold: float = 0.85,
     internal_similarity_threshold: float = 0.55,
 ) -> ValidationSummary:
     summary = ValidationSummary(total_questions=len(questions))
@@ -381,22 +382,35 @@ def validate_pack(
                 summary.warnings.append(Issue("WARNING", num, "local_image_url", "image_url masih menunjuk ke 127.0.0.1 (ganti ke URL Supabase exam-assets sebelum produksi)."))
 
         # Originality vs reference corpus (Packet 1 & Packet 2)
+        # TIU allows isomorphic variation (same formula/template with changed numbers & answer),
+        # so TIU only fails if near-identical (>= 85%) or if the numeric values were left unchanged.
         if not fig and ref_list:
             q_blob = q["content"] + " " + " ".join(o["content"] for o in opts)
             best_sim = 0.0
             best_ref_id = ""
+            best_ref_q: dict[str, Any] | None = None
             for ref_label, ref_q in ref_list:
                 ref_blob = ref_q["content"] + " " + " ".join(o["content"] for o in ref_q["options"])
                 sim = text_similarity(q_blob, ref_blob)
                 if sim > best_sim:
                     best_sim = sim
                     best_ref_id = f"{ref_label}#{ref_q['number']}"
+                    best_ref_q = ref_q
             if best_sim > summary.max_ref_similarity:
                 summary.max_ref_similarity = best_sim
-            if best_sim >= similarity_threshold:
+
+            seg_limit = tiu_similarity_threshold if seg == "TIU" else similarity_threshold
+            if best_sim >= seg_limit:
                 summary.errors.append(
-                    Issue("ERROR", num, "high_reference_similarity", f"Kemiripan terlalu tinggi ({best_sim*100:.1f}%) dengan soal referensi {best_ref_id} (batas < {similarity_threshold*100:.0f}%).")
+                    Issue("ERROR", num, "high_reference_similarity", f"Kemiripan terlalu tinggi ({best_sim*100:.1f}%) dengan soal referensi {best_ref_id} (batas {seg} < {seg_limit*100:.0f}%).")
                 )
+            elif seg == "TIU" and best_ref_q is not None and best_sim >= 0.65:
+                q_nums = re.findall(r"\d+(?:[.,]\d+)?", q["content"])
+                ref_nums = re.findall(r"\d+(?:[.,]\d+)?", best_ref_q["content"])
+                if q_nums and q_nums == ref_nums:
+                    summary.errors.append(
+                        Issue("ERROR", num, "unchanged_tiu_numbers", f"Soal TIU mirip {best_ref_id} ({best_sim*100:.1f}%) dan angka-angkanya masih identik ({q_nums}); ubah angka serta hitung ulang jawabannya.")
+                    )
 
     # Internal duplicate / near-duplicate check
     non_fig_qs = [q for q in questions if not is_figural(q)]
@@ -550,7 +564,7 @@ def render_markdown_report(source: Path, summary: ValidationSummary) -> str:
         f"- **Status:** **{status}**",
         f"- **Total Soal:** `{summary.total_questions}` ({summary.segment_counts})",
         f"- **Rasio Opsi Kunci Terpanjang:** `{summary.longest_correct_ratio*100:.1f}%` *(target `<= 35%`)*",
-        f"- **Kemiripan Maksimum vs Referensi (Packet 1 & 2):** `{summary.max_ref_similarity*100:.1f}%` *(batas `< 35%`)*",
+        f"- **Kemiripan Maksimum vs Referensi (Packet 1 & 2):** `{summary.max_ref_similarity*100:.1f}%` *(batas TWK/TKP `< 50%`, TIU ubah angka `< 85%`)*",
         f"- **Kemiripan Maksimum Internal:** `{summary.max_internal_similarity*100:.1f}%` *(batas `< 55%`)*",
         "",
         "## Distribusi Kunci Jawaban (Non-Figural)",
@@ -638,7 +652,7 @@ def main() -> int:
     parser.add_argument("input_file", help="Path ke file JSON, CSV, atau XLSX paket soal.")
     parser.add_argument("--partial", action="store_true", help="Mode batch parsial (tidak wajib 110 soal penuh).")
     parser.add_argument("--no-ref", action="store_true", help="Lewati cek kemiripan terhadap Packet 1 & 2.")
-    parser.add_argument("--similarity-threshold", type=float, default=0.35, help="Ambang batas kemiripan referensi (default 0.35).")
+    parser.add_argument("--similarity-threshold", type=float, default=0.50, help="Ambang batas kemiripan TWK/TKP terhadap referensi (default 0.50; TIU clone-ubah-angka otomatis < 0.85).")
     parser.add_argument("--shuffle", action="store_true", help="Acak posisi opsi non-figural & remap pembahasan sebelum ekspor.")
     parser.add_argument("--export-csv", help="Path keluaran CSV siap import TOCPNS.")
     parser.add_argument("--export-xlsx", help="Path keluaran XLSX siap import TOCPNS.")
@@ -676,7 +690,7 @@ def main() -> int:
     print(f"Total soal      : {summary.total_questions} {summary.segment_counts}")
     print(f"Distribusi kunci: {summary.key_distribution}")
     print(f"Opsi kunci terpanjang: {summary.longest_correct_ratio*100:.1f}% (target <= 35%)")
-    print(f"Max similarity vs Packet 1 & 2: {summary.max_ref_similarity*100:.1f}% (batas < {args.similarity_threshold*100:.0f}%)")
+    print(f"Max similarity vs Packet 1 & 2: {summary.max_ref_similarity*100:.1f}% (batas TWK/TKP < {args.similarity_threshold*100:.0f}%, TIU < 85%)")
     print(f"Max similarity internal       : {summary.max_internal_similarity*100:.1f}% (batas < 55%)")
     print(f"Hard Errors: {len(summary.errors)} | Warnings: {len(summary.warnings)}")
 

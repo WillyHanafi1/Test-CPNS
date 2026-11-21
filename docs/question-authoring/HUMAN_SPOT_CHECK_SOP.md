@@ -12,7 +12,7 @@ Meskipun soal sudah lulus **Quality Gate Python (`validate_question_pack.py`)** 
 Buka `data/generated/<kode_paket>/audit-report.md` dan `cross-model-audit.md`, lalu verifikasi 6 angka kunci berikut dalam 3 menit:
 - [ ] **Total soal & kuota segmen:** Tepat `110` (`TWK 30 / TIU 35 / TKP 45`).
 - [ ] **Hard Errors:** `0` (Wajib mutlak). **Warnings:** `0` (atau seluruh warning sudah diberi alasan tertulis yang sah).
-- [ ] **Kemiripan terhadap `Packet 1` & `Packet 2`:** Maksimal `< 35%` (ideal `< 25%`). Kemiripan internal `< 55%`.
+- [ ] **Kemiripan terhadap `Packet 1` & `Packet 2`:** TWK/TKP `< 50%`, TIU ubah-angka `< 85%` (dan angka berubah). Kemiripan internal `< 55%`.
 - [ ] **Rasio opsi kunci terpanjang:** `<= 35%` (target ideal setara BKN: `12%–25%`).
 - [ ] **Distribusi kunci A–E per segmen:** Merata tanpa huruf dominan (`selisih max - min <= 2` di TWK, TIU non-figural, dan TKP) dan tanpa pola siklus berulang.
 - [ ] **Review Silang Beda Model:** `0` temuan KRITIS tersisa, `0` temuan MAYOR belum ditutup, Blind-Solve TIU `100%` cocok.

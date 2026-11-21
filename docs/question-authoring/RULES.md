@@ -1,21 +1,38 @@
-# RULES — Aturan Wajib Penyusunan & Validasi Bank Soal TOCPNS
+# RULES.md — Aturan Ringkas & Mutlak Bank Soal TOCPNS
 
-Setiap AI Agent atau editor manusia yang menyusun bank soal baru untuk TOCPNS **WAJIB** mematuhi seluruh aturan dalam dokumen ini. Pelanggaran pada bagian **Hard Gate** otomatis menggagalkan paket sebelum boleh diimpor ke `/admin/questions`.
+Aturan ini sengaja dibuat **singkat dan bebas jargon** agar AI tidak bingung oleh kelebihan konteks. Patuhi 3 prinsip inti dan Hard Gate di bawah.
 
 ---
 
-## 1. Kontrak Data & Schema (Kompatibel 100% dengan Server TOCPNS)
+## 1. Tiga Prinsip Inti Produksi Soal
 
-### A. Format Output JSON Utama (`<pack>-bank-soal.json`)
+1. **Contoh Soal = Satu-Satunya Patokan Kesulitan:**
+   - **TIDAK PERLU** mengatur label kesulitan (`mudah / sedang / sulit`, `20/60/20`, atau taksonomi Bloom `C3–C5`).
+   - Cukup samakan gaya bahasa, panjang kalimat, dan tingkat kesulitan **1-ke-1 dengan soal contoh** pada nomor/sub-kategori yang sama di `Packet 1 (vol17)` atau `Packet 2 (vol18)`.
+2. **Cara Membuat Variasi Baru per Segmen:**
+   - **TIU Numerik, Deret, Perbandingan Kuantitatif, Soal Cerita, Silogisme, Analitis (`#35–59`):**
+     - **Boleh memakai pola/rumus yang sama persis** dengan contoh soal!
+     - Cukup **ganti angka, nama/benda, dan hitung ulang jawaban baru + 4 pengecoh baru menggunakan Python** (`Fraction`/`Decimal`/`permutations`). Pastikan angka dan hasil akhirnya benar-benar berbeda dari contoh.
+   - **TIU Analogi (`#31–34`) & Figural (`#60–65`):**
+     - Tiru tipe pola contoh, ganti pasangan kata (Analogi) atau ganti bentuk/arah rotasi/jumlah elemen (Figural via Python Pillow/matplotlib).
+   - **TWK (`#1–30`) & TKP (`#66–110`):**
+     - Tiru gaya, panjang kalimat, dan tingkat kesulitan soal contoh, lalu buat cerita/kasus/tokoh baru.
+3. **Korpus Hukum & Bahasa = Kamus *On-Demand* (JANGAN Dibaca Semua Sekaligus!):**
+   - **JANGAN** memuat seluruh isi `references/*.md` ke dalam prompt secara bersamaan (kelebihan konteks justru merusak kualitas jawaban AI!).
+   - Buka/cari (`grep`/baca sebagian) berkas di `references/` **hanya saat butuh memastikan** bunyi pasal UUD 1945, pasal UU ASN 20/2023, atau kata baku KBBI VI/EYD V untuk soal yang sedang dikerjakan.
+
+---
+
+## 2. Kontrak Schema (Kompatibel 100% dengan Server TOCPNS)
+
+### A. Format JSON Batch / Paket (`<kode_paket>-bank-soal.json`)
 ```json
 {
   "schema_version": "2.0",
   "package": {
     "code": "vol19",
-    "title": "Tryout SKD CPNS 2026 #1 - Paket Mandiri",
-    "category": "Mix",
-    "difficulty_profile": "standard-bkn",
-    "created_at": "2026-11-21"
+    "title": "Tryout SKD CPNS 2026 #1",
+    "category": "Mix"
   },
   "questions": [
     {
@@ -23,7 +40,7 @@ Setiap AI Agent atau editor manusia yang menyusun bank soal baru untuk TOCPNS **
       "number": 1,
       "segment": "TWK",
       "sub_category": "Nasionalisme",
-      "content": "Teks soal lengkap (mendukung Markdown & LaTeX $...$)...",
+      "content": "Teks soal lengkap (rumus pakai KaTeX $...$)...",
       "image_url": null,
       "options": [
         { "label": "A", "content": "Isi opsi A", "score": 0, "image_url": null },
@@ -32,91 +49,41 @@ Setiap AI Agent atau editor manusia yang menyusun bank soal baru untuk TOCPNS **
         { "label": "D", "content": "Isi opsi D", "score": 0, "image_url": null },
         { "label": "E", "content": "Isi opsi E", "score": 0, "image_url": null }
       ],
-      "discussion": "Jawaban yang benar adalah C. <penjelasan tuntas mengapa C benar dan mengapa pengecoh utama salah>.",
-      "verification": {
-        "method": "corpus_grounded | python_verified | rubric_checked",
-        "reference": "UUD 1945 Pasal 24C ayat (1) / BerAKHLAK / solver script"
-      }
+      "discussion": "Jawaban yang benar adalah Opsi C. <penjelasan ringkas & tepat>."
     }
   ]
 }
 ```
 
-### B. Format Ekspor Excel / CSV Siap Import (`/admin/questions` → Import Excel/CSV)
-Kolom wajib eksak (mengikuti `backend/api/v1/endpoints/admin_import.py`):
+### B. Format Excel / CSV Siap Import (`/admin/questions`)
+Kolom wajib persis mengikuti `backend/api/v1/endpoints/admin_import.py`:
 `number,segment,content,image_url,discussion,sub_category,option_a,score_a,option_b,score_b,option_c,score_c,option_d,score_d,option_e,score_e`
-*(Untuk soal figural yang opsi A–E-nya berupa gambar, tambahkan kolom `option_image_a` sampai `option_image_e`.)*
 
 ---
 
-## 2. Hard Gate — Aturan Mutlak (Tidak Boleh Dilanggar)
+## 3. Hard Gate Teknis (Divalidasi Otomatis oleh `scripts/validate_question_pack.py`)
 
-1. **Komposisi Eksak 110 Soal BKN** (sinkron dengan `backend/services/exams.py` `validation_errors()`):
-   - Total tepat **110 soal**, nomor urut kontinu `1` sampai `110` tanpa loncat/duplikat.
-   - `TWK = 30`, `TIU = 35`, `TKP = 45`.
-   - Setiap soal wajib punya tepat **5 opsi (`A, B, C, D, E`)**, tidak boleh ada opsi kosong (kecuali opsi figural yang memiliki `image_url`), dan **tidak boleh ada 2 opsi dengan teks identik** dalam 1 soal.
-   - `content`, `discussion`, dan `sub_category` **wajib terisi** pada seluruh 110 soal.
-2. **Integritas Bobot Skor (Zero-Score Tampering):**
-   - **TWK & TIU:** Tepat **satu** opsi bernilai `5`, empat opsi lainnya bernilai `0` (`sorted(scores) == [0, 0, 0, 0, 5]`).
-   - **TKP:** Wajib menggunakan **5 bobot unik** `{1, 2, 3, 4, 5}` (`sorted(scores) == [1, 2, 3, 4, 5]`). Dilarang memberikan bobot kembar (mis. dua opsi berbobot 3).
-3. **Standar Matematika & LaTeX (`GEMINI.md` § 5A):**
-   - Seluruh rumus, pecahan, pangkat, akar, pertidaksamaan, dan simbol matematika wajib memakai sintaks KaTeX inline `$...$` atau block `$$...$$` (contoh: `$\frac{3}{4}$`, `$x^2 - 5x + 6 = 0$`, `$\sqrt{144}$`, `$25\%$`).
-   - **Dilarang keras** menuliskan notasi mentah seperti `x^2`, `akar(16)`, `3/4` di luar `$...$` pada soal numerik/aljabar, atau tanda `$` yang tidak berpasangan.
-   - Harga rupiah (`Rp50.000`) ditulis tanpa simbol `$`.
-4. **Konsistensi Pembahasan ↔ Kunci Jawaban & Nama Tokoh:**
-   - Kalimat pembuka pembahasan wajib menyebut secara eksplisit huruf opsi dengan skor tertinggi:
-     - TWK/TIU: `Jawaban yang benar adalah Opsi X.`
-     - TKP: `Jawaban dengan skor tertinggi adalah Opsi X (5 poin).` diikuti ringkasan bobot kelima opsi (`Opsi X=5, Opsi Y=4, Opsi Z=3, ...`) agar peserta paham gradasinya dan remapper shuffler bekerja 100% akurat.
-   - Nama tokoh di pembahasan **wajib sama persis** dengan nama tokoh di teks soal.
-   - Format penyebutan huruf opsi menggunakan kata kunci standar (`Opsi A`, `Jawaban yang benar adalah C`) agar kompatibel 100% dengan remapper dua-tahap di [shuffle_answers.py](file:///d:/ProjectAI/Test-CPNS/scripts/shuffle_answers.py).
-5. **Anti-Plagiarisme & Orisinalitas:**
-   - Dilarang menyalin atau sekadar memparafrase dangkal soal dari `Packet 1 (vol17)`, `Packet 2 (vol18)`, atau CSV lama di `data/csv/`.
-   - **Batas keras:** Kemiripan teks (*word 3-gram / Jaccard similarity*) terhadap seluruh 220 soal di `Packet 1` & `Packet 2` wajib **`< 35%`** (diperiksa otomatis oleh `scripts/validate_question_pack.py`).
-   - Kemiripan antar-soal di dalam paket yang sama juga wajib `< 55%`.
-6. **Anti-Bias Panjang Opsi & Anti-Pola Kunci:**
-   - Opsi benar / skor 5 **tidak boleh** menjadi opsi terpanjang pada lebih dari **35%** soal dalam satu paket (khususnya TKP, selisih panjang kata antara opsi skor 5 dan rata-rata 4 opsi lain disarankan `≤ 5` kata).
-   - Sebelum import final, wajib menjalankan `shuffle_answers.py` (kecuali soal figural) agar distribusi kunci `A–E` seimbang di setiap segmen (TWK: 5–7 per huruf, TIU non-figural: 5–7 per huruf, TKP: 8–10 per huruf) dan bebas pola siklus (tidak ada huruf sama muncul 3× berturut-turut).
+1. **Kuota Eksak 110 Soal:** Nomor kontinu `1..110` (`TWK = 30`, `TIU = 35`, `TKP = 45`). Setiap soal wajib punya `content`, `discussion`, `sub_category`, dan tepat 5 opsi unik `A–E` (tidak boleh ada 2 opsi identik).
+2. **Integritas Bobot Skor:**
+   - **TWK & TIU:** Tepat satu opsi skor `5`, empat opsi lain skor `0` (`[0, 0, 0, 0, 5]`).
+   - **TKP:** Wajib 5 bobot unik (`[1, 2, 3, 4, 5]`) tanpa bobot kembar.
+3. **KaTeX / LaTeX (`GEMINI.md` § 5A):**
+   - Semua pecahan, pangkat, akar, variabel, dan ekspresi hitung wajib di dalam `$...$` atau `$$...$$` (mis. `$\frac{3}{4}$`, `$x^2$`, `$\sqrt{144}$`). Jangan tulis `x^2` atau `akar()` mentah di luar `$...$`. Rupiah (`Rp50.000`) ditulis tanpa `$`.
+4. **Sinkronisasi Pembahasan ↔ Kunci & Tokoh:**
+   - Mulai pembahasan TWK/TIU dengan: `Jawaban yang benar adalah Opsi X.`
+   - Mulai pembahasan TKP dengan: `Jawaban dengan skor tertinggi adalah Opsi X (5 poin).` lalu sebut urutan singkat `Opsi X=5, Opsi Y=4, ...` agar remapper shuffler 100% akurat.
+   - Nama tokoh di soal dan pembahasan wajib sama persis.
+5. **Verifikasi Deterministik TIU:**
+   - **TIU Numerik, Deret, Perbandingan, Cerita (`#43–59`) & Analitis/Silogisme (`#35–42`):** Wajib dibuktikan dengan skrip Python (`Fraction`/`Decimal`/`permutations`) sebelum masuk JSON. Dilarang menghitung hanya di kepala.
+   - **TIU Figural (`#60–65`):** Gambar dibuat dengan Python (`Pillow`/`matplotlib`, latar putih `#FFFFFF`, font TrueType `26–32px`, zona tengah & sudut terpisah tanpa overlap), **bukan** generator gambar AI. Upload ke bucket Supabase `exam-assets/figural/<kode_paket>/` untuk produksi.
+6. **Batas Anti-Salin yang Masuk Akal:**
+   - **TIU:** Boleh memakai kerangka kalimat/rumus sama dengan contoh, selama **angka & jawabannya diubah** (hanya diblokir jika salin-tempel identik `>= 85%`).
+   - **TWK & TKP:** Kasus/cerita harus baru (kemiripan teks terhadap `Packet 1 & 2` wajib `< 50%`).
+7. **Anti-Bias Panjang & Acak Kunci:**
+   - Opsi kunci (skor 5) tidak boleh menjadi opsi terpanjang pada lebih dari **35%** soal. Khusus TKP, usahakan panjang ke-5 opsi seimbang.
+   - Jalankan `--shuffle` sebelum ekspor `.xlsx` agar kunci `A–E` merata tanpa pola siklus (soal Figural otomatis dikecualikan).
 
 ---
 
-## 3. Aturan Khusus per Segmen
-
-### A. Aturan TWK (Nomor 1–30)
-1. **Wajib *Corpus-Grounded* Verbatim:** Seluruh rujukan pasal UUD 1945, wewenang lembaga negara, pasal UU ASN No. 20/2023, peristiwa sejarah, UU Bela Negara 23/2019, 9 Nilai Integritas KPK, serta kaidah EYD V & kata baku KBBI VI **wajib dicocokkan langsung** dengan:
-   - [uud_1945_lengkap.md](file:///d:/ProjectAI/Test-CPNS/docs/question-authoring/references/uud_1945_lengkap.md)
-   - [uu_20_2023_asn_lengkap.md](file:///d:/ProjectAI/Test-CPNS/docs/question-authoring/references/uu_20_2023_asn_lengkap.md)
-   - [korpus_bahasa_indonesia_kbbi6_eyd5.md](file:///d:/ProjectAI/Test-CPNS/docs/question-authoring/references/korpus_bahasa_indonesia_kbbi6_eyd5.md)
-   - [korpus_twk_tkp_lengkap.md](file:///d:/ProjectAI/Test-CPNS/docs/question-authoring/references/korpus_twk_tkp_lengkap.md)
-2. **Minimal 80% Studi Kasus (HOTS):** Hindari pertanyaan hafalan mentah seperti *"Isi Pasal 31 ayat (4) adalah..."*. Ubah menjadi studi kasus kebijakan publik, dinamika birokrasi, atau dilema warga negara yang menuntut penalaran penerapan nilai/pasal.
-3. **Pengecoh Bernilai Tinggi (*Plausible Distractors*):** Minimal 2 pengecoh harus terdengar positif/masuk akal tetapi keliru dari sisi pilar, kewenangan lembaga, atau prinsip konstitusi. Hindari pengecoh yang terlalu konyol/ekstrem.
-4. **Bahasa Indonesia (5 soal, `#26–30`):** Wajib mengikuti rotasi variasi paket di `korpus_bahasa_indonesia_kbbi6_eyd5.md` § 6 dan memiliki 1 kunci tak terbantahkan berdasarkan EYD V (termasuk aturan `Yang Maha Kuasa` terpisah & 14 konjungsi `-pun` serangkai) serta KBBI VI — dilarang membuat soal yang dua opsinya sama-sama baku tanpa pembeda konteks yang jelas.
-
-### B. Aturan TIU (Nomor 31–65)
-1. **Zero Mental Math (Wajib Verifikasi Python):**
-   - Setiap soal **Berhitung, Deret Angka, Perbandingan Kuantitatif, dan Soal Cerita** (17 soal) **WAJIB** diverifikasi oleh eksekusi skrip Python (`fractions.Fraction` / `decimal` / `sympy`) sebelum ditulis ke JSON final!
-   - Setiap soal **Analitis** (4 soal: posisi duduk, urutan, jadwal) **WAJIB** dicek dengan Python brute-force solver bahwa **tepat satu opsi** bernilai selalu benar (atau tepat satu susunan unik menjawab pertanyaan), sehingga tidak pernah muncul jawaban ganda.
-   - Setiap soal **Silogisme** (4 soal) wajib valid secara logika formal (hindari kesesatan *affirming the consequent* atau menarik simpulan "sebagian" dari dua premis partikular).
-2. **Distraktor Berbasis Kesalahan Hitung Nyata:**
-   - 4 opsi salah pada soal numerik harus berasal dari kesalahan umum peserta (mis. salah rumus berbalik nilai vs senilai, lupa membagi 2, salah konversi menit↔jam, salah tanda negatif) dan **tidak boleh ada dua opsi bernilai matematis sama** (mis. `1 5/8` dan `13/8` di opsi berbeda).
-3. **Figural (6 soal) — Deterministik Kode, Bukan Image AI:**
-   - Dilarang memakai generative AI image (Imagen/DALL-E/Midjourney) untuk soal figural.
-   - Buat gambar figural menggunakan skrip Python (`Pillow` atau `SVG → PNG`) berbasis aturan transformasi matematis pasti (rotasi sudut eksak, refleksi, pergeseran posisi searah/berlawanan jarum jam, perubahan jumlah sisi/titik/arsiran, operasi XOR garis).
-   - Setiap gambar figural harus berlatar putih bersih (`#FFFFFF`), kontras tinggi (`#111827`), resolusi jelas (mis. `900×320px` untuk soal deret/analogi atau `240×240px` per panel), dan dapat diverifikasi visualnya secara langsung.
-   - Untuk produksi, upload ke bucket Supabase `exam-assets` pada folder `figural/<kode_paket>/` (`GEMINI.md` § 5F) lalu isi kolom `image_url` dengan URL publiknya (bukan `127.0.0.1`!).
-
-### C. Aturan TKP (Nomor 66–110)
-1. **Skenario Dilema Nyata ASN:** Setiap soal harus menempatkan peserta sebagai ASN/pegawai yang menghadapi konflik ringan namun nyata (keterbatasan waktu, tekanan warga/atasan, keterbatasan teknologi, keragaman budaya, atau indikasi intoleransi/radikalisme).
-2. **Rubrik Gradasi Ketat `5 → 4 → 3 → 2 → 1`:**
-   - **Skor 5:** Proaktif, solutif tuntas, empatik/ramah, taat SOP/aturan, berorientasi kepentingan publik/kolaborasi, menggerakkan solusi nyata.
-   - **Skor 4:** Etis dan positif, namun kurang inisiatif/kurang tuntas (mis. sekadar menyarankan atau melimpahkan ke atasan tanpa langkah awal yang membantu).
-   - **Skor 3:** Normatif kaku, pasif menunggu perintah, atau kompromi setengah jalan tanpa menyelesaikan akar masalah.
-   - **Skor 2:** Kurang peduli, menghindar secara halus, menunda, atau menyalahkan keadaan/rekan.
-   - **Skor 1:** Reaktif, emosional, egois, diskriminatif, melanggar SOP/integritas, atau permisif terhadap paham radikalisme.
-3. **Keseimbangan Panjang & Nada Bahasa:**
-   - Kelima opsi wajib memiliki rentang panjang hampir sama (mis. 12–20 kata per opsi) dan ditulis dalam bahasa profesional natural — **dilarang** memakai kata-kata klise yang langsung membocorkan skor 1 (seperti *"marah-marah dan mengusir"*) kecuali proporsional, atau membuat skor 5 dua kali lebih panjang daripada skor 1–4.
-
----
-
-## 4. Aturan Lingkungan Produksi TOCPNS (`GEMINI.md`)
-- Seluruh proses AI authoring ini dijalankan **100% offline** (di mesin lokal / sesi AI agent developer). **Dilarang keras** menambahkan SDK LLM, API key AI, atau endpoint generator AI ke dalam kode aplikasi `backend/` maupun `frontend/`.
-- File hasil paket mentah disimpan di `data/generated/<kode_paket>/` (bukan di root repositori atau folder `backend/`).
+## 4. Batas Proyek (`GEMINI.md`)
+- Seluruh alur berjalan **100% offline** di `data/generated/<kode_paket>/`. **Jangan** mengubah kode `backend/` atau `frontend/` dan jangan menambahkan fitur AI ke aplikasi produksi.
