@@ -18,8 +18,9 @@ export default function DonationSection() {
           </p>
           <h2 id="donation-home-title">Ruang latihan ini tumbuh bersama.</h2>
           <p className="muted">
-            Ikut merawat ruang belajar dan titipkan semangat untuk sesama
-            pejuang CPNS. Dukungan selalu sukarela.
+            Dukungan sukarela membantu biaya server, pemeliharaan sistem,
+            perbaikan bug, dan pengembangan kode agar latihan tetap lancar.
+            Titipkan juga semangat untuk sesama pejuang CPNS.
           </p>
         </div>
         <div className="donation-home-actions">

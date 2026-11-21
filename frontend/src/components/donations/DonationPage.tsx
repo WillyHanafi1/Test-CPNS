@@ -31,9 +31,10 @@ export default function DonationPage() {
           <span className="donation-accent">Ruang belajar yang terawat.</span>
         </h1>
         <p className="muted">
-          Kalau TOCPNS membantu perjalanan belajarmu, kamu bisa ikut merawatnya
-          dan meninggalkan pesan semangat untuk sesama pejuang CPNS. Papan
-          dukungan ini bisa dibaca siapa saja, tanpa perlu masuk akun.
+          Dukungan sukarela membantu biaya server, pemeliharaan sistem,
+          perbaikan bug, dan pengembangan kode agar TOCPNS tetap nyaman
+          digunakan. Kamu juga bisa meninggalkan pesan semangat untuk sesama
+          pejuang CPNS.
         </p>
       </div>
       <div className="donation-layout">
@@ -110,13 +111,13 @@ export default function DonationPage() {
             },
             {
               icon: Wrench,
-              title: "Pengalaman yang dirawat",
-              text: "Mendukung pemeliharaan, perbaikan kendala, dan kenyamanan saat latihan.",
+              title: "Maintenance & perbaikan bug",
+              text: "Mendukung pemeliharaan sistem, perbaikan bug, dan menjaga kenyamanan saat latihan.",
             },
             {
               icon: BookOpen,
-              title: "Latihan yang berkembang",
-              text: "Membantu waktu pengembangan platform dan penyempurnaan pengalaman belajar.",
+              title: "Pengembangan kode & materi",
+              text: "Membantu pembaruan kode, peningkatan fitur, dan penyempurnaan pengalaman belajar.",
             },
           ].map(({ icon: Icon, title, text }) => (
             <article className="panel stack" key={title}>

@@ -8,9 +8,13 @@ import DonationChat from "./DonationChat";
 
 function Stats({ data }: { data: DonationOverview }) {
   const { stats } = data;
-  const percentage = stats.target_amount
-    ? Math.round((stats.total_amount / stats.target_amount) * 100)
+  const rawPercentage = stats.target_amount
+    ? (stats.total_amount / stats.target_amount) * 100
     : 0;
+  const percentageLabel =
+    stats.total_amount > 0 && rawPercentage < 1
+      ? "<1%"
+      : `${Math.round(rawPercentage)}%`;
   return (
     <section className="dc-stats" aria-label="Statistik donasi">
       <div className="dc-stat-total">
@@ -19,19 +23,25 @@ function Stats({ data }: { data: DonationOverview }) {
         {stats.target_amount > 0 ? (
           <>
             <div className="dc-goal-label">
-              <span>Target {rupiah(stats.target_amount)}</span>
-              <strong>{percentage}%</strong>
+              <span>Target operasional {rupiah(stats.target_amount)}</span>
+              <strong>{percentageLabel}</strong>
             </div>
             <progress
               className="donation-progress"
               max={stats.target_amount}
               value={Math.min(stats.total_amount, stats.target_amount)}
               aria-label={`Dukungan ${data.period_label}`}
-              aria-valuetext={`${percentage}% · ${rupiah(stats.total_amount)} dari ${rupiah(stats.target_amount)}`}
+              aria-valuetext={`${percentageLabel} · ${rupiah(stats.total_amount)} dari ${rupiah(stats.target_amount)}`}
             />
+            <small className="dc-stat-purpose">
+              Untuk biaya server, maintenance, perbaikan bug, dan pembaruan kode.
+            </small>
           </>
         ) : (
-          <small>Termasuk dukungan anonim</small>
+          <small className="dc-stat-purpose">
+            Termasuk dukungan anonim · Untuk biaya server, maintenance, perbaikan
+            bug, dan pembaruan kode.
+          </small>
         )}
       </div>
       <div className="dc-stat-counts">
