@@ -95,8 +95,8 @@ def _build_phrase_patterns():
     # All phrase templates discovered from comprehensive CSV scan.
     # {L} = placeholder for the option letter to match.
     templates = [
-        # "Jawaban yang benar/tepat/sah/... adalah [opsi] X"
-        r'([Jj]awaban\s+(?:\w+\s+){0,6}adalah\s+(?:[Oo]psi\s+)?){L}',
+        # "Jawaban yang benar/tepat/sah/dengan skor tertinggi (5) adalah [opsi] X"
+        r'([Jj]awaban\s+(?:[\w()]+\s+){0,6}adalah\s+(?:[Oo]psi\s+)?){L}',
         # "Jawaban paling tepat adalah X"  (already covered above but explicit)
         r'([Jj]awaban\s+paling\s+tepat\s+adalah\s+(?:[Oo]psi\s+)?){L}',
         # "Jawaban ... berada pada opsi X"
@@ -180,6 +180,12 @@ def remap_discussion(discussion_text: str, letter_mapping: dict) -> str:
 
             result = pattern_upper.sub(rf'\1{placeholder}', result)
             result = pattern_lower.sub(rf'\1{placeholder.lower()}', result)
+
+    # --- PASS 1c: Compact TKP score summary patterns (e.g., "B=5", "A = 4") ---
+    for letter_upper in LETTERS_UPPER:
+        placeholder = ph_map[letter_upper]
+        pat_score = re.compile(rf'(?<![a-zA-Z0-9_]){letter_upper}(?=\s*=\s*[1-5]\b)')
+        result = pat_score.sub(placeholder, result)
 
     # --- PASS 2: Replace all placeholders with final mapped letters ---
     for letter_upper in LETTERS_UPPER:
