@@ -26,8 +26,8 @@ AI Agent **wajib menghasilkan soal per batch kecil (5–10 soal)** sesuai tabel 
 | **TWK-1** | `1–6` | `Nasionalisme` | 6 | 25–45 kata | C4 Analisis | Nasionalisme inklusif vs chauvinisme, ekonomi lokal di era global, persatuan lintas daerah, kebanggaan identitas bangsa tanpa eksklusivisme. | Vol.17 `#1–6`, Vol.18 `#1–5` |
 | **TWK-2** | `7–11` | `Integritas` | 5 | 35–55 kata | C4–C5 Evaluasi | Konflik kepentingan ASN, penolakan gratifikasi (30 hari kerja KPK), konsistensi di luar pengawasan, kejujuran laporan anggaran, whistleblowing prosedural. | Vol.17 `#12–16`, Vol.18 `#11–15` |
 | **TWK-3** | `12–16` | `Bela Negara` | 5 | 30–50 kata | C4 Analisis | 5 nilai dasar bela negara (UU 23/2019), ancaman non-militer (hoaks/siber/ekonomi/budaya), peran profesi sipil, pengorbanan kepentingan pribadi demi negara. | Vol.17 `#17–21`, Vol.18 `#16–20` |
-| **TWK-4** | `17–25` | `Pilar Negara` | 9 | 35–55 kata | C4–C5 Evaluasi | Pancasila (kasus sila 1–5), UUD 1945 (kewenangan MK vs MA, DPR/DPD/MPR, Pasal 14 grasi vs amnesti, HAM 28I, APBN 23, Pasal 33–34, Pasal 37), NKRI & Bhinneka Tunggal Ika. | Vol.17 `#22–30`, Vol.18 `#21–30` |
-| **TWK-5** | `26–30` | `Bahasa Indonesia` | 5 | 40–70 kata | C3–C4 Aplikasi | Ide pokok/simpulan paragraf (1–2), kalimat efektif/pleonasme (1), EYD V huruf kapital/tanda baca/imbuhan `di-` (1), kata baku KBBI VI & pilihan diksi rumpang (1). | Vol.17 `#7–11`, Vol.18 `#6–10` |
+| **TWK-4** | `17–25` | `Pilar Negara` | 9 | 35–55 kata | C4–C5 Evaluasi | Pancasila (kasus sila 1–5), UUD 1945 verbatim (`uud_1945_lengkap.md`: MK vs MA, DPR/DPD/MPR, Pasal 7A–7C, Pasal 14, HAM 28A–28J, APBN 23–23G, Pasal 33–37), UU ASN 20/2023 (`uu_20_2023_asn_lengkap.md`), NKRI & Bhinneka Tunggal Ika. | Vol.17 `#22–30`, Vol.18 `#21–30` |
+| **TWK-5** | `26–30` | `Bahasa Indonesia` | 5 | 40–70 kata | C3–C4 Aplikasi | Ikuti matriks rotasi `korpus_bahasa_indonesia_kbbi6_eyd5.md` § 6: `#26` EYD V kapital/kata terikat/`-pun`, `#27` KBBI VI kata baku/peluluhan KTSP, `#28` kalimat efektif (7 tipe cacat), `#29` ide pokok/simpulan bacaan, `#30` diksi/sinonim akademik/idiom kontekstual. | Vol.17 `#7–11`, Vol.18 `#6–10` |
 
 ### B. TIU — Nomor 31–65 (6 Batch)
 

@@ -584,6 +584,55 @@ def render_markdown_report(source: Path, summary: ValidationSummary) -> str:
     return "\n".join(lines)
 
 
+def _strip_answers(q: dict[str, Any]) -> dict[str, Any]:
+    """Return a blind-solve copy of a question without scores or discussion."""
+    return {
+        "number": q["number"],
+        "segment": q["segment"],
+        "sub_category": q["sub_category"],
+        "content": q["content"],
+        "image_url": q["image_url"],
+        "options": [
+            {
+                "label": o["label"],
+                "content": o["content"],
+                "image_url": o.get("image_url"),
+            }
+            for o in q["options"]
+        ],
+    }
+
+
+def _extract_key_entry(q: dict[str, Any]) -> dict[str, Any]:
+    best = [o["label"] for o in q["options"] if o["score"] == 5]
+    return {
+        "number": q["number"],
+        "sub_category": q["sub_category"],
+        "answer_key": best[0] if len(best) == 1 else best,
+        "discussion": q["discussion"],
+    }
+
+
+def export_blind_audit_bundles(questions: list[dict[str, Any]], out_dir: Path) -> None:
+    """Export 4 segmented JSON bundles for Cross-Model Adversarial Review (CROSS_MODEL_REVIEW.md)."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    twk = [q for q in questions if q["segment"] == "TWK"]
+    tiu_nonfig = [q for q in questions if q["segment"] == "TIU" and not is_figural(q)]
+    tiu_fig = [q for q in questions if q["segment"] == "TIU" and is_figural(q)]
+    tkp = [q for q in questions if q["segment"] == "TKP"]
+
+    bundles = {
+        "audit_01_twk.json": twk,
+        "audit_02_tiu_blind.json": [_strip_answers(q) for q in tiu_nonfig],
+        "audit_02_tiu_key.json": [_extract_key_entry(q) for q in tiu_nonfig],
+        "audit_03_figural_blind.json": [_strip_answers(q) for q in tiu_fig],
+        "audit_03_figural_key.json": [_extract_key_entry(q) for q in tiu_fig],
+        "audit_04_tkp.json": tkp,
+    }
+    for fname, payload in bundles.items():
+        (out_dir / fname).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="TOCPNS Question Pack Quality Gate & Exporter")
     parser.add_argument("input_file", help="Path ke file JSON, CSV, atau XLSX paket soal.")
@@ -594,6 +643,7 @@ def main() -> int:
     parser.add_argument("--export-csv", help="Path keluaran CSV siap import TOCPNS.")
     parser.add_argument("--export-xlsx", help="Path keluaran XLSX siap import TOCPNS.")
     parser.add_argument("--report", help="Path keluaran laporan audit Markdown.")
+    parser.add_argument("--export-blind-audit", help="Direktori keluaran 4 batch JSON untuk Review Silang Beda Model (CROSS_MODEL_REVIEW.md).")
     args = parser.parse_args()
 
     source = Path(args.input_file)
@@ -647,6 +697,11 @@ def main() -> int:
         rp.parent.mkdir(parents=True, exist_ok=True)
         rp.write_text(render_markdown_report(source, summary), encoding="utf-8")
         print(f"Laporan audit disimpan ke: {rp}")
+
+    if args.export_blind_audit:
+        audit_dir = Path(args.export_blind_audit)
+        export_blind_audit_bundles(questions, audit_dir)
+        print(f"Paket Review Silang Beda Model (6 berkas) disimpan ke: {audit_dir}")
 
     if args.export_csv or args.export_xlsx:
         df = to_dataframe(questions)

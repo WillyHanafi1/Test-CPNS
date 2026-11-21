@@ -82,10 +82,14 @@ Kolom wajib eksak (mengikuti `backend/api/v1/endpoints/admin_import.py`):
 ## 3. Aturan Khusus per Segmen
 
 ### A. Aturan TWK (Nomor 1–30)
-1. **Wajib *Corpus-Grounded*:** Seluruh rujukan pasal UUD 1945, wewenang lembaga negara, peristiwa sejarah, UU ASN 20/2023, UU Bela Negara 23/2019, dan kata baku KBBI VI **harus** cocok dengan [uud_1945_ringkas.md](file:///d:/ProjectAI/Test-CPNS/docs/uud_1945_ringkas.md) dan [korpus_twk_tkp_lengkap.md](file:///d:/ProjectAI/Test-CPNS/docs/question-authoring/references/korpus_twk_tkp_lengkap.md).
+1. **Wajib *Corpus-Grounded* Verbatim:** Seluruh rujukan pasal UUD 1945, wewenang lembaga negara, pasal UU ASN No. 20/2023, peristiwa sejarah, UU Bela Negara 23/2019, 9 Nilai Integritas KPK, serta kaidah EYD V & kata baku KBBI VI **wajib dicocokkan langsung** dengan:
+   - [uud_1945_lengkap.md](file:///d:/ProjectAI/Test-CPNS/docs/question-authoring/references/uud_1945_lengkap.md)
+   - [uu_20_2023_asn_lengkap.md](file:///d:/ProjectAI/Test-CPNS/docs/question-authoring/references/uu_20_2023_asn_lengkap.md)
+   - [korpus_bahasa_indonesia_kbbi6_eyd5.md](file:///d:/ProjectAI/Test-CPNS/docs/question-authoring/references/korpus_bahasa_indonesia_kbbi6_eyd5.md)
+   - [korpus_twk_tkp_lengkap.md](file:///d:/ProjectAI/Test-CPNS/docs/question-authoring/references/korpus_twk_tkp_lengkap.md)
 2. **Minimal 80% Studi Kasus (HOTS):** Hindari pertanyaan hafalan mentah seperti *"Isi Pasal 31 ayat (4) adalah..."*. Ubah menjadi studi kasus kebijakan publik, dinamika birokrasi, atau dilema warga negara yang menuntut penalaran penerapan nilai/pasal.
 3. **Pengecoh Bernilai Tinggi (*Plausible Distractors*):** Minimal 2 pengecoh harus terdengar positif/masuk akal tetapi keliru dari sisi pilar, kewenangan lembaga, atau prinsip konstitusi. Hindari pengecoh yang terlalu konyol/ekstrem.
-4. **Bahasa Indonesia (5 soal):** Setiap soal wajib punya 1 kunci tak terbantahkan berdasarkan kaidah EYD V & KBBI VI — dilarang membuat soal yang dua opsinya sama-sama baku tanpa pembeda konteks yang jelas.
+4. **Bahasa Indonesia (5 soal, `#26–30`):** Wajib mengikuti rotasi variasi paket di `korpus_bahasa_indonesia_kbbi6_eyd5.md` § 6 dan memiliki 1 kunci tak terbantahkan berdasarkan EYD V (termasuk aturan `Yang Maha Kuasa` terpisah & 14 konjungsi `-pun` serangkai) serta KBBI VI — dilarang membuat soal yang dua opsinya sama-sama baku tanpa pembeda konteks yang jelas.
 
 ### B. Aturan TIU (Nomor 31–65)
 1. **Zero Mental Math (Wajib Verifikasi Python):**

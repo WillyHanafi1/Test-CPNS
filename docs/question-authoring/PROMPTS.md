@@ -23,36 +23,42 @@ Instruksi wajib:
    - docs/question-authoring/AGENT.md
    - docs/question-authoring/RULES.md
    - docs/question-authoring/BLUEPRINT.md
+   - docs/question-authoring/CROSS_MODEL_REVIEW.md
+   - docs/question-authoring/HUMAN_SPOT_CHECK_SOP.md
    - docs/kepmenpan_rb_321_2024.md
-   - docs/uud_1945_ringkas.md
+   - docs/question-authoring/references/uud_1945_lengkap.md
+   - docs/question-authoring/references/uu_20_2023_asn_lengkap.md
+   - docs/question-authoring/references/korpus_bahasa_indonesia_kbbi6_eyd5.md
    - docs/question-authoring/references/korpus_twk_tkp_lengkap.md
    - Ambil 2–3 soal contoh per segmen dari data/Packet 1/outputs/packet1-vol17/vol17-bank-soal.json dan data/Packet 2/outputs/packet2-vol18/vol18-bank-soal.json HANYA sebagai kalibrasi gaya bahasa, panjang kalimat, dan level kesulitan (dilarang menyalin atau memparafrase dangkal!).
 
-2. Eksekusi seluruh 8 fase di docs/question-authoring/AGENT.md secara bertahap dan disiplin:
+2. Eksekusi seluruh fase di docs/question-authoring/AGENT.md secara bertahap dan disiplin:
    - Kerjakan per batch kecil (17 batch sesuai BLUEPRINT.md: 5 batch TWK, 6 batch TIU, 6 batch TKP) di data/generated/vol19/batches/.
    - Validasi setiap batch segera dengan: python scripts/validate_question_pack.py <file_batch> --partial.
+   - Untuk TWK Bahasa Indonesia (#26–30), ikuti matriks rotasi korpus_bahasa_indonesia_kbbi6_eyd5.md § 6 dan kaidah terbaru EYD V (termasuk "Yang Maha Kuasa" terpisah & 14 konjungsi "-pun" serangkai).
    - Untuk TIU #35–59 (Silogisme, Analitis, Berhitung, Deret, Perbandingan Kuantitatif, Soal Cerita), WAJIB tulis dan jalankan data/generated/vol19/verify/verify_tiu_math_logic.py guna membuktikan secara eksak hasil hitung (Fraction/Decimal) dan keunikan jawaban analitis (brute-force permutations).
-   - Untuk TIU Figural #60–65 (2 Analogi, 2 Ketidaksamaan, 2 Serial), WAJIB buat gambar deterministik lewat data/generated/vol19/verify/generate_figural.py (Pillow/matplotlib, latar putih bersih, kontras tinggi, label A-E rapi) ke data/generated/vol19/gambar/q60_figural.png s.d. q65_figural.png, lalu periksa hasil gambarnya secara visual.
+   - Untuk TIU Figural #60–65 (2 Analogi, 2 Ketidaksamaan, 2 Serial), WAJIB buat gambar deterministik lewat data/generated/vol19/verify/generate_figural.py (Pillow/matplotlib, latar putih bersih, font TrueType 26–32px, pemisahan zona tengah vs sudut agar 0 overlap) ke data/generated/vol19/gambar/q60_figural.png s.d. q65_figural.png, lalu periksa hasil gambarnya secara visual.
    - Pastikan seluruh rumus matematika memakai KaTeX $...$ / $$...$$, bobot TKP unik {1,2,3,4,5}, panjang opsi TKP seimbang (tidak bias panjang), dan nama tokoh di soal 100% sama dengan di pembahasan.
 
-3. Setelah 17 batch lengkap, gabungkan ke data/generated/vol19/vol19-bank-soal.json, lalu jalankan Quality Gate penuh + shuffle kunci seimbang + ekspor siap impor:
-   python scripts/validate_question_pack.py data/generated/vol19/vol19-bank-soal.json --shuffle --export-csv data/generated/vol19/vol19-impor-final.csv --export-xlsx data/generated/vol19/vol19-impor-final.xlsx --report data/generated/vol19/audit-report.md
+3. Setelah 17 batch lengkap, gabungkan ke data/generated/vol19/vol19-bank-soal.json, lalu jalankan Quality Gate penuh + shuffle kunci seimbang + paket Review Silang Beda Model + ekspor siap impor:
+   python scripts/validate_question_pack.py data/generated/vol19/vol19-bank-soal.json --shuffle --export-csv data/generated/vol19/vol19-impor-final.csv --export-xlsx data/generated/vol19/vol19-impor-final.xlsx --report data/generated/vol19/audit-report.md --export-blind-audit data/generated/vol19/cross_audit/
 
 4. Jangan berhenti sebelum:
    - verify_tiu_math_logic.py lulus 100% (exit code 0),
    - validate_question_pack.py pada vol19-impor-final.xlsx lulus 0 error (exit code 0),
    - Kemiripan teks terhadap Packet 1 & Packet 2 seluruhnya < 35%,
    - Rasio opsi benar terpanjang <= 35%,
-   - Distribusi kunci A–E seimbang tanpa pola siklus.
+   - Distribusi kunci A–E seimbang tanpa pola siklus,
+   - Paket cross_audit/ (6 berkas) dan template signoff-checklist.md (dari HUMAN_SPOT_CHECK_SOP.md) siap untuk saya lakukan Review Silang Beda Model & Spot-Check 15 Menit.
 
-5. Jangan ubah kode aplikasi backend/ atau frontend/, dan jangan lakukan import otomatis ke DB produksi sebelum saya meninjau audit-report.md. Laporkan ringkasan hasil dan lokasi seluruh berkas keluaran setelah selesai.
+5. Jangan ubah kode aplikasi backend/ atau frontend/, dan jangan lakukan import otomatis ke DB produksi sebelum saya menyelesaikan Review Silang & Spot-Check 15 Menit. Laporkan ringkasan hasil dan lokasi seluruh berkas keluaran setelah selesai.
 ```
 
 ---
 
 ## Prompt 1 — Batch TWK (Untuk Web Chat: Gemini Pro / Claude / ChatGPT)
 
-*Lampirkan `docs/uud_1945_ringkas.md`, `docs/question-authoring/references/korpus_twk_tkp_lengkap.md`, dan 2 contoh soal dari Packet 1/2 untuk sub-topik yang dipilih.*
+*Lampirkan korpus verbatim yang relevan: `references/uud_1945_lengkap.md`, `references/uu_20_2023_asn_lengkap.md`, `references/korpus_bahasa_indonesia_kbbi6_eyd5.md` (untuk Bahasa Indonesia), `references/korpus_twk_tkp_lengkap.md`, dan 2 contoh soal dari Packet 1/2 untuk sub-topik yang dipilih.*
 
 ```text
 Peran: Kamu adalah penyusun soal senior SKD CPNS BKN spesialis Tes Wawasan Kebangsaan (TWK) level HOTS (C4–C5).
@@ -154,7 +160,7 @@ Aturan Ketat:
 
 ## Prompt 5 — Batch TKP (Situational Judgment Test — Rubrik 5→1)
 
-*Lampirkan bagian BerAKHLAK & Anti-Radikalisme dari `docs/question-authoring/references/korpus_twk_tkp_lengkap.md` dan 2 contoh soal TKP dari Packet 1/2.*
+*Lampirkan `references/uu_20_2023_asn_lengkap.md` (terutama Pasal 2, 3, 4 BerAKHLAK & Pasal 24 Kewajiban ASN), bagian Anti-Radikalisme dari `references/korpus_twk_tkp_lengkap.md`, dan 2 contoh soal TKP dari Packet 1/2.*
 
 ```text
 Peran: Kamu adalah psikolog industri/asesor ASN senior spesialis penyusunan soal Tes Karakteristik Pribadi (TKP) SKD CPNS berbasis nilai ASN BerAKHLAK.
@@ -179,9 +185,11 @@ Aturan Ketat:
 
 ---
 
-## Prompt 6 — Adversarial QA Auditor Prompt (Uji Silang Model Berbeda)
+## Prompt 6 — Adversarial QA Auditor Prompt (Review Silang Beda Model)
 
-Gunakan prompt ini pada **sesi chat baru / model berbeda** (mis. soal dibuat Gemini → diaudit oleh Claude atau GPT) untuk menyerang dan menemukan celah sebelum paket diterbitkan:
+> **Rekomendasi Paket Penuh 110 Soal:** Jangan audit 110 soal dalam 1 prompt tunggal! Jalankan `--export-blind-audit` lalu gunakan **Prompt 6A (TWK), 6B (TIU Blind-Solve), 6C (Figural Multimodal), dan 6D (TKP)** beserta protokol resolusi sengketa lengkap di [CROSS_MODEL_REVIEW.md](file:///d:/ProjectAI/Test-CPNS/docs/question-authoring/CROSS_MODEL_REVIEW.md).
+
+Untuk audit cepat per batch kecil (5–15 soal) pada **sesi chat baru / model berbeda** (mis. soal dibuat Gemini → diaudit Claude atau GPT):
 
 ```text
 Peran: Kamu adalah Auditor Kualitas Soal CPNS yang sangat kritis dan skeptis. Tugasmu BUKAN memuji, melainkan mencari kesalahan, ambiguitas, salah hitung, halusinasi fakta, atau kelemahan soal berikut.
