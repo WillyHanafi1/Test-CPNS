@@ -25,9 +25,17 @@ Seluruh nomor 1–110 ditemukan pada 115 tangkapan layar. Setelah pemeriksaan ul
 | --- | --- |
 | 32 | Premis tidak memastikan bahwa karyawan yang mendapat teguran tanpa potongan insentif termasuk kelompok karyawan yang terlambat. Kunci sumber D tidak mengikuti premis. |
 | 41, 42 | Pemeriksa repositori menandai kemiripan format. Nilai awal, rumus, pilihan, dan hasil berbeda. |
-| 70 | Tabel memberi D = 1 dan E = 4. Uraian memberi D = 4 serta menempatkan E terendah. Uraian C membahas verifikasi dokumen meskipun soal membahas komentar di media sosial. |
-| 86 | Tabel memberi C = 3 dan D = 2. Uraian memberi C = 2 dan D = 3. |
-| 88 | Tabel memberi A = 2 dan B = 3. Uraian memberi A = 3 dan B = 2 serta menukar deskripsi keduanya. |
+| 70 | Sumber asli menempelkan pembahasan soal lain (verifikasi dokumen) dan menukar skor D/E. Pembahasan sudah ditulis ulang sesuai konteks komentar media sosial dan tabel bobot `C=5, E=4, A=3, B=2, D=1` tanpa mengubah bobot. |
+| 73 | Sumber asli menempelkan pembahasan soal lain (keterbukaan informasi). Pembahasan sudah ditulis ulang sesuai konteks perubahan tanggal kehadiran dan tabel bobot `E=5, D=4, C=3, A=2, B=1` tanpa mengubah bobot. |
+| 86 | Sumber asli menukar skor C dan D pada uraian. Uraian sudah diselaraskan dengan tabel bobot `A=5, B=4, C=3, D=2, E=1`. |
+| 88 | Sumber asli menukar skor serta deskripsi A dan B pada uraian. Uraian sudah diselaraskan dengan tabel bobot `C=5, D=4, B=3, A=2, E=1`. |
+
+## Pembersihan ekstraksi (cross-check 22 November 2026)
+
+- Melengkapi baris kedua yang terpotong pada kotak jawaban hijau untuk nomor 66 opsi B, 67 opsi C, dan 84 opsi B sesuai tangkapan layar asli.
+- Memulihkan notasi silogisme yang rusak oleh OCR pada pembahasan nomor 32 dan 33 sesuai tangkapan layar asli.
+- Memperbaiki 92 kesalahan OCR koma terbaca titik (`. ` → `, `) pada 34 soal (termasuk soal tanda baca nomor 30), `Pilihan terbaik adalah 8` → `B` pada nomor 69, karakter `|` → `I` pada nomor 18, serta 70+ salah baca huruf/spasi/tanda hubung OCR (`sesual`, `intemal`, `loT`, `fle`, `verihkasi`, `fieksibilitas`, `radikaksme`, `Pilhan`, `menceminkan`, `OpsiD`, dll.).
+- JSON dan Excel disinkronkan penuh (110 soal, 550 opsi, 0 cacat OCR, 0 kontradiksi pembahasan vs bobot).
 
 Excel dan JSON mempertahankan kunci sumber serta bobot dari tabel SKOR JAWABAN. Topik mengikuti label jika terlihat. Topik TWK dan TIU serta topik nomor 110 ditetapkan dari isi soal dan pola segmen.
 

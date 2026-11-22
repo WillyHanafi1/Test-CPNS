@@ -22,7 +22,7 @@ Nomor 77 memakai `Screenshot 2026-11-22 112435.png` sebagai sumber utama dan `Sc
 
 | Nomor | Temuan |
 | --- | --- |
-| 12 | Penanda Jawaban Benar adalah C. Pembahasan menyebut B, tetapi uraiannya sesuai dengan isi C. |
+| 12 | Penanda Jawaban Benar adalah C dan uraiannya sesuai isi C; salah ketik `Opsi B` pada pembahasan sudah diselaraskan menjadi `Opsi C`. |
 | 24 | Opsi D juga menghilangkan pleonasme dengan kalimat yang lebih ringkas. Kunci sumber C. |
 | 31 | Opsi C paling dekat jika kategori harus berupa kelas taksonomi. Opsi D juga cocok jika cukup memakai kategori bersama karena paus dan cumi-cumi sama-sama hewan air. |
 | 35 | Opsi B dan D ekuivalen secara logika. Pembahasan sumber menyatakan keduanya. Kunci sumber D. |
@@ -31,7 +31,13 @@ Nomor 77 memakai `Screenshot 2026-11-22 112435.png` sebagai sumber utama dan `Sc
 | 39 | Kunci B menghitung 5 rute, termasuk jalur langsung yang rawan longsor. Jika pertanyaan dimaksudkan hanya untuk jalur alternatif yang lebih aman, ada 4 rute. |
 | 40 | Susunan sumber melanggar petunjuk bahwa Bu Nila tidak duduk di dekat Bu Tia. Urutan Salim, Nila, Jufri, Tini, Harto, Tia memenuhi petunjuk dan menghasilkan B. Kunci sumber C. |
 | 58 | Pembahasan menghitung berapa kali tiap toko paling murah per barang. Penjumlahan harga mengonfirmasi kunci A. |
-| 59 | Pembuka menyebut empat toko, sedangkan tabel dan opsi memuat lima. |
+| 59 | Pembuka sumber menyebut empat toko, sedangkan tabel dan opsi memuat lima; pembuka sudah diselaraskan menjadi lima toko. |
+
+## Pembersihan ekstraksi (cross-check 22 November 2026)
+
+- Perbaikan 1 typo OCR pada nomor 86 opsi E (`Melckukan` → `Melakukan`).
+- Perbaikan ejaan/kapitalisasi minor tanpa mengubah kunci maupun bobot skor pada nomor 3, 12, 32, 35, 59, 81, 85, 86, 98, dan 105.
+- JSON dan Excel disinkronkan penuh (110 soal, 550 opsi, 0 mismatch kunci/skor/aset gambar).
 
 ## Format dan verifikasi
 
