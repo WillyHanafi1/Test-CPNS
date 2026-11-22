@@ -6,18 +6,22 @@ import AppShell, { Loading, ErrorPanel } from "@/components/AppShell";
 import { useAuth } from "@/context/AuthContext";
 import { useResource } from "@/lib/useResource";
 import { api, dateLabel, rememberPayment } from "@/lib/api";
-type Offer = {
-  price: number;
-  duration_days: number;
-  environment: string;
-  checkout_available: boolean;
-};
+import type { MembershipOffer } from "@/components/HomeProPrice";
+
 export default function Upgrade() {
   const { user } = useAuth();
   const { data, error, loading, reload } =
-    useResource<Offer>("/membership/offer");
+    useResource<MembershipOffer>("/membership/offer");
   const [busy, setBusy] = useState(false);
   const [payError, setPayError] = useState("");
+  const isEarlyBird =
+    Boolean(data?.is_early_bird) &&
+    typeof data?.normal_price === "number" &&
+    data.normal_price > data.price;
+  const targetPackages = data?.target_packages ?? 60;
+  const hasQris =
+    data?.preferred_payment_method === "QRIS" ||
+    Boolean(data?.payment_methods?.includes("QRIS"));
   return (
     <AppShell
       title="Upgrade ke Paket Pro"
@@ -33,10 +37,11 @@ export default function Upgrade() {
             <h2>Fokus pada latihanmu.</h2>
             <ul className="check-list">
               {[
-                "Akses semua paket soal Pro yang terbit dan siap dikerjakan.",
-                "Pembahasan tersedia setelah latihan selesai.",
-                "Latihan mandiri dapat diulang; acara terjadwal mengikuti aturannya.",
-                "Hasil dan pembahasan sesi sendiri tetap dapat dibaca setelah Pro berakhir.",
+                `Akses semua paket soal Pro yang terbit dan siap dikerjakan, termasuk paket baru yang dirilis hingga target ${targetPackages} paket selama masa aktif.`,
+                "Pembahasan lengkap tersedia setelah latihan selesai.",
+                "Latihan mandiri dapat diulang tanpa batas; acara terjadwal mengikuti aturannya.",
+                "Evaluasi tren skor dan sub-topik kelemahan untuk latihan yang lebih terarah.",
+                "Hasil dan pembahasan sesi sendiri tetap dapat dibaca setelah masa Pro berakhir.",
               ].map((t) => (
                 <li key={t}>
                   <Check size={19} />
@@ -45,19 +50,57 @@ export default function Upgrade() {
               ))}
             </ul>
             <p className="muted">
-              Tidak ada biaya otomatis bulanan. Perpanjangan dilakukan melalui
-              pembelian baru.
+              Sekali bayar untuk 1 tahun ({data.duration_days} hari). Tidak ada
+              perpanjangan otomatis atau auto-debit; perpanjangan dilakukan
+              melalui pembelian baru.
             </p>
             <Link className="muted" href="/catalog">
               Lihat paket yang tersedia →
             </Link>
           </section>
           <aside className="panel stack">
-            <span className="badge">PRO</span>
-            <h2 style={{ fontSize: 40 }}>
-              Rp {data.price.toLocaleString("id-ID")}
-            </h2>
-            <p className="muted">Untuk {data.duration_days} hari akses.</p>
+            <div className="inline" style={{ gap: 8 }}>
+              <span className="badge">PRO</span>
+              {isEarlyBird && data.price_label && (
+                <span className="badge badge-amber">{data.price_label}</span>
+              )}
+            </div>
+            <div>
+              {isEarlyBird && typeof data.normal_price === "number" && (
+                <p
+                  className="muted"
+                  style={{
+                    fontSize: 15,
+                    textDecoration: "line-through",
+                    marginBottom: 2,
+                  }}
+                >
+                  Harga normal Rp {data.normal_price.toLocaleString("id-ID")}
+                </p>
+              )}
+              <h2 style={{ fontSize: 40, lineHeight: 1.1 }}>
+                Rp {data.price.toLocaleString("id-ID")}
+              </h2>
+            </div>
+            <p className="muted">
+              Sekali bayar untuk 1 tahun ({data.duration_days} hari) · tanpa
+              auto-debit.
+            </p>
+            {isEarlyBird && (
+              <p className="muted" style={{ fontSize: 13 }}>
+                Harga {data.price_label || "Early Bird"} mencakup seluruh paket
+                baru yang dirilis bertahap hingga {targetPackages} paket selama
+                masa aktifmu.
+              </p>
+            )}
+            {hasQris && (
+              <div className="notice" style={{ fontSize: 13 }}>
+                Pembayaran tersedia via <strong>QRIS (disarankan — cepat &amp; instan)</strong>
+                {data.payment_methods && data.payment_methods.length > 1
+                  ? " serta Virtual Account melalui DOKU."
+                  : " melalui DOKU."}
+              </div>
+            )}
             {data.environment !== "production" && (
               <div className="notice notice-warning">
                 Mode sandbox. Pembayaran ini adalah simulasi dan bukan

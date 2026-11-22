@@ -328,6 +328,25 @@ async def test_disabled_payments_and_donation_callback_are_rejected(provider, mo
     assert (await client.post('/api/v1/transactions/upgrade-pro')).status_code == 503
 
 
+async def test_membership_offer_early_bird_and_normal_pricing_ladder(provider, monkeypatch, client):
+    offer = (await client.get('/api/v1/membership/offer')).json()
+    assert offer['price'] == 29000
+    assert offer['normal_price'] == 49000
+    assert offer['is_early_bird'] is True
+    assert offer['price_label'] == 'Early Bird'
+    assert offer['duration_days'] == 365
+    assert offer['auto_renew'] is False
+    assert offer['preferred_payment_method'] == 'QRIS'
+    assert offer['payment_methods'][0] == 'QRIS'
+
+    monkeypatch.setattr(settings, 'PRO_PRICE', 49000)
+    normal = (await client.get('/api/v1/membership/offer')).json()
+    assert normal['price'] == 49000
+    assert normal['normal_price'] is None
+    assert normal['is_early_bird'] is False
+    assert normal['price_label'] is None
+
+
 @pytest.mark.skipif(not os.getenv('TEST_DATABASE_URL', '').startswith('postgresql'), reason='Receipt concurrency requires PostgreSQL')
 async def test_simultaneous_webhook_deliveries_create_one_receipt_and_one_grant(provider, client, test_user, db_session):
     await seed_payment(provider, db_session, test_user)

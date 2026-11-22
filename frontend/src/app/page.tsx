@@ -3,6 +3,7 @@ import { ArrowRight, Check, BookOpen, CheckCircle2 } from "lucide-react";
 import AppShell from "@/components/AppShell";
 import HomeTrustStrip from "@/components/HomeTrustStrip";
 import HomeExamPreview from "@/components/HomeExamPreview";
+import HomeProPrice from "@/components/HomeProPrice";
 export default function Home() {
   return (
     <AppShell>
@@ -115,23 +116,20 @@ export default function Home() {
           </article>
 
           <article className="panel stack" style={{ borderColor: "var(--accent-border)" }}>
-            <div className="between">
-              <span className="badge">Paket Pro</span>
-              <strong>Rp30.000 / 365 hari</strong>
-            </div>
+            <HomeProPrice />
             <h3>Latihan dengan lebih banyak paket</h3>
             <ul className="check-list muted">
               <li>
                 <Check size={18} />
-                <span>Akses semua paket soal yang tersedia.</span>
+                <span>Akses semua paket soal Pro yang tersedia, termasuk paket baru yang dirilis selama masa aktif.</span>
               </li>
               <li>
                 <Check size={18} />
-                <span>Baca pembahasan, lihat tren nilai, dan kenali topik yang perlu dilatih lagi.</span>
+                <span>Baca pembahasan, lihat tren nilai, dan kenali sub-topik yang perlu dilatih lagi.</span>
               </li>
               <li>
                 <Check size={18} />
-                <span>Bayar sekali untuk 365 hari, tanpa perpanjangan otomatis.</span>
+                <span>Sekali bayar untuk 1 tahun (365 hari). Tidak ada perpanjangan otomatis / auto-debit.</span>
               </li>
             </ul>
             <Link className="button" href="/catalog/upgrade">

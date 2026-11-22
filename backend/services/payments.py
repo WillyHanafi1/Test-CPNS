@@ -55,12 +55,12 @@ async def begin_checkout(db, user, transaction_type, amount, callback_url=None, 
         prefix = 'PRO' if transaction_type == 'pro_upgrade' else 'DONATE'
         transaction = UserTransaction(user_id=user.id, transaction_type=transaction_type,
             order_id=f'{prefix}-{uuid.uuid4().hex[:24]}', amount=amount, payment_status='pending',
-            duration_days=365 if transaction_type == 'pro_upgrade' else None,
+            duration_days=settings.PRO_DURATION_DAYS if transaction_type == 'pro_upgrade' else None,
             message=message, is_anonymous=is_anonymous, payment_environment=settings.DOKU_ENVIRONMENT,
             payment_client_id=settings.DOKU_CLIENT_ID)
         db.add(transaction)
         await db.flush()
-        item = 'TOCPNS Pro - 365 hari akses semua paket' if transaction_type == 'pro_upgrade' else 'Dukungan Komunitas TOCPNS'
+        item = f'TOCPNS Pro - {settings.PRO_DURATION_DAYS} hari akses semua paket' if transaction_type == 'pro_upgrade' else 'Dukungan Komunitas TOCPNS'
         transaction.payment_request_body = doku_service.build_checkout_body(transaction.order_id, amount,
             [{'id': transaction_type, 'price': amount, 'quantity': 1, 'name': item}],
             {'email': user.email, 'first_name': user.email.split('@')[0]}, callback_url)

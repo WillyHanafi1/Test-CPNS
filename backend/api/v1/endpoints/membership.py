@@ -8,10 +8,25 @@ router = APIRouter(prefix="/membership", tags=["membership"])
 
 @router.get("/offer")
 async def offer():
-    return {"id": "pro-365", "name": "Pro", "price": settings.PRO_PRICE, "currency": "IDR",
-            "duration_days": 365, "environment": settings.DOKU_ENVIRONMENT,
-            "checkout_available": settings.doku_checkout_available,
-            "payment_methods": settings.doku_payment_methods}
+    is_early_bird = settings.PRO_NORMAL_PRICE > settings.PRO_PRICE
+    methods = settings.doku_payment_methods
+    preferred_method = "QRIS" if "QRIS" in methods else (methods[0] if methods else None)
+    return {
+        "id": f"pro-{settings.PRO_DURATION_DAYS}",
+        "name": "Pro",
+        "price": settings.PRO_PRICE,
+        "normal_price": settings.PRO_NORMAL_PRICE if is_early_bird else None,
+        "is_early_bird": is_early_bird,
+        "price_label": settings.PRO_PRICE_LABEL if is_early_bird else None,
+        "target_packages": settings.PRO_TARGET_PACKAGES,
+        "currency": "IDR",
+        "duration_days": settings.PRO_DURATION_DAYS,
+        "auto_renew": False,
+        "environment": settings.DOKU_ENVIRONMENT,
+        "checkout_available": settings.doku_checkout_available,
+        "payment_methods": methods,
+        "preferred_payment_method": preferred_method,
+    }
 
 
 @router.get("/me")

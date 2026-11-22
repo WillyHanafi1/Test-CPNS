@@ -10,7 +10,7 @@
     "test:unit": "node --import tsx --test tests/*.test.mts",
     "typecheck": "tsc --noEmit",
     "lint:admin": "eslint src/app/admin src/components/admin src/hooks/useQuestions.ts src/types/admin.ts src/lib/admin-format.ts",
-    "lint:participant": "eslint src/app src/components/AppShell.tsx src/components/HomeExamPreview.tsx src/components/HomeTrustStrip.tsx src/components/Modal.tsx src/components/PackageCard.tsx src/components/admin src/context/AuthContext.tsx src/features src/hooks/useQuestions.ts src/store/useExamStore.ts src/lib/api.ts src/lib/admin-format.ts src/lib/contact.ts src/lib/home-stats.ts src/lib/useResource.ts src/types/admin.ts src/components/ThemeToggle.tsx src/context/ThemeContext.tsx src/lib/theme.ts src/components/DonationModal.tsx src/components/donations src/lib/donations.ts",
+    "lint:participant": "eslint src/app src/components/AppShell.tsx src/components/HomeExamPreview.tsx src/components/HomeProPrice.tsx src/components/HomeTrustStrip.tsx src/components/Modal.tsx src/components/PackageCard.tsx src/components/admin src/context/AuthContext.tsx src/features src/hooks/useQuestions.ts src/store/useExamStore.ts src/lib/api.ts src/lib/admin-format.ts src/lib/contact.ts src/lib/home-stats.ts src/lib/useResource.ts src/types/admin.ts src/components/ThemeToggle.tsx src/context/ThemeContext.tsx src/lib/theme.ts src/components/DonationModal.tsx src/components/donations src/lib/donations.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",

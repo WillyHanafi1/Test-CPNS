@@ -94,8 +94,12 @@ class Settings(BaseSettings):
     # Donation Settings
     DONATION_MONTHLY_GOAL: int = int(os.getenv("DONATION_MONTHLY_GOAL", "2000000"))
     
-    # Business Logic Constants
-    PRO_PRICE: int = 30000
+    # Business Logic Constants (Early Bird -> Normal pricing ladder)
+    PRO_PRICE: int = Field(default=29000, ge=1000)
+    PRO_NORMAL_PRICE: int = Field(default=49000, ge=1000)
+    PRO_PRICE_LABEL: str = "Early Bird"
+    PRO_DURATION_DAYS: int = Field(default=365, ge=1)
+    PRO_TARGET_PACKAGES: int = Field(default=60, ge=1)
 
     @property
     def cors_origins_list(self) -> list[str]:
