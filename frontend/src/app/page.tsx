@@ -117,7 +117,7 @@ export default function Home() {
           <article className="panel stack" style={{ borderColor: "var(--accent-border)" }}>
             <div className="between">
               <span className="badge">Paket Pro</span>
-              <strong>Rp50.000 / 365 hari</strong>
+              <strong>Rp30.000 / 365 hari</strong>
             </div>
             <h3>Latihan dengan lebih banyak paket</h3>
             <ul className="check-list muted">

@@ -95,7 +95,7 @@ class Settings(BaseSettings):
     DONATION_MONTHLY_GOAL: int = int(os.getenv("DONATION_MONTHLY_GOAL", "2000000"))
     
     # Business Logic Constants
-    PRO_PRICE: int = 50000
+    PRO_PRICE: int = 30000
 
     @property
     def cors_origins_list(self) -> list[str]:

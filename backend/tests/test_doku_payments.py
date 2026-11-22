@@ -126,6 +126,9 @@ async def test_timeout_retry_reuses_durable_invoice_and_exact_request(provider, 
     assert first.status_code == 503
     row = await db_session.scalar(select(UserTransaction))
     assert row.payment_status == 'pending' and row.payment_request_body and row.payment_url is None
+    offer = await client.get('/api/v1/membership/offer')
+    assert row.amount == offer.json()['price'] == settings.PRO_PRICE
+    assert json.loads(row.payment_request_body)['order']['amount'] == row.amount
     again = await client.post('/api/v1/transactions/upgrade-pro')
     assert again.status_code == 200, again.text
     assert calls[0]['request_id'] == calls[1]['request_id'] == str(row.id)
