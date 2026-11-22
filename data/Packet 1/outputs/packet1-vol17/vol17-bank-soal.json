@@ -2885,15 +2885,17 @@
         }
       ],
       "answer_key": "C",
-      "discussion": "Berdasarkan tabel pembahasan, Rina dan Dedi memenuhi tiga ambang batas. Sari tidak lolos Matematika, Wati tidak lolos Matematika dan IPA, dan Budi tidak lolos Bahasa Inggris.",
+      "discussion": "Hanya Rina dan Dedi yang memenuhi tiga ambang batas dan lolos ke wawancara. Sari tidak lolos Matematika, Wati tidak lolos Matematika dan IPA, dan Budi tidak lolos Bahasa Inggris.",
       "source_screenshots": {
-        "primary": "Screenshot 2026-11-19 190428.png",
-        "alternates": []
+        "primary": "Screenshot 2026-11-22 115714.png",
+        "alternates": [
+          "Screenshot 2026-11-19 190428.png"
+        ]
       },
       "review_notes": [
         {
           "code": "discussion_adapted",
-          "message": "Pembahasan diringkas dari tabel. Bagian bawah tangkapan membatasi pemeriksaan kelanjutan teks."
+          "message": "Pembahasan merangkum tabel dan kesimpulan yang terlihat pada tangkapan tambahan."
         }
       ],
       "discussion_images": [],
@@ -2988,8 +2990,7 @@
               ]
             ]
           }
-        ],
-        "discussion_capture": "visible_portion"
+        ]
       }
     },
     {
@@ -3192,19 +3193,14 @@
         }
       ],
       "answer_key": "C",
-      "discussion": "Semua objek berotasi 90° searah jarum jam. Objek pertama di bawah mengalami inversi warna dan berganti sisi terhadap tanda panah. Dua bentuk berikut berotasi 180° dan juga mengalami inversi warna.\n\n![Simbol pada pembahasan](gambar/vol17-060-pembahasan.png)",
+      "discussion": "Pola rotasi umumnya 90° searah jarum jam. Simbol pertama mengalami inversi warna dan bergantian posisi di kiri dan kanan tanda panah. Dua simbol berikutnya berotasi 180° dan mengalami inversi warna. Pola tersebut menghasilkan opsi C.\n\n![Simbol pada pembahasan](gambar/vol17-060-pembahasan.png)",
       "source_screenshots": {
-        "primary": "Screenshot 2026-11-19 190453.png",
+        "primary": "Screenshot 2026-11-22 115722.png",
         "alternates": [
+          "Screenshot 2026-11-19 190453.png",
           "Screenshot 2026-11-19 190445.png"
         ]
       },
-      "review_notes": [
-        {
-          "code": "source_crop",
-          "message": "Isi utama tersedia. Bagian bawah pembahasan berada di tepi tangkapan."
-        }
-      ],
       "discussion_images": [
         {
           "path": "gambar/vol17-060-pembahasan.png",
@@ -3212,8 +3208,7 @@
         }
       ],
       "source_details": {
-        "discussion_transcription": "Semua objek berotasi 90° searah jarum jam dengan keterangan:\n\nObjek di bawah ini mengalami inversi warna dan posisinya bergantian di kiri dan kanan objek tanda panah.\n\nObjek di bawah ini mengalami rotasi 180° dan terjadi juga inversi warna.",
-        "discussion_capture": "visible_portion"
+        "discussion_transcription": "Semua objek berotasi 90° searah jarum jam dengan keterangan:\n\nObjek di bawah ini mengalami inversi warna dan posisinya bergantian di kiri dan kanan objek tanda panah.\n\nObjek di bawah ini mengalami rotasi 180° dan terjadi juga inversi warna."
       }
     },
     {
@@ -3465,21 +3460,16 @@
         }
       ],
       "answer_key": "E",
-      "discussion": "Setiap baris harus memuat garis mendatar, garis menurun, garis miring kiri, garis miring kanan, kotak, setengah lingkaran, dan segitiga. Dalam setiap baris juga harus ada tiga warna: abu-abu, hitam, dan putih.",
+      "discussion": "Setiap baris harus memuat garis mendatar, garis menurun, garis miring kiri, garis miring kanan, kotak, setengah lingkaran, dan segitiga. Dalam setiap baris juga harus ada tiga warna: abu-abu, hitam, dan putih. Pasangan gambar pada opsi E memenuhi pola tersebut.",
       "source_screenshots": {
-        "primary": "Screenshot 2026-11-19 190516.png",
-        "alternates": []
+        "primary": "Screenshot 2026-11-22 115727.png",
+        "alternates": [
+          "Screenshot 2026-11-19 190516.png"
+        ]
       },
-      "review_notes": [
-        {
-          "code": "source_crop",
-          "message": "Isi utama tersedia. Bagian bawah pembahasan berada di tepi tangkapan."
-        }
-      ],
       "discussion_images": [],
       "source_details": {
-        "discussion_transcription": "Setiap objek harus ada pada setiap baris yaitu:\n\ngaris mendatar, garis menurun, garis miring kiri, garis miring kanan, kotak, setengah lingkaran, segitiga, dan harus ada 3 warna (abu, hitam, putih).",
-        "discussion_capture": "visible_portion"
+        "discussion_transcription": "Setiap objek harus ada pada setiap baris yaitu:\n\ngaris mendatar, garis menurun, garis miring kiri, garis miring kanan, kotak, setengah lingkaran, segitiga, dan harus ada 3 warna (abu, hitam, putih)."
       }
     },
     {

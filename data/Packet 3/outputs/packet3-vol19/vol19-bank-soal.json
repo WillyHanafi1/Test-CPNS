@@ -2322,31 +2322,31 @@
       "options": [
         {
           "label": "A",
-          "content": "",
+          "content": "$3\\frac{1}{5}$",
           "score": 0,
           "image": null
         },
         {
           "label": "B",
-          "content": "",
+          "content": "$2\\frac{1}{5}$",
           "score": 0,
           "image": null
         },
         {
           "label": "C",
-          "content": "",
+          "content": "$1\\frac{3}{5}$",
           "score": 5,
           "image": null
         },
         {
           "label": "D",
-          "content": "",
+          "content": "$1\\frac{5}{3}$",
           "score": 0,
           "image": null
         },
         {
           "label": "E",
-          "content": "",
+          "content": "$2\\frac{3}{5}$",
           "score": 0,
           "image": null
         }
@@ -2354,26 +2354,13 @@
       "answer_key": "C",
       "discussion": "$\\frac{10}{3}\\times\\frac{6}{5}\\times\\frac{3}{10}+\\frac{2}{5}=\\frac{6}{5}+\\frac{2}{5}=\\frac{8}{5}=1\\frac{3}{5}$.",
       "source_screenshots": {
-        "primary": "Screenshot 2026-11-22 112210.png",
-        "alternates": []
-      },
-      "discussion_images": [],
-      "recorded_answer": null,
-      "source_details": {
-        "missing_option_contents": [
-          "A",
-          "B",
-          "C",
-          "D",
-          "E"
+        "primary": "Screenshot 2026-11-22 115527.png",
+        "alternates": [
+          "Screenshot 2026-11-22 112210.png"
         ]
       },
-      "review_notes": [
-        {
-          "code": "missing_option_contents",
-          "message": "Kelima label A–E terlihat tanpa isi opsi. Jawaban Benar menunjukkan C dan pembahasan menghasilkan 1 3/5. Isi opsi perlu dilengkapi dari sumber sebelum soal digunakan."
-        }
-      ]
+      "discussion_images": [],
+      "recorded_answer": null
     },
     {
       "id": "viracun-skd-vol19-047",
@@ -3110,10 +3097,12 @@
         }
       ],
       "answer_key": "D",
-      "discussion": "Harga akhir setelah potongan: Toko A Rp1.125.000, Toko B Rp1.130.000, Toko C Rp1.120.000, Toko D Rp1.105.000, dan Toko E Rp1.105.500 setelah cashback. Harga terendah adalah Toko D.",
+      "discussion": "Harga akhir setelah potongan: Toko A Rp1.125.000, Toko B Rp1.130.000, dan Toko C Rp1.120.000. Toko D memberi diskon 15% sehingga harganya Rp1.105.000. Toko E memberi diskon 3% sehingga harganya Rp1.115.500 sebelum cashback dan Rp1.105.500 sesudahnya. Jadi Toko D termurah, Rp500 di bawah Toko E.",
       "source_screenshots": {
-        "primary": "Screenshot 2026-11-22 112300.png",
-        "alternates": []
+        "primary": "Screenshot 2026-11-22 115538.png",
+        "alternates": [
+          "Screenshot 2026-11-22 112300.png"
+        ]
       },
       "discussion_images": [],
       "recorded_answer": null,
@@ -3183,17 +3172,12 @@
               ]
             ]
           }
-        ],
-        "discussion_capture": "visible_portion"
+        ]
       },
       "review_notes": [
         {
           "code": "source_count_mismatch",
           "message": "Pembuka menyebut empat toko, tetapi tabel dan opsi memuat lima. Kelima toko dipertahankan."
-        },
-        {
-          "code": "source_crop",
-          "message": "Perhitungan Toko E terlihat di tepi bawah tangkapan. Kelanjutan di bawahnya belum dapat dipastikan."
         }
       ]
     },

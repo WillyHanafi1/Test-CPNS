@@ -3555,10 +3555,12 @@
         }
       ],
       "answer_key": "E",
-      "discussion": "Secara horizontal maupun vertikal, jika digabung harus memuat semua unsur bangun berikut.![Gabungan unsur bangun pada matriks](gambar/vol18-064-pembahasan.png)",
+      "discussion": "Jika isi kotak pada setiap baris atau kolom digabung, hasilnya memuat segi enam, bintang, lingkaran hitam, dan oval, serta garis pembagi mendatar dan tegak. Baris ketiga sudah memiliki keempat bangun dan garis tegak. Opsi E melengkapi garis mendatar.\n\n![Gabungan unsur bangun pada matriks](gambar/vol18-064-pembahasan.png)",
       "source_screenshots": {
-        "primary": "Screenshot 2026-11-19 202242.png",
-        "alternates": []
+        "primary": "Screenshot 2026-11-22 115815.png",
+        "alternates": [
+          "Screenshot 2026-11-19 202242.png"
+        ]
       },
       "discussion_images": [
         {
@@ -3569,16 +3571,7 @@
       "recorded_answer": {
         "label": "E",
         "score": 5
-      },
-      "source_details": {
-        "discussion_capture": "visible_portion"
-      },
-      "review_notes": [
-        {
-          "code": "source_crop",
-          "message": "Diagram pembahasan terbaca. Kelanjutan di bawah diagram berada di luar tangkapan layar."
-        }
-      ]
+      }
     },
     {
       "id": "viracun-skd-vol18-065",
@@ -3620,25 +3613,18 @@
         }
       ],
       "answer_key": "D",
-      "discussion": "Secara horizontal, kotak 1 + kotak 2 = kotak 3 dengan perubahan warna (inversi).",
+      "discussion": "Secara horizontal, kotak 1 + kotak 2 = kotak 3 dengan perubahan warna (inversi). Pada baris ketiga, gabungan tersebut menghasilkan pilihan D untuk kotak yang kosong.",
       "source_screenshots": {
-        "primary": "Screenshot 2026-11-19 202250.png",
-        "alternates": []
+        "primary": "Screenshot 2026-11-22 115820.png",
+        "alternates": [
+          "Screenshot 2026-11-19 202250.png"
+        ]
       },
       "discussion_images": [],
       "recorded_answer": {
         "label": "A",
         "score": 0
-      },
-      "source_details": {
-        "discussion_capture": "visible_portion"
-      },
-      "review_notes": [
-        {
-          "code": "source_crop",
-          "message": "Baris penjelasan inversi warna terbaca. Tangkapan layar berakhir segera setelah baris tersebut."
-        }
-      ]
+      }
     },
     {
       "id": "viracun-skd-vol18-066",

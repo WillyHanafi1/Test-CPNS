@@ -2437,8 +2437,10 @@
       "answer_key": "C",
       "discussion": "Mesin menghasilkan 24 unit dalam 3 jam. Waktu kerja efektif berikutnya adalah $7{,}5-0{,}5=7$ jam. Dengan laju tetap, hasilnya $\\frac{24}{3}\\times7=56$ unit.",
       "source_screenshots": {
-        "primary": "Screenshot 2026-11-22 113435.png",
-        "alternates": []
+        "primary": "Screenshot 2026-11-22 115614.png",
+        "alternates": [
+          "Screenshot 2026-11-22 113435.png"
+        ]
       },
       "discussion_images": [],
       "recorded_answer": null,
@@ -2461,15 +2463,8 @@
               ]
             ]
           }
-        ],
-        "discussion_capture": "visible_portion"
-      },
-      "review_notes": [
-        {
-          "code": "source_crop",
-          "message": "Bagian bawah baris Jawaban pada pembahasan terpotong. Hasil 56 unit dan pilihan C berwarna hijau terlihat utuh."
-        }
-      ]
+        ]
+      }
     },
     {
       "id": "skd-casn-2026-part27-047",
@@ -3095,27 +3090,27 @@
         }
       ],
       "answer_key": "A",
-      "discussion": "Pada gambar (1) sampai (4), objek di kotak merah tetap. Objek di bagian bawah dan kanan bergeser berlawanan arah jarum jam.\n\n![Kotak tetap dan pergeseran objek pada empat gambar deret](gambar/part27-057-pembahasan.png)",
+      "discussion": "Pada gambar (1) sampai (4), objek di kotak merah tetap. Objek di bagian bawah dan kanan bergeser berlawanan arah jarum jam. Pola tersebut menghasilkan gambar (5) pada opsi A.\n\n![Kotak tetap dan pergeseran objek pada empat gambar deret](gambar/part27-057-pembahasan.png)\n\n![Gambar kelima yang ditunjukkan pada pembahasan](gambar/part27-057-pembahasan-hasil.png)",
       "source_screenshots": {
         "primary": "Screenshot 2026-11-22 113513.png",
-        "alternates": []
+        "alternates": [
+          "Screenshot 2026-11-22 115625.png"
+        ]
       },
       "discussion_images": [
         {
           "path": "gambar/part27-057-pembahasan.png",
           "alt": "Kotak tetap dan pergeseran objek pada empat gambar deret"
+        },
+        {
+          "path": "gambar/part27-057-pembahasan-hasil.png",
+          "alt": "Gambar kelima yang ditunjukkan pada pembahasan"
         }
       ],
       "recorded_answer": null,
       "source_details": {
-        "discussion_capture": "visible_portion"
-      },
-      "review_notes": [
-        {
-          "code": "source_crop",
-          "message": "Tangkapan berakhir pada langkah kedua pembahasan. Kelanjutan dan baris jawaban pembahasan belum tersedia. Opsi A ditandai hijau pada soal."
-        }
-      ]
+        "discussion_screenshot": "Screenshot 2026-11-22 115625.png"
+      }
     },
     {
       "id": "skd-casn-2026-part27-058",

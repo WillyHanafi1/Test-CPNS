@@ -1,6 +1,6 @@
 # Packet 3 · Tryout SKD Vol. 19
 
-Seluruh nomor 1–110 ditemukan pada 111 tangkapan layar. Nomor 77 memiliki satu tangkapan tambahan. Isi opsi A–E nomor 46 belum tersedia pada tangkapan sumber.
+Seluruh nomor 1–110 ditemukan pada 113 tangkapan layar. Setelah pemeriksaan ulang pada 22 November 2026, semua nomor memiliki isi soal, lima opsi, kunci, bobot, dan pembahasan.
 
 | Segmen | Jumlah | Rentang |
 | --- | ---: | --- |
@@ -11,10 +11,10 @@ Seluruh nomor 1–110 ditemukan pada 111 tangkapan layar. Nomor 77 memiliki satu
 
 ## Kelengkapan sumber
 
-| Nomor | Bagian yang perlu dilengkapi atau dikonfirmasi | Tangkapan layar |
+| Nomor | Bagian yang dilengkapi atau dikonfirmasi | Tangkapan layar |
 | --- | --- | --- |
-| 46 | Label A–E tampil tanpa isi. Kunci C dan hasil perhitungan 1 3/5 terlihat. Isi kelima opsi masih kosong di Excel dan JSON. | `Screenshot 2026-11-22 112210.png` |
-| 59 | Perhitungan Toko E terlihat di tepi bawah. Kelanjutan pembahasan setelah baris tersebut belum dapat dipastikan. | `Screenshot 2026-11-22 112300.png` |
+| 46 | Kelima opsi terbaca dan sudah diisi dalam Excel dan JSON. Kunci C bernilai 1 3/5. Opsi D mempertahankan bentuk 1 5/3 dari sumber. | `Screenshot 2026-11-22 115527.png` |
+| 59 | Harga akhir kelima toko terbaca, termasuk Toko E Rp1.105.500 sesudah cashback. Kunci D termurah dengan Rp1.105.000. | `Screenshot 2026-11-22 115538.png` |
 
 Nomor 77 memakai `Screenshot 2026-11-22 112435.png` sebagai sumber utama dan `Screenshot 2026-11-22 112406.png` sebagai sumber tambahan.
 
@@ -35,9 +35,9 @@ Nomor 77 memakai `Screenshot 2026-11-22 112435.png` sebagai sumber utama dan `Sc
 
 ## Format dan verifikasi
 
-`vol19-bank-soal.json` menyimpan ID stabil, topik, lima opsi, bobot, kunci, pembahasan, dan sumber per soal. `source_details` menyimpan delapan tabel terstruktur dan penanda pembahasan yang perlu dikonfirmasi. `recorded_answer` memuat 13 pilihan yang terlihat pada Jawaban Kamu, dengan 97 nilai `null`. Rumus memakai LaTeX. Enam gambar soal dan lima ilustrasi pembahasan merujuk ke jalur relatif di `gambar`.
+`vol19-bank-soal.json` menyimpan ID stabil, topik, lima opsi, bobot, kunci, pembahasan, dan sumber per soal. `source_details` menyimpan delapan tabel terstruktur. `recorded_answer` memuat 13 pilihan yang terlihat pada Jawaban Kamu, dengan 97 nilai `null`. Rumus memakai LaTeX. Enam gambar soal dan lima ilustrasi pembahasan merujuk ke jalur relatif di `gambar`.
 
-`vol19-impor-draft.xlsx` memakai kolom impor TOCPNS seperti Packet 1 dan 2. Pengujian dengan basis data sementara berhasil mengimpor 110 baris dan 550 opsi ke draft. Validasi penerbitan menandai nomor 46 karena isi opsi kosong. Tinjau juga temuan pada kunci dan premis sebelum menerbitkan paket.
+`vol19-impor-draft.xlsx` memakai kolom impor TOCPNS seperti Packet 1 dan 2. Pengujian dengan basis data sementara berhasil mengimpor 110 baris dan 550 opsi ke draft. Seluruh baris lolos validasi struktur penerbitan. Temuan kualitas pada kunci dan premis tercatat di atas.
 
 ## Impor ke TOCPNS lokal
 

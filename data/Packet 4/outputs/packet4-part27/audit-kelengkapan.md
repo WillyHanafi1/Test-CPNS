@@ -1,6 +1,6 @@
 # Packet 4 · Try Out SKD CASN 2026 – Part 27
 
-Seluruh nomor 1–110 ditemukan pada 113 tangkapan layar. Setiap soal memiliki lima opsi, kunci, dan bobot. Pembahasan nomor 57 belum tersedia sampai akhir.
+Seluruh nomor 1–110 ditemukan pada 115 tangkapan layar. Setelah pemeriksaan ulang pada 22 November 2026, semua nomor memiliki isi soal, lima opsi, kunci, bobot, dan pembahasan.
 
 | Segmen | Jumlah | Rentang |
 | --- | ---: | --- |
@@ -11,14 +11,11 @@ Seluruh nomor 1–110 ditemukan pada 113 tangkapan layar. Setiap soal memiliki l
 
 ## Kelengkapan sumber
 
-| Nomor | Bagian yang perlu dilengkapi atau dikonfirmasi | Tangkapan layar |
-| --- | --- | --- |
-| 46 | Bagian bawah baris Jawaban di pembahasan terpotong. Hasil perhitungan 56 unit dan penanda opsi C di bagian soal terlihat utuh. | `Screenshot 2026-11-22 113435.png` |
-| 57 | Pembahasan berhenti pada penjelasan pergeseran objek. Kelanjutan dan baris jawaban pembahasan belum terlihat. Soal, lima opsi, gambar pembahasan yang tampak, dan penanda kunci A tersimpan. | `Screenshot 2026-11-22 113513.png` |
-
 | Nomor | Bagian yang dilengkapi | Tangkapan layar tambahan |
 | --- | --- | --- |
 | 45 | Perbandingan A : B, tabel evaluasi opsi, dan baris kunci. | `Screenshot 2026-11-22 113430.png` |
+| 46 | Pembahasan terlihat sampai baris Jawaban C yang mengonfirmasi hasil 56 unit. | `Screenshot 2026-11-22 115614.png` |
+| 57 | Penjelasan lanjutan, gambar kelima, dan baris Jawaban A tersimpan. Tangkapan awal tetap menjadi sumber bagian soal. | `Screenshot 2026-11-22 115625.png` |
 | 64 | Kelanjutan penjelasan, diagram baris ketiga, dan kunci. | `Screenshot 2026-11-22 113641.png` |
 | 65 | Pembahasan dan seluruh diagram jawaban. | `Screenshot 2026-11-22 113654.png` |
 
@@ -36,9 +33,9 @@ Excel dan JSON mempertahankan kunci sumber serta bobot dari tabel SKOR JAWABAN. 
 
 ## Format dan verifikasi
 
-`part27-bank-soal.json` memuat ID stabil, nomor, topik, opsi, bobot, kunci, pembahasan, dan nama tangkapan layar. `source_details` memuat 13 tabel terstruktur, di luar 45 tabel bobot TKP yang tersimpan langsung pada opsi. `recorded_answer` memuat 11 jawaban yang tampak, dengan 99 nilai `null`. Rumus ditulis dalam LaTeX. Sembilan gambar soal dan 20 ilustrasi pembahasan tersimpan di `gambar`.
+`part27-bank-soal.json` memuat ID stabil, nomor, topik, opsi, bobot, kunci, pembahasan, dan nama tangkapan layar. `source_details` memuat 13 tabel terstruktur, di luar 45 tabel bobot TKP yang tersimpan langsung pada opsi. `recorded_answer` memuat 11 jawaban yang tampak, dengan 99 nilai `null`. Rumus ditulis dalam LaTeX. Sembilan gambar soal dan 21 ilustrasi pembahasan tersimpan di `gambar`.
 
-`part27-impor-draft.xlsx` memakai kolom impor TOCPNS seperti paket sebelumnya. Pengujian pada basis data sementara berhasil mengimpor 110 baris dan 550 opsi. Seluruh baris lolos validasi struktur penerbitan. Nomor 57 dan temuan kualitas di atas masih perlu ditinjau sebelum paket dipakai peserta.
+`part27-impor-draft.xlsx` memakai kolom impor TOCPNS seperti paket sebelumnya. Pengujian pada basis data sementara berhasil mengimpor 110 baris dan 550 opsi. Seluruh baris lolos validasi struktur penerbitan. Temuan kualitas pada premis dan bobot tercatat di atas.
 
 ## Impor ke TOCPNS lokal
 
