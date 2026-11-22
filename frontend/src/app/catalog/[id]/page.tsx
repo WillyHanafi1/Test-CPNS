@@ -9,6 +9,7 @@ import {
   BookOpen,
   Clock3,
   FileText,
+  Sparkles,
 } from "lucide-react";
 import AppShell, { ErrorPanel, Loading } from "@/components/AppShell";
 import { useAuth } from "@/context/AuthContext";
@@ -174,6 +175,9 @@ export default function PackageDetail() {
           <span>
             <BookOpen size={17} aria-hidden="true" /> TWK, TIU, TKP
           </span>
+          <span>
+            <Sparkles size={17} aria-hidden="true" /> Soal HOTS
+          </span>
         </div>
         {pack.is_weekly && (
           <p className="muted">
@@ -203,8 +207,10 @@ export default function PackageDetail() {
                 server sebelum tenggat yang dinilai.
               </p>
               <p className="muted">
-                Kamu bisa lompat nomor dan menandai soal yang masih ragu. Hasil
-                dan pembahasan tersedia setelah ujian selesai.
+                Seluruh soal pada paket ini bertipe <strong>HOTS</strong> sesuai
+                referensi peserta ujian CPNS sebelumnya. Kamu bisa lompat nomor
+                dan menandai soal yang masih ragu. Hasil dan pembahasan tersedia
+                setelah ujian selesai.
               </p>
             </div>
           )

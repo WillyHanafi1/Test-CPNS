@@ -3,7 +3,6 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowRight,
   Flag,
   LayoutGrid,
   CheckCircle2,
@@ -49,6 +48,14 @@ export default function Runner({ id }: { id: string }) {
   const [zoom, setZoom] = useState<ExamImage | null>(null);
   const submitting = useRef(false);
   const questionHeading = useRef<HTMLHeadingElement>(null);
+  const cancelFinishRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!confirm) return;
+    const frame = requestAnimationFrame(() => {
+      cancelFinishRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [confirm]);
   const refreshAttempt = useCallback(
     async (signal?: AbortSignal) => {
       if (!ownerId) return;
@@ -333,6 +340,26 @@ export default function Runner({ id }: { id: string }) {
     />
   );
 
+  const unanswered = Math.max(0, total - answered);
+  const finishMapButton = (
+    <div className={styles.mapFinishWrap}>
+      <button
+        type="button"
+        className={`button ${styles.finishButton} ${styles.mapFinish}`}
+        disabled={!canFinish}
+        onClick={requestFinish}
+      >
+        <span className={styles.finishLabel}>
+          <CheckCircle2 size={16} aria-hidden="true" />
+          {state.timeLeft === 0 ? "Periksa pengumpulan" : "Selesai ujian"}
+        </span>
+        <span className={styles.finishCount}>
+          {answered}/{total}
+        </span>
+      </button>
+    </div>
+  );
+
   return (
     <ExamFrame
       stage="Ujian"
@@ -348,14 +375,22 @@ export default function Runner({ id }: { id: string }) {
         </div>
       }
       action={
-        <button
-          type="button"
-          className={`button button-small ${styles.headerAction}`}
-          disabled={!canFinish}
-          onClick={requestFinish}
-        >
-          {state.timeLeft === 0 ? "Periksa pengumpulan" : "Selesai"}
-        </button>
+        <span className={styles.headerActionGroup}>
+          <button
+            type="button"
+            className={`button button-small ${styles.headerFinish}`}
+            disabled={!canFinish}
+            onClick={requestFinish}
+          >
+            <CheckCircle2 size={15} aria-hidden="true" />
+            <span className={styles.headerFinishFull}>
+              {state.timeLeft === 0 ? "Periksa pengumpulan" : "Selesai ujian"}
+            </span>
+            <span className={styles.headerFinishShort}>
+              {state.timeLeft === 0 ? "Periksa" : "Selesai"}
+            </span>
+          </button>
+        </span>
       }
     >
       <header className={styles.context}>
@@ -519,54 +554,75 @@ export default function Runner({ id }: { id: string }) {
             <h2>Daftar soal</h2>
             <LayoutGrid size={18} aria-hidden="true" />
           </div>
-          {renderNavigator(
-            <button
-              type="button"
-              className={`button button-secondary ${styles.mapFinish}`}
-              disabled={!canFinish}
-              onClick={requestFinish}
-            >
-              {state.timeLeft === 0 ? "Periksa pengumpulan" : "Kumpulkan ujian"}{" "}
-              <ArrowRight size={16} aria-hidden="true" />
-            </button>,
-          )}
+          {renderNavigator(finishMapButton)}
         </aside>
       </div>
       <Modal open={nav} title="Daftar soal" onClose={() => setNav(false)}>
-        {nav && renderNavigator()}
+        {nav && renderNavigator(finishMapButton)}
       </Modal>
       <Modal
         open={confirm}
-        title="Kumpulkan jawaban?"
+        title="Selesaikan dan kumpulkan ujian?"
         onClose={() => setConfirm(false)}
       >
-        <p className="muted">
-          {answered} dijawab · {total - answered} kosong · {doubts} ragu.
-        </p>
-        {pending > 0 && (
+        <div className={styles.confirmSummary} aria-label="Ringkasan jawaban">
+          <div className={styles.confirmStat} data-tone="saved">
+            <span>Dijawab</span>
+            <strong>{answered}</strong>
+          </div>
+          <div
+            className={styles.confirmStat}
+            data-tone={doubts > 0 ? "warning" : "neutral"}
+          >
+            <span>Ragu-ragu</span>
+            <strong>{doubts}</strong>
+          </div>
+          <div
+            className={styles.confirmStat}
+            data-tone={unanswered > 0 ? "danger" : "neutral"}
+          >
+            <span>Belum dijawab</span>
+            <strong>{unanswered}</strong>
+          </div>
+        </div>
+        {(unanswered > 0 || doubts > 0) && state.timeLeft > 0 && (
           <p className="notice notice-warning">
-            {pending} jawaban masih menunggu konfirmasi.
+            Masih ada{" "}
+            {unanswered > 0 ? `${unanswered} soal kosong` : ""}
+            {unanswered > 0 && doubts > 0 ? " dan " : ""}
+            {doubts > 0 ? `${doubts} soal ragu-ragu` : ""} dengan sisa waktu{" "}
+            {clock}.
           </p>
         )}
-        <p>Setelah dikumpulkan, jawaban tidak dapat diubah.</p>
-        <div className="inline">
+        {pending > 0 && (
+          <p className="notice notice-warning">
+            {pending} jawaban masih menunggu konfirmasi server.
+          </p>
+        )}
+        <p className="muted">
+          Setelah dikumpulkan, jawaban dikunci dan langsung dihitung untuk hasil
+          serta pembahasan.
+        </p>
+        <div className={styles.confirmActions}>
           <button
+            ref={cancelFinishRef}
             type="button"
             className="button button-secondary"
             onClick={() => setConfirm(false)}
             disabled={busy}
           >
-            Lanjut mengerjakan
+            Kembali ke soal
           </button>
           <button
             type="button"
-            className="button"
+            className={`button ${styles.finishButton}`}
             disabled={!canFinish}
             onClick={() =>
               void finish(state.timeLeft === 0 ? "deadline" : "manual")
             }
           >
-            {busy ? "Mengumpulkan…" : "Ya, kumpulkan jawaban"}
+            <CheckCircle2 size={16} aria-hidden="true" />
+            {busy ? "Mengumpulkan…" : "Ya, kumpulkan ujian"}
           </button>
         </div>
         {pending > 0 && online && state.timeLeft > 0 && (

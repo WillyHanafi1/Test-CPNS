@@ -1,14 +1,22 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
+from pydantic import BaseModel, Field
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.db.session import get_async_session
 from backend.models.models import ExamSession, Package, Question, User
+from backend.core.rate_limiter import _get_client_ip, limiter
 from backend.core.redis_service import redis_service
+from backend.services.visitors import get_public_visitor_summary, record_visit
 
 router = APIRouter(prefix="/public", tags=["public"])
 
 PUBLIC_STATS_CACHE_KEY = "public_stats_v2"
 PUBLIC_STATS_CACHE_TTL = 3600
+
+
+class VisitBeaconRequest(BaseModel):
+    path: str = Field(default="/", max_length=256)
+    heartbeat: bool = False
 
 
 @router.get("/stats")
@@ -66,3 +74,26 @@ async def stats(db: AsyncSession = Depends(get_async_session)):
         PUBLIC_STATS_CACHE_KEY, payload, expire=PUBLIC_STATS_CACHE_TTL
     )
     return payload
+
+
+@router.post("/visit")
+@limiter.limit("120/minute")
+async def track_visit(
+    request: Request,
+    body: VisitBeaconRequest,
+    db: AsyncSession = Depends(get_async_session),
+):
+    ip = _get_client_ip(request)
+    user_agent = request.headers.get("user-agent", "")
+    return await record_visit(
+        db,
+        ip=ip,
+        user_agent=user_agent,
+        raw_path=body.path,
+        heartbeat=body.heartbeat,
+    )
+
+
+@router.get("/visitors")
+async def public_visitors(db: AsyncSession = Depends(get_async_session)):
+    return await get_public_visitor_summary(db)

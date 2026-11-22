@@ -9,6 +9,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { Toaster } from "react-hot-toast";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { ThemeProvider } from "@/context/ThemeContext";
+import VisitorTracker from "@/components/VisitorTracker";
 import { themeBootstrap } from "@/lib/theme";
 
 const geistSans = Geist({
@@ -24,7 +25,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "TOCPNS — Ruang latihan CPNS",
   description:
-    "Latihan SKD CPNS dengan simulasi CAT, nilai per subtes TWK, TIU, dan TKP, serta pembahasan setelah ujian.",
+    "Latihan SKD CPNS berbasis soal HOTS sesuai referensi peserta ujian sebelumnya dengan simulasi CAT, nilai TWK, TIU, TKP, dan pembahasan lengkap.",
 };
 
 export default function RootLayout({
@@ -49,6 +50,7 @@ export default function RootLayout({
         <ThemeProvider>
           <GoogleOAuthProvider clientId={googleClientId}>
             <AuthProvider>
+              <VisitorTracker />
               {children}
 
               <Toaster

@@ -10,6 +10,8 @@ import {
   BookOpen,
   CheckCircle2,
   CreditCard,
+  Eye,
+  Globe,
   Heart,
   MessageSquare,
   Package,
@@ -30,6 +32,7 @@ import type {
   AdminActionSummary,
   AdminOverviewStats,
   AdminRevenueAnalytics,
+  AdminVisitorAnalytics,
 } from "@/types/admin";
 
 export default function AdminDashboard() {
@@ -42,18 +45,26 @@ export default function AdminDashboard() {
   const revenue = useResource<AdminRevenueAnalytics>(
     `/admin/analytics/revenue-trends?days=${days}`,
   );
+  const visitors = useResource<AdminVisitorAnalytics>(
+    "/admin/analytics/visitors?days=14",
+  );
 
   const refreshing =
-    overview.refreshing || actions.refreshing || revenue.refreshing;
+    overview.refreshing ||
+    actions.refreshing ||
+    revenue.refreshing ||
+    visitors.refreshing;
 
   const refreshAll = () => {
     overview.reload();
     actions.reload();
     revenue.reload();
+    visitors.reload();
   };
 
   const ov = overview.data;
   const act = actions.data;
+  const vis = visitors.data;
 
   const attentionItems = [
     {
@@ -225,6 +236,85 @@ export default function AdminDashboard() {
             href="/admin/analytics"
             loading={overview.loading}
           />
+        </div>
+      </section>
+
+      {/* Row 2B: Privacy-Friendly Visitor Telemetry */}
+      <section
+        aria-label="Trafik pengunjung"
+        className="rounded-2xl border border-line bg-surface p-5"
+      >
+        <div className="mb-3.5 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-success-soft text-success">
+              <Globe className="h-4 w-4" aria-hidden="true" />
+            </span>
+            <div>
+              <h2 className="text-sm font-semibold text-ink">
+                Trafik pengunjung situs
+              </h2>
+              <p className="text-xs text-muted">
+                Tanpa cookie pelacak · Jendela online 5 menit terakhir (WIB)
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/admin/analytics#visitors"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:underline"
+          >
+            Lihat grafik & halaman populer
+            <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="rounded-xl border border-line bg-surface-subtle/50 px-4 py-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs text-muted">Online sekarang</span>
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-success">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                Live
+              </span>
+            </div>
+            <p className="mt-1 text-2xl font-semibold text-ink tabular-nums">
+              {visitors.loading ? "—" : (vis?.online_now ?? 0).toLocaleString("id-ID")}
+            </p>
+            <p className="mt-0.5 text-[11px] text-muted">Aktif 5 menit terakhir</p>
+          </div>
+
+          <div className="rounded-xl border border-line bg-surface-subtle/50 px-4 py-3">
+            <span className="text-xs text-muted">Hari ini</span>
+            <p className="mt-1 text-2xl font-semibold text-ink tabular-nums">
+              {visitors.loading ? "—" : (vis?.today_visitors ?? 0).toLocaleString("id-ID")}
+            </p>
+            <p className="mt-0.5 text-[11px] text-muted tabular-nums">
+              {(vis?.today_pageviews ?? 0).toLocaleString("id-ID")} tayangan · kemarin{" "}
+              {(vis?.yesterday_visitors ?? 0).toLocaleString("id-ID")}
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-line bg-surface-subtle/50 px-4 py-3">
+            <span className="text-xs text-muted">Bulan ini</span>
+            <p className="mt-1 text-2xl font-semibold text-ink tabular-nums">
+              {visitors.loading ? "—" : (vis?.month_visitors ?? 0).toLocaleString("id-ID")}
+            </p>
+            <p className="mt-0.5 text-[11px] text-muted tabular-nums">
+              {(vis?.month_pageviews ?? 0).toLocaleString("id-ID")} tayangan bulan berjalan
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-line bg-surface-subtle/50 px-4 py-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs text-muted">Total tercatat</span>
+              <Eye className="h-3.5 w-3.5 text-muted" aria-hidden="true" />
+            </div>
+            <p className="mt-1 text-2xl font-semibold text-ink tabular-nums">
+              {visitors.loading ? "—" : (vis?.total_visitors ?? 0).toLocaleString("id-ID")}
+            </p>
+            <p className="mt-0.5 text-[11px] text-muted tabular-nums">
+              {(vis?.total_pageviews ?? 0).toLocaleString("id-ID")} total tayangan halaman
+            </p>
+          </div>
         </div>
       </section>
 

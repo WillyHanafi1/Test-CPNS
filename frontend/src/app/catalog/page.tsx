@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Sparkles } from "lucide-react";
 import AppShell, {
   Loading,
   ErrorPanel,
@@ -30,7 +31,7 @@ export default function Catalog() {
   return (
     <AppShell
       title="Paket soal"
-      description="Pilih latihanmu. Kerjakan dengan tenang, lalu pelajari pembahasannya."
+      description="Seluruh paket berisi soal HOTS sesuai referensi peserta ujian CPNS sebelumnya. Kerjakan dengan tenang, lalu pelajari pembahasannya."
       action={
         !user?.is_pro ? (
           <Link className="button button-secondary" href="/catalog/upgrade">
@@ -41,6 +42,13 @@ export default function Catalog() {
         )
       }
     >
+      <div className="hots-strip" role="note">
+        <Sparkles size={15} aria-hidden="true" />
+        <span>
+          <strong>Standar Soal HOTS</strong> · Disusun mengikuti pola penalaran
+          dan referensi peserta ujian CPNS sebelumnya.
+        </span>
+      </div>
       <label className="field" style={{ maxWidth: 510 }}>
         Cari paket
         <input

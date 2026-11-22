@@ -135,15 +135,28 @@ class MockRedisService:
             return sliced
         return [item[0] for item in sliced]
 
+    async def zremrangebyscore(self, name: str, min_score: float, max_score: float) -> int:
+        ss = self._sorted_sets.get(name, {})
+        to_remove = [m for m, s in ss.items() if min_score <= s <= max_score]
+        for m in to_remove:
+            del ss[m]
+        return len(to_remove)
+
+    async def zcard(self, name: str) -> int:
+        return len(self._sorted_sets.get(name, {}))
+
     async def aclose(self):
         pass
 
     # --- Sets ---
-    async def sadd(self, name: str, *values):
+    async def sadd(self, name: str, *values) -> int:
         if name not in self._store:
             self._store[name] = set()
         if isinstance(self._store[name], set):
+            before = len(self._store[name])
             self._store[name].update(values)
+            return len(self._store[name]) - before
+        return 0
 
     async def smembers(self, name: str):
         return self._store.get(name, set())

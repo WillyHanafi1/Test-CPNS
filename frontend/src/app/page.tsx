@@ -9,15 +9,19 @@ export default function Home() {
     <AppShell>
       <section className="hero-home">
         <div>
-          <span className="badge hero-label">Ruang latihan CPNS</span>
+          <div className="inline" style={{ gap: 8 }}>
+            <span className="badge hero-label">Ruang latihan CPNS</span>
+            <span className="badge badge-green">Semua Soal HOTS</span>
+          </div>
           <h1 style={{ marginTop: 24 }}>
             Latihan terarah.
             <br />
             <span style={{ color: "var(--accent)" }}>Langkah lebih yakin.</span>
           </h1>
           <p className="muted">
-            Latihan SKD dengan simulasi CAT. Lihat nilai TWK, TIU, dan TKP, lalu
-            pelajari pembahasan setelah ujian.
+            Latihan SKD dengan simulasi CAT. Seluruh soal bertipe HOTS sesuai
+            referensi peserta ujian CPNS sebelumnya, lengkap dengan nilai TWK,
+            TIU, TKP dan pembahasan.
           </p>
           <div className="inline">
             <Link className="button" href="/catalog">
@@ -50,7 +54,10 @@ export default function Home() {
             </ol>
             <div className="notice hero-note">
               <CheckCircle2 aria-hidden="true" size={19} />
-              <span>Minim distraksi. Latihan lebih terarah. Persiapan lebih matang.</span>
+              <span>
+                Semua soal bertipe HOTS sesuai referensi peserta ujian CPNS
+                sebelumnya. Minim distraksi, latihan lebih terarah.
+              </span>
             </div>
           </div>
         </section>
@@ -70,12 +77,12 @@ export default function Home() {
               "Pantau sisa waktu dan pindah antarsoal dengan mudah. Jawabanmu tersimpan otomatis saat berlatih.",
             ],
             [
-              "Pembahasan dan evaluasi",
-              "Lihat poin tiap jawaban dan topik yang perlu kamu latih lagi.",
+              "Soal HOTS & pembahasan",
+              "Seluruh soal bertipe HOTS sesuai referensi peserta ujian CPNS sebelumnya, lengkap dengan bobot poin dan topik evaluasi.",
             ],
             [
               "Akses paket Pro",
-              "Kerjakan semua paket soal yang tersedia selama Paket Pro aktif.",
+              "Kerjakan semua paket soal HOTS yang tersedia selama Paket Pro aktif.",
             ],
           ].map(([title, description]) => (
             <article className="panel stack" key={title}>
@@ -157,6 +164,10 @@ export default function Home() {
         </div>
         <div className="stack">
           {[
+            [
+              "Apakah semua soal di TOCPNS bertipe HOTS?",
+              "Ya. Seluruh paket soal TWK, TIU, dan TKP disusun bertipe HOTS (Higher Order Thinking Skills) sesuai kisi-kisi KepmenPANRB Nomor 321 Tahun 2024 serta referensi peserta ujian CPNS sebelumnya.",
+            ],
             [
               "Apakah saya bisa mencoba latihan gratis?",
               "Kamu bisa memilih paket berlabel Gratis di katalog, mengerjakan simulasi CAT, dan membaca pembahasan setelah ujian.",

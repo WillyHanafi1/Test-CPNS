@@ -1,7 +1,7 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Optional
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, Integer, Text, JSON, Index, UniqueConstraint, CheckConstraint, func
+from sqlalchemy import String, Boolean, Date, DateTime, ForeignKey, Integer, Text, JSON, Index, UniqueConstraint, CheckConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.db.session import Base
 
@@ -352,3 +352,40 @@ class Feedback(Base):
     )
 
     user: Mapped["User"] = relationship(back_populates="feedbacks")
+
+
+class SiteDailyStats(Base):
+    """Aggregated daily visitor and pageview counts in Asia/Jakarta (WIB) calendar date."""
+    __tablename__ = "site_daily_stats"
+
+    stat_date: Mapped[date] = mapped_column(Date, primary_key=True)
+    pageviews: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    unique_visitors: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+
+class SiteVisitorDaily(Base):
+    """Privacy-friendly anonymized visitor deduplication per WIB day (monthly rotating HMAC hash; zero raw IP)."""
+    __tablename__ = "site_visitor_daily"
+
+    visit_date: Mapped[date] = mapped_column(Date, primary_key=True)
+    visitor_hash: Mapped[str] = mapped_column(String(32), primary_key=True)
+    first_path: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        index=True,
+    )
+
+
+class SitePageDailyStats(Base):
+    """Normalized pageview counters per public route per WIB day."""
+    __tablename__ = "site_page_daily_stats"
+
+    stat_date: Mapped[date] = mapped_column(Date, primary_key=True)
+    path: Mapped[str] = mapped_column(String(120), primary_key=True)
+    pageviews: Mapped[int] = mapped_column(Integer, default=0, server_default="0")

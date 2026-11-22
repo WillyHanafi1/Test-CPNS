@@ -198,7 +198,7 @@ export function ExamPreviewWindow({
               99:42
             </span>
           )}
-          <span className={styles.frameBadge}>Simulasi SKD</span>
+          <span className={styles.frameBadge}>Simulasi SKD · HOTS</span>
         </div>
       )}
 
@@ -452,8 +452,8 @@ export default function HomeExamPreview() {
             Coba langsung tampilannya sebelum daftar.
           </h2>
           <p className="muted">
-            Pilih jawaban pada contoh soal TWK, TIU, dan TKP di bawah ini, lalu
-            pindah ke mode Pembahasan untuk melihat penilaiannya.
+            Pilih jawaban pada contoh soal HOTS TWK, TIU, dan TKP di bawah ini,
+            lalu pindah ke mode Pembahasan untuk melihat penilaiannya.
           </p>
         </div>
         <div

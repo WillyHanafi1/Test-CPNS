@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import ThemeToggle from "@/components/ThemeToggle";
+import FooterVisitorStats from "@/components/FooterVisitorStats";
 
 const links = [
   { href: "/dashboard", title: "Beranda", icon: Home },
@@ -129,12 +130,17 @@ export default function AppShell({
         {children}
       </main>
       <footer className="app-footer">
-        <span>TOCPNS · Latihan dengan lebih tenang.</span>
-        <Link href="/faq">Bantuan</Link>
-        <Link href="/support">Kontak</Link>
-        <Link href="/donasi">Donasi</Link>
-        <Link href="/terms">Ketentuan</Link>
-        <Link href="/privacy">Privasi</Link>
+        <div className="app-footer-brand">
+          <span>TOCPNS · Latihan dengan lebih tenang.</span>
+          <FooterVisitorStats />
+        </div>
+        <div className="app-footer-links">
+          <Link href="/faq">Bantuan</Link>
+          <Link href="/support">Kontak</Link>
+          <Link href="/donasi">Donasi</Link>
+          <Link href="/terms">Ketentuan</Link>
+          <Link href="/privacy">Privasi</Link>
+        </div>
       </footer>
       {user && (
         <nav className="mobile-nav" aria-label="Navigasi ponsel">

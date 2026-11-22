@@ -8,6 +8,8 @@ import {
   BarChart3,
   ChevronRight,
   CreditCard,
+  Eye,
+  Globe,
   Target,
   TrendingUp,
   Users,
@@ -28,12 +30,32 @@ import {
 } from "@/components/admin";
 import RevenueChart from "@/components/admin/charts/RevenueChart";
 import ScoreDistributionChart from "@/components/admin/charts/ScoreDistributionChart";
+import VisitorTrendChart from "@/components/admin/charts/VisitorTrendChart";
 import { formatRupiah } from "@/lib/admin-format";
 import type {
   AdminExamAnalytics,
   AdminOverviewStats,
   AdminRevenueAnalytics,
+  AdminVisitorAnalytics,
 } from "@/types/admin";
+
+const PAGE_LABELS: Record<string, string> = {
+  "/": "Beranda",
+  "/catalog": "Katalog paket soal",
+  "/catalog/[id]": "Detail & persiapan paket",
+  "/catalog/upgrade": "Halaman TOCPNS Pro",
+  "/dashboard": "Beranda peserta",
+  "/donasi": "Halaman donasi",
+  "/faq": "Bantuan & FAQ",
+  "/history": "Riwayat ujian",
+  "/leaderboard": "Peringkat nasional",
+  "/login": "Masuk akun",
+  "/register": "Daftar akun",
+  "/session/[id]": "Ruang ujian CAT",
+  "/session/[id]/result": "Hasil ujian",
+  "/session/[id]/review": "Pembahasan ujian",
+  "/support": "Kontak & bantuan",
+};
 
 const CHART_COLORS = [
   "var(--chart-1)",
@@ -59,14 +81,20 @@ export default function AnalyticsAdmin() {
   const revenue = useResource<AdminRevenueAnalytics>(
     `/admin/analytics/revenue-trends?days=${days}`,
   );
+  const visitors = useResource<AdminVisitorAnalytics>(
+    `/admin/analytics/visitors?days=${days}`,
+  );
 
   const ov = overview.data;
   const ex = exams.data;
   const rev = revenue.data;
+  const vis = visitors.data;
 
   const revenueMix = rev?.revenue_by_type ?? [];
   const topAttempted = rev?.top_attempted_packages ?? [];
   const maxAttempts = topAttempted[0]?.attempts || 1;
+  const topPages = vis?.top_pages ?? [];
+  const maxPageviews = topPages[0]?.pageviews || 1;
 
   return (
     <div className="space-y-6">
@@ -255,6 +283,137 @@ export default function AnalyticsAdmin() {
           />
         </section>
       </div>
+
+      {/* Visitor Analytics Section */}
+      <section id="visitors" className="space-y-4 scroll-mt-20">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-base font-semibold text-ink">
+              Trafik pengunjung situs ({days} hari)
+            </h2>
+            <p className="text-xs text-muted mt-0.5">
+              Pencatatan ramah privasi tanpa cookie pelacak (hash teranonimisasi
+              per bulan · kalender WIB · jalur admin & bot dikecualikan).
+            </p>
+          </div>
+          <AdminBadge tone="success">
+            {(vis?.online_now ?? 0).toLocaleString("id-ID")} online sekarang
+          </AdminBadge>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <AdminStatCard
+            label="Online sekarang"
+            value={(vis?.online_now ?? 0).toLocaleString("id-ID")}
+            hint="Pengunjung aktif 5 menit terakhir"
+            badge="Live"
+            icon={Globe}
+            tone="success"
+            loading={visitors.loading}
+          />
+          <AdminStatCard
+            label="Pengunjung hari ini"
+            value={(vis?.today_visitors ?? 0).toLocaleString("id-ID")}
+            hint={`${(vis?.today_pageviews ?? 0).toLocaleString("id-ID")} tayangan · kemarin ${(vis?.yesterday_visitors ?? 0).toLocaleString("id-ID")}`}
+            icon={Users}
+            tone="accent"
+            loading={visitors.loading}
+          />
+          <AdminStatCard
+            label="Pengunjung bulan ini"
+            value={(vis?.month_visitors ?? 0).toLocaleString("id-ID")}
+            hint={`${(vis?.month_pageviews ?? 0).toLocaleString("id-ID")} tayangan bulan berjalan`}
+            icon={TrendingUp}
+            tone="accent"
+            loading={visitors.loading}
+          />
+          <AdminStatCard
+            label="Total pengunjung"
+            value={(vis?.total_visitors ?? 0).toLocaleString("id-ID")}
+            hint={`${(vis?.total_pageviews ?? 0).toLocaleString("id-ID")} total tayangan halaman`}
+            icon={Eye}
+            tone="neutral"
+            loading={visitors.loading}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2 rounded-2xl border border-line bg-surface p-5">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-semibold text-ink">
+                  Tren pengunjung unik & tayangan harian
+                </h3>
+                <p className="text-xs text-muted">
+                  Hijau: pengunjung unik harian · Indigo: total tayangan halaman
+                </p>
+              </div>
+            </div>
+            <VisitorTrendChart
+              data={vis?.daily_trend ?? []}
+              height={260}
+              loading={visitors.loading}
+            />
+          </div>
+
+          <div className="rounded-2xl border border-line bg-surface p-5">
+            <div className="mb-4">
+              <h3 className="text-sm font-semibold text-ink">
+                Halaman paling sering dikunjungi
+              </h3>
+              <p className="text-xs text-muted">
+                Total tayangan dalam {days} hari terakhir
+              </p>
+            </div>
+            {visitors.loading ? (
+              <div className="space-y-2.5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="h-10 rounded-lg bg-surface-subtle animate-pulse"
+                  />
+                ))}
+              </div>
+            ) : topPages.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-line bg-surface-subtle/40 p-6 text-center text-xs text-muted">
+                Belum ada kunjungan tercatat pada rentang waktu ini.
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {topPages.map((item) => {
+                  const widthPct = Math.max(
+                    6,
+                    Math.round((item.pageviews / maxPageviews) * 100),
+                  );
+                  return (
+                    <div key={item.path} className="space-y-1">
+                      <div className="flex items-center justify-between gap-2 text-xs">
+                        <span className="truncate font-medium text-ink" title={item.path}>
+                          {PAGE_LABELS[item.path] ?? item.path}
+                        </span>
+                        <span className="shrink-0 font-semibold text-ink tabular-nums">
+                          {item.pageviews.toLocaleString("id-ID")}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="h-1.5 flex-1 rounded-full bg-surface-hover overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-accent-solid"
+                            style={{ width: `${widthPct}%` }}
+                          />
+                        </div>
+                        <span className="text-[11px] font-mono text-muted">
+                          {item.path}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
 
       {/* Bottom Row: Most Attempted Packages + Revenue Mix */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

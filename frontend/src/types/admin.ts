@@ -239,3 +239,27 @@ export interface AdminInfrastructureJob {
   created_at: string;
   last_error: string | null;
 }
+
+export interface VisitorDailyPoint {
+  date: string;
+  visitors: number;
+  pageviews: number;
+}
+
+export interface VisitorTopPage {
+  path: string;
+  pageviews: number;
+}
+
+export interface AdminVisitorAnalytics {
+  online_now: number;
+  today_visitors: number;
+  today_pageviews: number;
+  yesterday_visitors: number;
+  month_visitors: number;
+  month_pageviews: number;
+  total_visitors: number;
+  total_pageviews: number;
+  daily_trend: VisitorDailyPoint[];
+  top_pages: VisitorTopPage[];
+}

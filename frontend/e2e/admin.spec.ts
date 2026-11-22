@@ -115,6 +115,27 @@ async function mockAdminApi(page: Page) {
           },
         ],
       };
+    } else if (target === "/admin/analytics/visitors") {
+      data = {
+        online_now: 7,
+        today_visitors: 43,
+        today_pageviews: 128,
+        yesterday_visitors: 39,
+        month_visitors: 615,
+        month_pageviews: 1940,
+        total_visitors: 1820,
+        total_pageviews: 6410,
+        daily_trend: [
+          { date: "2026-11-20", visitors: 35, pageviews: 110 },
+          { date: "2026-11-21", visitors: 39, pageviews: 119 },
+          { date: "2026-11-22", visitors: 43, pageviews: 128 },
+        ],
+        top_pages: [
+          { path: "/", pageviews: 680 },
+          { path: "/catalog", pageviews: 420 },
+          { path: "/catalog/upgrade", pageviews: 190 },
+        ],
+      };
     } else if (target === "/admin/packages") {
       data = {
         items: [
@@ -300,6 +321,10 @@ test("admin command center, grouped navigation badges, and Ctrl+K palette work s
   ).toBeVisible();
   await expect(page.getByText("2 pending")).toBeVisible();
   await expect(page.getByText("peserta@example.com")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Trafik pengunjung situs" }),
+  ).toBeVisible();
+  await expect(page.getByText("615")).toBeVisible();
 
   // Command palette shortcut
   await page.keyboard.press("Control+k");

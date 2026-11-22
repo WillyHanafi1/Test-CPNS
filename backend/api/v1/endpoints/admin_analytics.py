@@ -435,3 +435,13 @@ async def get_revenue_trends(
     
     return result_data
 
+
+@router.get("/visitors")
+async def get_visitor_analytics(
+    days: int = Query(30, ge=7, le=90),
+    db: AsyncSession = Depends(get_async_session),
+    admin: User = Depends(get_current_admin),
+):
+    from backend.services.visitors import get_admin_visitor_analytics
+    return await get_admin_visitor_analytics(db, days=days)
+

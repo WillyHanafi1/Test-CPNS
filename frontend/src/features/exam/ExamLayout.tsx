@@ -7,6 +7,7 @@ import {
   ArrowRight,
   BookOpen,
   Check,
+  CheckCircle2,
   Circle,
   Clock3,
   Flag,
@@ -450,8 +451,12 @@ export function QuestionActions({
         <LayoutGrid size={16} aria-hidden="true" /> Daftar soal
       </button>
       {finish ? (
-        <button type="button" className="button" onClick={finish}>
-          Selesai
+        <button
+          type="button"
+          className={`button ${styles.finishButton}`}
+          onClick={finish}
+        >
+          <CheckCircle2 size={16} aria-hidden="true" /> Selesai & kumpulkan
         </button>
       ) : (
         <button
