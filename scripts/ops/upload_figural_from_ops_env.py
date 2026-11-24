@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Upload staged Figural PNGs from /tmp/ to Supabase Storage bucket `exam-assets` using server operations.env."""
+"""Upload staged Figural (`q*_figural.png`) & Discussion diagram (`q*_pembahasan*.png`) PNGs
+from /tmp/ (or a custom local folder) to Supabase Storage bucket `exam-assets` using server operations.env.
+"""
 
 import glob
 import os
@@ -25,6 +27,7 @@ def load_env(path: str) -> dict[str, str]:
 
 def main() -> int:
     pack_code = sys.argv[1] if len(sys.argv) > 1 else "gen01"
+    src_dir = sys.argv[2] if len(sys.argv) > 2 else "/tmp"
     env = load_env(OPS_ENV)
     base = env["BACKUP_SUPABASE_URL"].rstrip("/")
     key = env["BACKUP_SUPABASE_KEY"]
@@ -37,15 +40,18 @@ def main() -> int:
     if not key.startswith("sb_secret_"):
         headers["Authorization"] = f"Bearer {key}"
 
-    files = sorted(glob.glob("/tmp/q6*_figural.png"))
-    if not files:
-        print("ERROR: No /tmp/q6*_figural.png files found.")
+    figural_files = sorted(glob.glob(os.path.join(src_dir, "q*_figural.png")))
+    discussion_files = sorted(glob.glob(os.path.join(src_dir, "q*_pembahasan*.png")))
+    targets = [(p, f"figural/{pack_code}/{os.path.basename(p)}") for p in figural_files] + [
+        (p, f"pembahasan/{pack_code}/{os.path.basename(p)}") for p in discussion_files
+    ]
+    if not targets:
+        print(f"ERROR: No q*_figural.png or q*_pembahasan*.png files found in {src_dir}.")
         return 1
 
     ok = 0
-    for fpath in files:
+    for fpath, remote in targets:
         fname = os.path.basename(fpath)
-        remote = f"figural/{pack_code}/{fname}"
         url = f"{base}/storage/v1/object/{BUCKET}/{remote}"
         data = open(fpath, "rb").read()
         req = urllib.request.Request(url, data=data, headers=headers, method="POST")
@@ -60,14 +66,15 @@ def main() -> int:
         with urllib.request.urlopen(pub_url, timeout=15) as presp:
             pstatus = presp.status
             plen = len(presp.read())
-        print(f"OK {fname}: upload={status} public={pstatus} ({plen} bytes)")
+        print(f"OK {fname}: upload={status} public={pstatus} ({plen} bytes) -> {pub_url}")
         ok += 1
 
-    # Cleanup staged files in /tmp
-    for fpath in files:
-        os.remove(fpath)
-    if os.path.exists("/tmp/upload_figural_from_ops_env.py"):
-        os.remove("/tmp/upload_figural_from_ops_env.py")
+    # Cleanup staged files only when using default /tmp staging directory
+    if os.path.abspath(src_dir) == "/tmp":
+        for fpath, _ in targets:
+            os.remove(fpath)
+        if os.path.exists("/tmp/upload_figural_from_ops_env.py"):
+            os.remove("/tmp/upload_figural_from_ops_env.py")
 
     print(f"ALL {ok} UPLOADED & VERIFIED HTTP 200")
     return 0

@@ -25,10 +25,10 @@ Aturan kerja (jaga konteks tetap ringan & presisi!):
    - Catat nama tokoh & instansi yang sudah dipakai di data/generated/gen01/used_entities.txt agar tidak ada nama tokoh yang berulang dalam 1 paket.
    - Jika didukung subagent/pekerja paralel, pisahkan pengerjaan per segmen (TWK / TIU Non-Figural / TIU Figural / TKP) agar batch akhir TKP bebas context drift.
 3. Cara membuat variasi per segmen:
-   - TWK (#1–30): Buat kasus & tokoh baru; patuhi 6 sub-tipe wajib Bahasa Indonesia (#25–30). Cek pasal/ejaan di docs/question-authoring/references/ secara on-demand (grep/potongan baris saja). Pembahasan mulai "Jawaban yang benar adalah Opsi X." + alasan kunci & penolakan pengecoh terkuat (~60–110 kata).
-   - TIU Verbal & Numerik (#31–59): Pertahankan konsep & kompleksitas contoh, tetapi PARAFRASE kalimat, ganti konteks/angka, dan ubah target pertanyaan bila sesuai. TIU-1 wajib 2 Analogi Kata + 2 Analogi Kalimat; Deret wajib 3 pola berbeda (termasuk 1 loncat/2-larik & 1 cari suku awal). Buktikan SELURUH #35–59 di data/generated/gen01/verify/verify_tiu_math_logic.py (Fraction/Decimal untuk numerik, permutations untuk analitis, truth table/uji himpunan nyata untuk silogisme — dilarang assert True kosong!). Semua rumus pakai KaTeX $...$, desimal 0{,}75, Rupiah di luar $...$, tabel kuantitatif pakai Markdown.
-   - TIU Figural (#60–65): Buat 6 gambar deterministik via data/generated/gen01/verify/generate_figural.py (2 Analogi, 2 Ketidaksamaan, 1 Serial, 1 Matriks 3x3; minimal 2 transformasi simultan per soal; wajib assert keunikan 5 state opsi A–E; latar #FFFFFF, garis #111827, font TrueType 26–32px, tanpa warna kunci bocor) ke data/generated/gen01/gambar/q60_figural.png s.d. q65_figural.png, lalu periksa keenam gambarnya secara visual.
-   - TKP (#66–110): Buat skenario kerja & tokoh baru, panjang 5 opsi seimbang (selisih skor 5 vs rata-rata lain <= 5 kata), skor 5 vs 4 kontras tegas, skor 1 tetap terdengar rasional (bukan kartun). Pembahasan wajib mulai: "Jawaban dengan skor tertinggi adalah Opsi X (5 poin)." diikuti "Opsi X=5 (...), Opsi Y=4 (...), Opsi Z=3 (...), Opsi W=2 (...), Opsi V=1 (...)."
+   - TWK (#1–30): Buat kasus & tokoh baru; patuhi 6 sub-tipe wajib Bahasa Indonesia (#25–30). Cek pasal/ejaan di docs/question-authoring/references/ secara on-demand (grep/potongan baris saja). Pembahasan (~60–110 kata) DILARANG berupa 1 paragraf padat: mulai "Jawaban yang benar adalah **Opsi X**." lalu `\n\n` diikuti penjelasan konsep/pasal, lalu `\n\n` alasan penolakan pengecoh terkuat (bullet `- **Opsi Y:** ...` bila >1 pengecoh).
+   - TIU Verbal & Numerik (#31–59): Pertahankan konsep & kompleksitas contoh, tetapi PARAFRASE kalimat, ganti konteks/angka, dan ubah target pertanyaan bila sesuai. TIU-1 wajib 2 Analogi Kata + 2 Analogi Kalimat; Deret wajib 3 pola berbeda (termasuk 1 loncat/2-larik & 1 cari suku awal). Buktikan SELURUH #35–59 di data/generated/gen01/verify/verify_tiu_math_logic.py (Fraction/Decimal untuk numerik, permutations untuk analitis, truth table/uji himpunan nyata untuk silogisme — dilarang assert True kosong!). Semua rumus pakai KaTeX $...$ atau block math $$...$$, desimal 0{,}75, Rupiah di luar $...$, tabel kuantitatif pakai Markdown. Pembahasan TIU WAJIB terstruktur bertahap (anti-wall-of-text): baris 1 "Jawaban yang benar adalah **Opsi X**." lalu `\n\n` diikuti langkah bernomor (`1.`, `2.`, `3.`, ...) per baris + `$$...$$` untuk persamaan akhir. Untuk soal Analitis visual (#39–42 seperti meja bundar/rute graf) dan Deret loncat, buat diagram ilustrasi pembahasan (`q39_pembahasan.png`, dst.) di data/generated/gen01/gambar/ (latar #FFFFFF, tajam, bersih) dan sisipkan di pembahasan via `![Diagram pembahasan soal 39](gambar/q39_pembahasan.png)` (nanti diganti URL publik Supabase saat upload).
+   - TIU Figural (#60–65): Buat 6 gambar soal deterministik via data/generated/gen01/verify/generate_figural.py (2 Analogi, 2 Ketidaksamaan, 1 Serial, 1 Matriks 3x3; minimal 2 transformasi simultan per soal; wajib assert keunikan 5 state opsi A–E; latar #FFFFFF, garis #111827, font TrueType 26–32px, tanpa warna kunci bocor) ke data/generated/gen01/gambar/q60_figural.png s.d. q65_figural.png, plus diagram anotasi pembahasan (`q6X_pembahasan.png`) bila pola rotasi/garis acuan terbantu visual, lalu periksa semua gambarnya secara visual.
+   - TKP (#66–110): Buat skenario kerja & tokoh baru, panjang 5 opsi seimbang (selisih skor 5 vs rata-rata lain <= 5 kata), skor 5 vs 4 kontras tegas, skor 1 tetap terdengar rasional (bukan kartun). Pembahasan WAJIB memakai format bullet per baris (anti-wall-of-text): baris 1 "Jawaban dengan skor tertinggi adalah **Opsi X** (5 poin)." lalu `\n\n` diikuti daftar 5 bullet berurutan 5→1: `- **Opsi X (5 poin):** ...` sampai `- **Opsi V (1 poin):** ...`.
 4. Validasi setiap batch segera: python scripts/validate_question_pack.py <file_batch> --partial.
 5. Setelah 18 batch lulus, gabungkan ke data/generated/gen01/gen01-bank-soal.json lalu jalankan:
    python scripts/validate_question_pack.py data/generated/gen01/gen01-bank-soal.json --shuffle --shuffle-tkp-order --seed 42 --export-json data/generated/gen01/gen01-bank-soal-final.json --export-csv data/generated/gen01/gen01-impor-final.csv --export-xlsx data/generated/gen01/gen01-impor-final.xlsx --report data/generated/gen01/audit-report.md --export-blind-audit data/generated/gen01/cross_audit/
@@ -48,7 +48,9 @@ Aturan wajib:
 1. Fakta pasal UUD 1945, UU ASN 20/2023, UU Bela Negara 23/2019, serta ejaan KBBI VI & EYD V wajib 100% akurat (jangan mengarang pasal/ayat).
 2. Jika Bahasa Indonesia (6 soal), wajib mencakup 6 sub-tipe berbeda: (1) Ide Pokok, (2) Inti/Struktur Kalimat, (3) Simpulan/Judul, (4) Kalimat Efektif, (5) Kata Baku/Diksi/Imbuhan, (6) EYD V (Kapital/Tanda Baca).
 3. Buat 5 opsi (A–E) yang panjangnya relatif seimbang dan semua terdengar masuk akal (tepat 1 opsi skor 5, 4 opsi lain skor 0). Jangan mengulang nama tokoh yang sama.
-4. Pembahasan (~60–110 kata) mulai tepat dengan: "Jawaban yang benar adalah Opsi <HURUF>." lalu jelaskan dasar konsep/pasal/kaidah dan 1 kalimat mengapa pengecoh terkuat kurang tepat. Nama tokoh di pembahasan harus identik dengan soal.
+4. Pembahasan (~60–110 kata, WAJIB rapi dengan jeda paragraf `\n\n`):
+   - Paragraf 1: Mulai tepat dengan `"Jawaban yang benar adalah **Opsi <HURUF>**."` diikuti dasar konsep/pasal/kaidah.
+   - Paragraf 2 (`\n\n`): Jelaskan penolakan pengecoh terkuat (gunakan bullet `- **Opsi <Y>:** ...` bila membandingkan >1 pengecoh). Nama tokoh di pembahasan harus identik dengan soal.
 5. Keluarkan HANYA array JSON valid sesuai schema TOCPNS (bebas pembuka meta AI).
 
 Contoh soal acuan (dari Packet 1–15):
@@ -71,8 +73,12 @@ Aturan wajib:
    - Jika Deret Angka (3 soal): wajib 3 pola berbeda — (a) loncat/2-larik, (b) operasi bergantian (minimal 1 mencari suku awal "..., a, b"), (c) bertingkat/Fibonacci/deret pecahan.
    - Jika Perbandingan Kuantitatif: sajikan P & Q (atau X & Y) dalam tabel Markdown rapi (| P | Q |) bila sesuai.
 2. Tulis dulu skrip Python pembuktian (fractions.Fraction / decimal.Decimal untuk hitung & perbandingan, itertools.permutations untuk analitis, truth table / uji model himpunan untuk silogisme — DILARANG assert True kosong!) guna memastikan tepat 1 jawaban eksak dan ke-5 opsi bernilai unik serta berbeda dari angka contoh.
-3. Semua pecahan, pangkat, akar, derajat, dan variabel wajib pakai KaTeX inline $...$ (mis. $\frac{3}{8}$, $x^2$, $\sqrt{225}$, desimal $0{,}75$). Rupiah (Rp50.000) ditulis DI LUAR $...$.
-4. Pembahasan (~50–100 kata) mulai tepat dengan: "Jawaban yang benar adalah Opsi <HURUF>." diikuti langkah hitung/logika runtut sesuai hasil Python.
+3. Semua pecahan, pangkat, akar, derajat, dan variabel wajib pakai KaTeX inline $...$ (mis. $\frac{3}{8}$, $x^2$, $\sqrt{225}$, desimal $0{,}75$) dan gunakan block math $$...$$ pada baris sendiri untuk persamaan akhir/panjang. Rupiah (Rp50.000) ditulis DI LUAR $...$.
+4. PEMBAHASAN BERTAHAP & RAMAH BELAJAR (ANTI-WALL-OF-TEXT, ~60–120 kata):
+   - DILARANG menulis seluruh langkah hitung/logika dalam 1 paragraf datar!
+   - Baris 1: "Jawaban yang benar adalah **Opsi <HURUF>**."
+   - Pisahkan dengan `\n\n`, lalu pecah langkah hitung/logika ke daftar bernomor (`1.`, `2.`, `3.`, ...) — 1 langkah per baris, akhiri persamaan kunci dengan `$$...$$` atau kesimpulan jelas.
+   - Khusus soal Analitis visual (#39–42 seperti meja bundar/rute graf) & Deret loncat: sertakan pula skrip Python (matplotlib/Pillow) untuk menghasilkan diagram ilustrasi pembahasan (`q39_pembahasan.png`, dst., latar `#FFFFFF`) dan sisipkan di pembahasan sebagai `![Diagram pembahasan soal 39](<URL_ATAU_PATH>)`.
 5. Keluarkan: (a) skrip Python verifikasi, lalu (b) array JSON valid sesuai schema TOCPNS (1 opsi skor 5, 4 opsi skor 0).
 
 Contoh soal acuan (dari Packet 1–15):
@@ -96,7 +102,7 @@ Aturan wajib:
    - Uji number sense (faktorisasi/komutatif: "$36 \times 45$ sama dengan $54 \times 30$" atau estimasi terdekat pecahan besar), buktikan eksak di Python bahwa hanya 1 opsi yang setara/terdekat.
 3. Jika Pola Bilangan Tabel/Kotak 2D:
    - Sajikan dalam tabel Markdown rapi; buktikan di Python pola berlaku konsisten di semua baris/kotak contoh dan menghasilkan nilai unik untuk $x$.
-4. Semua rumus pakai KaTeX $...$ (desimal $0{,}5$; Rupiah di luar $...$). Pembahasan mulai: "Jawaban yang benar adalah Opsi <HURUF>."
+4. Semua rumus pakai KaTeX $...$ (desimal $0{,}5$; Rupiah di luar $...$). Pembahasan WAJIB bertahap (anti-wall-of-text): baris 1 "Jawaban yang benar adalah **Opsi <HURUF>**." lalu `\n\n` diikuti daftar langkah bernomor (`1.`, `2.`, ...) atau uji pernyataan `(1)` & `(2)` per baris + `$$...$$` untuk persamaan kunci.
 5. Keluarkan: (a) skrip Python verifikasi, lalu (b) array JSON valid sesuai schema TOCPNS.
 
 Contoh soal acuan (dari Packet 11–13):
@@ -118,7 +124,7 @@ Aturan keras:
 1. Setiap soal WAJIB menggabungkan minimal 2 aturan transformasi simultan yang objektif (mis. rotasi 90° + inversi warna, atau pergeseran sudut + penambahan sisi) sehingga tidak terlalu dangkal namun tetap 100% logis.
 2. WAJIB tulis assertion di skrip Python yang membuktikan representasi state/parameter ke-5 opsi (A–E) saling UNIK (tidak ada 2 opsi kembar) dan tepat 1 opsi memenuhi aturan.
 3. Desain visual: latar putih bersih (#FFFFFF), garis hitam tajam (#111827, 2.5–4px), TANPA sorotan warna hijau/kunci pada gambar soal, font TrueType besar (arialbd.ttf / DejaVuSans-Bold.ttf size 24–32px) untuk label "A." s.d. "E." dan "?", serta pisahkan zona motif tengah (28%–72% kotak) dari penanda sudut (<= 16% tepi) agar nol tabrakan.
-4. Sertakan JSON 6 soal (#60–65, sub_category: "Figural") dengan opsi teks "Gambar A" s.d. "Gambar E" dan pembahasan rinci mulai dengan "Jawaban yang benar adalah Opsi <HURUF>."
+4. Sertakan JSON 6 soal (#60–65, sub_category: "Figural") dengan opsi teks "Gambar A" s.d. "Gambar E" dan pembahasan bertahap mulai "Jawaban yang benar adalah **Opsi <HURUF>**." diikuti `\n\n` dan poin aturan transformasi (`1.`, `2.`, ...). Bila pola rotasi/garis acuan terbantu visual, render juga diagram anotasi `q6X_pembahasan.png` dan sisipkan `![Ilustrasi pola soal 6X](<URL_ATAU_PATH>)` di pembahasan.
 ```
 
 ---
@@ -138,11 +144,16 @@ Aturan wajib:
    - 2: Kurang peduli, menunda, atau melempar tanggung jawab ke pihak lain.
    - 1: Reaktif/defensif, melanggar prosedur, atau permisif terhadap pelanggaran/intoleransi — TETAP ditulis dalam bahasa yang wajar/rasional (bukan "penjahat kartun" yang terlalu mudah ditebak).
 2. ANTI-BIAS PANJANG, ANTI-KOMA-3-AKSI, & ANTI-KLISE: Panjang ke-5 opsi WAJIB seimbang secara kata MAUPUN karakter (selisih jumlah kata opsi skor 5 terhadap rata-rata 4 opsi lain <= 5 kata). DILARANG membuat hanya opsi skor 5 yang memakai daftar 3 aksi berkoma ("melakukan A, B, dan C") sementara skor 1–3 tanpa koma — variasikan kalimat 1 klausa dan kalimat berkoma secara merata di semua bobot 5–4–3–2–1! Hindari pengulangan frasa klise seperti "berkoordinasi secara proaktif dan humanis" atau "secara objektif".
-3. PEMBAHASAN TERVALIDASI OTOMATIS (~70–120 kata): Wajib mulai tepat dengan:
-   "Jawaban dengan skor tertinggi adalah Opsi <HURUF> (5 poin)."
-   diikuti ringkasan kelima opsi dengan format tepat:
-   "Opsi <H5>=5 (<alasan singkat>), Opsi <H4>=4 (<alasan>), Opsi <H3>=3 (<alasan>), Opsi <H2>=2 (<alasan>), Opsi <H1>=1 (<alasan>)."
-   Pastikan seluruh 5 huruf & bobot cocok 100% dengan objek options!
+3. PEMBAHASAN TERVALIDASI OTOMATIS & RAMAH BACA (ANTI-WALL-OF-TEXT, ~80–130 kata):
+   - DILARANG menggabungkan 5 opsi dalam 1 paragraf panjang!
+   - Baris 1: "Jawaban dengan skor tertinggi adalah **Opsi <HURUF>** (5 poin)."
+   - Pisahkan dengan `\n\n`, lalu uraikan kelima opsi terurut 5 → 1 sebagai daftar bullet per baris:
+     - **Opsi <H5> (5 poin):** <alasan singkat>.
+     - **Opsi <H4> (4 poin):** <alasan singkat>.
+     - **Opsi <H3> (3 poin):** <alasan singkat>.
+     - **Opsi <H2> (2 poin):** <alasan singkat>.
+     - **Opsi <H1> (1 poin):** <alasan singkat>.
+   - Pastikan seluruh 5 huruf & bobot cocok 100% dengan objek options!
 4. Keluarkan HANYA array JSON valid sesuai schema TOCPNS.
 
 Contoh soal acuan (dari Packet 1–15):
@@ -162,7 +173,7 @@ Kamu adalah auditor soal CPNS yang kritis dan skeptis. Periksa batch soal JSON t
 1. TWK: Salah fakta pasal UUD 1945 / UU ASN 20/2023 / UU 23/2019 / ejaan KBBI VI & EYD V, atau pengecoh ternyata juga benar.
 2. TIU: Salah hitung, jawaban ganda, 2 opsi ekuivalen, soal kurang data, atau angka masih identik dengan soal populer (hitung ulang dari nol!).
 3. TKP: Opsi skor 4 terasa lebih baik/setara skor 5, skor 5 ketahuan karena jauh paling panjang/klise, skor 1 terasa kartun, atau rincian Opsi X=5..1 di pembahasan tidak cocok dengan bobot skor.
-4. Konsistensi: Nama tokoh atau huruf kunci di pembahasan berbeda dari soal/skor, ada artefak AI, atau sintaks KaTeX/Rp salah.
+4. Konsistensi & Keterbacaan Pembahasan: Nama tokoh atau huruf kunci di pembahasan berbeda dari soal/skor, ada artefak AI, sintaks KaTeX/Rp salah, atau pembahasan TIU/TKP masih berupa 1 paragraf padat tanpa langkah bernomor/bullet (`\n`).
 
 Tampilkan dalam tabel: | Nomor | Tingkat (KRITIS/MAYOR) | Masalah | Perbaikan Eksak |
 Jika bersih, tulis: "LULUS AUDIT (0 TEMUAN)".

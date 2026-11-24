@@ -85,10 +85,26 @@ Seluruh aturan berikut diverifikasi otomatis oleh [validate_question_pack.py](fi
    - Desimal di dalam KaTeX ditulis `0{,}75` agar KaTeX tidak menyisipkan spasi setelah koma.
    - **Rupiah (`Rp50.000`, `Rp1.250.000,00`) wajib ditulis di luar `$...$`** (menaruh `Rp` di dalam `$...$` memicu warning).
    - Soal *Perbandingan Kuantitatif* (`P` vs `Q`) dan *Interpretasi Data* dianjurkan memakai **tabel Markdown rapi** (`| P | Q |`).
-4. **Standar Pembahasan Berbobot & Sinkron Shuffler:**
-   - **TWK (`~60–110 kata`):** Mulai tepat dengan `Jawaban yang benar adalah Opsi X.` lalu jelaskan dasar hukum/konsep/kaidah + 1 kalimat penolakan pengecoh terkuat.
-   - **TIU (`~50–100 kata`):** Mulai tepat dengan `Jawaban yang benar adalah Opsi X.` lalu tuliskan langkah hitung/logika runtut sesuai hasil skrip Python.
-   - **TKP (`~70–120 kata`):** Mulai tepat dengan `Jawaban dengan skor tertinggi adalah Opsi X (5 poin).` lalu tuliskan ringkasan kelima bobot secara eksplisit: `Opsi X=5 (...), Opsi Y=4 (...), Opsi Z=3 (...), Opsi W=2 (...), Opsi V=1 (...).` — validator akan mengecek **kecocokan seluruh 5 pasang huruf=skor** secara otomatis, dan shuffler akan me-remap semuanya tanpa tabrakan!
+4. **Standar Pembahasan Ramah Belajar (Anti-Wall-of-Text & Sinkron Shuffler):**
+   - **Dilarang menulis pembahasan sebagai 1 paragraf padat tanpa jeda baris!** Gunakan Markdown standar dengan paragraf (`\n\n`), daftar bernomor (`1.`, `2.`, ...), bullet (`- ...`), penebalan (`**...**`), dan *block math* (`$$...$$`) agar mudah dipindai mata peserta di desktop maupun ponsel (di JSON gunakan `\n\n` untuk paragraf baru dan `\n` antar-item daftar; di Excel gunakan Alt+Enter / `\n`).
+   - **TWK (`~60–110 kata`):**
+     - Paragraf 1: Mulai tepat dengan `Jawaban yang benar adalah **Opsi X**.` diikuti alasan kunci (rujukan pasal/konsep/kaidah EYD V/KBBI VI).
+     - Paragraf 2 (`\n\n`): Jelaskan penolakan pengecoh terkuat (bisa 1 paragraf ringkas atau bullet `- **Opsi Y:** ...`).
+   - **TIU Numerik, Analitis, & Silogisme (`~60–120 kata`, wajib bertahap per baris):**
+     - Baris 1: `Jawaban yang benar adalah **Opsi X**.`
+     - Pisahkan dengan `\n\n`, lalu uraikan langkah hitung/logika dalam **daftar bernomor `1.`, `2.`, `3.`, ...** (1 langkah = 1 baris). Untuk persamaan akhir atau langkah panjang, gunakan *block math* `$$\n...\n$$` agar rumus tidak berdesakan dengan teks.
+     - **Ilustrasi Diagram Pembahasan (Disarankan kuat untuk Analitis `#39–42` seperti meja bundar/rute graf, Deret loncat/bertingkat, dan Figural):** Buat PNG latar putih (`#FFFFFF`) via Python (`q39_pembahasan.png`, dst.), unggah ke bucket publik Supabase `exam-assets/pembahasan/<kode_paket>/`, lalu sisipkan di `discussion` sebagai `![Diagram pembahasan soal 39](https://.../exam-assets/pembahasan/<kode_paket>/q39_pembahasan.png)`. Frontend otomatis memberi bingkai putih (aman di Dark Mode) dan fitur *click-to-zoom*.
+   - **TKP (`~80–130 kata`, wajib daftar bullet per opsi `5 → 1`):**
+     - Baris 1: `Jawaban dengan skor tertinggi adalah **Opsi X** (5 poin).`
+     - Pisahkan dengan `\n\n`, lalu tulis rincian kelima opsi terurut `5 → 1` dalam bullet per baris:
+       ```markdown
+       - **Opsi X (5 poin):** <alasan singkat>.
+       - **Opsi Y (4 poin):** <alasan singkat>.
+       - **Opsi Z (3 poin):** <alasan singkat>.
+       - **Opsi W (2 poin):** <alasan singkat>.
+       - **Opsi V (1 poin):** <alasan singkat>.
+       ```
+     - Validator mengecek kecocokan **seluruh 5 pasang huruf & bobot** serta memberi warning `discussion_wall_of_text` bila pembahasan TIU/TKP tidak memiliki jeda baris (`\n`). Shuffler mendukung penuh remap format bold `**Opsi X (5 poin):**` maupun `Opsi X=5`.
    - **Bebas Artefak AI:** Dilarang menulis *"Sebagai AI..."*, *"Berikut adalah pembahasannya:"*, atau placeholder `[...]`. Nama tokoh di soal dan pembahasan wajib identik.
 5. **Verifikasi Deterministik TIU:**
    - **TIU `#35–59`:** Wajib dibuktikan via `verify/verify_tiu_math_logic.py` (memakai `Fraction`/`Decimal` untuk numerik, `itertools.permutations` untuk analitis, dan **tabel kebenaran / uji model himpunan nyata** untuk silogisme — dilarang `assert True` kosong!).

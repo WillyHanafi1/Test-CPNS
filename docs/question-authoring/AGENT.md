@@ -19,7 +19,7 @@ data/generated/<kode_paket>/
 ├── verify/
 │   ├── verify_tiu_math_logic.py      # Pembuktian Python TIU #35–59 (Numerik + Analitis + Silogisme)
 │   └── generate_figural.py           # Generator gambar deterministik Pillow/matplotlib #60–65
-├── gambar/                           # q60_figural.png s.d. q65_figural.png (6 atau 8 PNG)
+├── gambar/                           # q60_figural.png–q65_figural.png + diagram pembahasan (q39_pembahasan.png, dst.)
 ├── cross_audit/                      # 6 berkas dari --export-blind-audit (Review Silang)
 ├── <kode_paket>-bank-soal.json       # Gabungan 110 soal pra-shuffle
 ├── <kode_paket>-bank-soal-final.json # Gabungan 110 soal pasca-shuffle
@@ -54,7 +54,7 @@ Untuk setiap batch sesuai [BLUEPRINT.md](file:///d:/Project/Test-CPNS/docs/quest
      - **Analitis (`#39–42`):** `itertools.permutations` membuktikan **tepat 1 solusi unik**.
      - **Silogisme (`#35–38`):** *truth table* proposisi (implikasi/kontraposisi) atau uji himpunan model terbatas (kuantor Semua/Sebagian) — **dilarang `assert True` kosong**.
      - Jalankan skrip hingga **exit code 0**.
-  4. Format rumus dalam KaTeX `$...$` (`0{,}75`, `Rp` di luar `$...$`, tabel Markdown untuk `P vs Q`). Validasi batch dengan `--partial`.
+  4. Format rumus dalam KaTeX `$...$` (`0{,}75`, `Rp` di luar `$...$`, tabel Markdown untuk `P vs Q`). **Pembahasan wajib bertahap (anti-wall-of-text):** mulai `Jawaban yang benar adalah **Opsi X**.`, lalu `\n\n` diikuti daftar langkah bernomor (`1.`, `2.`, ...) per baris + `$$...$$` untuk persamaan akhir. Khusus soal Analitis visual (`#39–42` seperti meja bundar/rute graf) dan Deret loncat, buat diagram ilustrasi `gambar/q39_pembahasan.png` (latar `#FFFFFF`) dan sisipkan di pembahasan sebagai `![Diagram pembahasan soal 39](gambar/q39_pembahasan.png)` (ganti URL Supabase pada Langkah 5). Validasi batch dengan `--partial`.
 
 - **Batch TIU Figural (`TIU-7`, nomor `60–65`):**
   1. Ambil contoh referensi pola: `python scripts/sample_anchor_questions.py --batch TIU-7 --count 4 --seed <S>`.
@@ -68,8 +68,8 @@ Untuk setiap batch sesuai [BLUEPRINT.md](file:///d:/Project/Test-CPNS/docs/quest
 - **Batch TKP (`TKP-1` s.d. `TKP-6`, nomor `66–110`):**
   1. Ambil contoh tepat aspek: `python scripts/sample_anchor_questions.py --batch TKP-X --count 5 --seed <S>`.
   2. Buat dilema realistis baru (catat instansi & tokoh di `used_entities.txt`), pastikan panjang 5 opsi seimbang (`selisih <= 5 kata`), kontras `5 vs 4` tegas, dan skor `1` tetap terdengar wajar/rasional.
-  3. Pembahasan mulai `Jawaban dengan skor tertinggi adalah Opsi X (5 poin).` diikuti `Opsi X=5 (...), Opsi Y=4 (...), Opsi Z=3 (...), Opsi W=2 (...), Opsi V=1 (...).`
-  4. Validasi tiap batch dengan `--partial` (pastikan **0 Hard Errors** dan **0 warning `tkp_length_bias` / `discussion_key_unexplicit`**).
+  3. Pembahasan mulai `Jawaban dengan skor tertinggi adalah **Opsi X** (5 poin).` lalu `\n\n` diikuti daftar bullet 5 baris terurut `5 → 1`: `- **Opsi X (5 poin):** ...` sampai `- **Opsi V (1 poin):** ...` (dilarang menggabungkan dalam 1 paragraf padat!).
+  4. Validasi tiap batch dengan `--partial` (pastikan **0 Hard Errors** dan **0 warning `tkp_length_bias` / `discussion_key_unexplicit` / `discussion_wall_of_text`**).
 
 ### Langkah 3 — Gabungkan, Quality Gate (vs 15 Paket), Shuffle 500× + Acak TKP, & Ekspor `.xlsx`
 Gabungkan seluruh 18 batch ke `data/generated/<kode_paket>/<kode_paket>-bank-soal.json` (urut `1..110`), lalu jalankan satu perintah ini:
@@ -88,6 +88,6 @@ python scripts/validate_question_pack.py data/generated/<kode_paket>/<kode_paket
 ### Langkah 4 — Review Silang Beda Model (Sangat Disarankan)
 Kirim 6 berkas di `cross_audit/` ke model AI berbeda mengikuti [CROSS_MODEL_REVIEW.md](file:///d:/Project/Test-CPNS/docs/question-authoring/CROSS_MODEL_REVIEW.md).
 
-### Langkah 5 — Upload Figural, Spot-Check 15 Menit, & Impor Admin
-1. Upload 6 gambar `gambar/q60_figural.png` – `q65_figural.png` ke bucket publik Supabase `exam-assets/figural/<kode_paket>/`, perbarui `image_url`, lalu ekspor ulang `.xlsx`.
+### Langkah 5 — Upload Figural & Diagram Pembahasan, Spot-Check 15 Menit, & Impor Admin
+1. Upload seluruh gambar soal (`gambar/q6*_figural.png`) dan diagram pembahasan (`gambar/q*_pembahasan*.png`) ke bucket publik Supabase `exam-assets` (`figural/<kode_paket>/` & `pembahasan/<kode_paket>/` via `scripts/ops/upload_figural_from_ops_env.py`), perbarui `image_url` serta tautan Markdown `![...](...)` di `discussion`, lalu ekspor ulang `.xlsx`.
 2. Ikuti checklist 15 menit di [HUMAN_SPOT_CHECK_SOP.md](file:///d:/Project/Test-CPNS/docs/question-authoring/HUMAN_SPOT_CHECK_SOP.md): impor `.xlsx` ke paket Draft di `/admin/questions`, cek Split-Pane Live Preview, lalu klik **Validasi & Terbitkan** di `/admin/packages`.

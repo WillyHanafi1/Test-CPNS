@@ -214,10 +214,16 @@ export function QuestionNavigator({
   );
 }
 
-export function ExamText({ children }: { children: string }) {
+export function ExamText({
+  children,
+  onImageClick,
+}: {
+  children: string;
+  onImageClick?: (image: ExamImage) => void;
+}) {
   return (
     <div className={styles.text}>
-      <MarkdownRenderer>{children}</MarkdownRenderer>
+      <MarkdownRenderer onImageClick={onImageClick}>{children}</MarkdownRenderer>
     </div>
   );
 }

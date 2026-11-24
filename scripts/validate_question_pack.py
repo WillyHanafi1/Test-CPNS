@@ -307,14 +307,14 @@ def extract_claimed_key(discussion: str) -> str | None:
     if not discussion:
         return None
     patterns = [
-        # "Jawaban yang benar adalah Opsi C." / "Pilihan paling tepat: B"
-        r"(?:jawaban|opsi|pilihan|kunci)\s+(?:yang\s+)?(?:paling\s+)?(?:benar|tepat|terbaik|tertinggi|sah|utama)(?:\s*\(\s*5(?:\s*poin)?\s*\))?\s*(?:adalah|yaitu|:)\s*(?:opsi|pilihan)?\s*\(?([A-E])\)?(?![a-zA-Z])",
-        # "Jawaban dengan skor tertinggi adalah Opsi B (5 poin)." / "Jawaban dengan skor tertinggi (5) adalah B"
-        r"(?:jawaban|opsi|pilihan|kunci)\s+(?:dengan\s+)?(?:skor|poin|nilai)\s+tertinggi(?:\s*\(\s*5(?:\s*poin)?\s*\))?\s*(?:adalah|yaitu|:)\s*(?:opsi|pilihan)?\s*\(?([A-E])\)?(?![a-zA-Z])",
-        # "Jawaban: C" / "Kunci jawaban: C"
-        r"(?:^|\n)\s*(?:jawaban|kunci(?:\s+jawaban)?)\s*:\s*(?:opsi|pilihan)?\s*\(?([A-E])\)?(?![a-zA-Z])",
+        # "Jawaban yang benar adalah **Opsi C**." / "Pilihan paling tepat: B"
+        r"(?:jawaban|opsi|pilihan|kunci)\s+(?:yang\s+)?(?:paling\s+)?(?:benar|tepat|terbaik|tertinggi|sah|utama)(?:\s*\(\s*5(?:\s*poin)?\s*\))?\s*(?:adalah|yaitu|:)\s*\*{0,2}(?:opsi|pilihan)?\s*\*{0,2}\(?([A-E])\)?\*{0,2}(?![a-zA-Z])",
+        # "Jawaban dengan skor tertinggi adalah **Opsi B** (5 poin)." / "Jawaban dengan skor tertinggi (5) adalah B"
+        r"(?:jawaban|opsi|pilihan|kunci)\s+(?:dengan\s+)?(?:skor|poin|nilai)\s+tertinggi(?:\s*\(\s*5(?:\s*poin)?\s*\))?\s*(?:adalah|yaitu|:)\s*\*{0,2}(?:opsi|pilihan)?\s*\*{0,2}\(?([A-E])\)?\*{0,2}(?![a-zA-Z])",
+        # "Jawaban: C" / "Kunci jawaban: **Opsi C**"
+        r"(?:^|\n)\s*\*{0,2}(?:jawaban|kunci(?:\s+jawaban)?)\s*:\*{0,2}\s*\*{0,2}(?:opsi|pilihan)?\s*\*{0,2}\(?([A-E])\)?\*{0,2}(?![a-zA-Z])",
         # "Opsi B benar / bernilai 5"
-        r"^\s*(?:opsi|pilihan|jawaban)\s*\(?([A-E])\)?\s*(?:benar|tepat|bernilai\s*5|memperoleh\s*skor\s*5)",
+        r"^\s*\*{0,2}(?:opsi|pilihan|jawaban)\s*\*{0,2}\(?([A-E])\)?\*{0,2}\s*(?:benar|tepat|bernilai\s*5|memperoleh\s*skor\s*5)",
     ]
     for pat in patterns:
         m = re.search(pat, discussion, flags=re.IGNORECASE)
@@ -324,11 +324,26 @@ def extract_claimed_key(discussion: str) -> str | None:
 
 
 def extract_tkp_claimed_scores(discussion: str) -> dict[str, int]:
-    """Extract compact TKP score mappings like 'Opsi B=5' or 'B = 4' from discussion."""
+    """Extract TKP score mappings like 'Opsi B=5', 'B = 4', or '- **Opsi B (5 poin):**' from discussion."""
     if not discussion:
         return {}
     found: dict[str, int] = {}
-    for m in re.finditer(r"(?:(?:opsi|pilihan)\s+)?(?<![a-zA-Z0-9_])([A-E])\s*=\s*([1-5])(?![0-9])", discussion):
+    # Format 1: compact "Opsi B=5" / "**Opsi B = 4**"
+    for m in re.finditer(
+        r"(?:(?:opsi|pilihan)\s+\*{0,2})?(?<![a-zA-Z0-9_])([A-E])\*{0,2}\s*=\s*([1-5])(?![0-9])",
+        discussion,
+        flags=re.IGNORECASE,
+    ):
+        ltr = m.group(1).upper()
+        sc = int(m.group(2))
+        if ltr not in found:
+            found[ltr] = sc
+    # Format 2: readable bullet "- **Opsi B (5 poin):**" / "Opsi B (skor 4)"
+    for m in re.finditer(
+        r"(?:opsi|pilihan)\s+\*{0,2}([A-E])\*{0,2}\s*\(\s*(?:(?:skor|poin|nilai)\s*)?([1-5])(?:\s*(?:poin|skor|nilai))?\s*\)",
+        discussion,
+        flags=re.IGNORECASE,
+    ):
         ltr = m.group(1).upper()
         sc = int(m.group(2))
         if ltr not in found:
@@ -505,6 +520,41 @@ def validate_pack(
                 summary.errors.append(Issue("ERROR", num, "latex_syntax", f"[{field_name}] {prob}"))
             for wprob in l_warns:
                 summary.warnings.append(Issue("WARNING", num, "latex_rupiah", f"[{field_name}] {wprob}"))
+
+        # Discussion readability & embedded image hygiene
+        disc_txt = q["discussion"]
+        if disc_txt:
+            sub_low = sub_cat.lower()
+            step_heavy_tiu = seg == "TIU" and not fig and sub_low != "analogi"
+            if step_heavy_tiu and len(disc_txt) >= 180 and "\n" not in disc_txt:
+                summary.warnings.append(
+                    Issue(
+                        "WARNING",
+                        num,
+                        "discussion_wall_of_text",
+                        "Pembahasan TIU berupa 1 paragraf padat tanpa jeda baris (\\n); pecah menjadi langkah bernomor (1., 2., ...) atau paragraf terpisah agar mudah dibaca.",
+                    )
+                )
+            elif seg == "TKP" and len(disc_txt) >= 200 and "\n" not in disc_txt:
+                summary.warnings.append(
+                    Issue(
+                        "WARNING",
+                        num,
+                        "discussion_wall_of_text",
+                        "Pembahasan TKP menyatu dalam 1 paragraf; pecah rincian skor 5→1 menjadi daftar bullet per baris (- **Opsi X (5 poin):** ...) agar mudah dipindai.",
+                    )
+                )
+            for m_img in re.finditer(r"!\[[^\]]*\]\(([^)]+)\)", disc_txt):
+                d_url = m_img.group(1).strip()
+                if "127.0.0.1" in d_url or "localhost" in d_url or d_url.startswith("gambar/"):
+                    summary.warnings.append(
+                        Issue(
+                            "WARNING",
+                            num,
+                            "local_discussion_image_url",
+                            f"Gambar pembahasan ({d_url}) masih lokal; unggah ke bucket publik Supabase exam-assets sebelum produksi.",
+                        )
+                    )
 
         # Figural image check
         if fig:

@@ -95,24 +95,24 @@ def _build_phrase_patterns():
     # All phrase templates discovered from comprehensive CSV scan.
     # {L} = placeholder for the option letter to match.
     templates = [
-        # "Jawaban yang benar/tepat/sah/dengan skor tertinggi (5) adalah [opsi] X"
-        r'([Jj]awaban\s+(?:[\w()]+\s+){0,6}adalah\s+(?:[Oo]psi\s+)?){L}',
-        # "Jawaban paling tepat adalah X"  (already covered above but explicit)
-        r'([Jj]awaban\s+paling\s+tepat\s+adalah\s+(?:[Oo]psi\s+)?){L}',
-        # "Jawaban ... berada pada opsi X"
-        r'([Jj]awaban\s+(?:\w+\s+){0,5}berada\s+pada\s+[Oo]psi\s+){L}',
-        # "Jawaban: X" / "Kunci: X" / "Kunci Jawaban: X"
-        r'((?:[Jj]awaban|[Kk]unci(?:\s+[Jj]awaban)?)\s*:\s*(?:[Oo]psi\s+)?){L}',
+        # "Jawaban yang benar/tepat/sah/dengan skor tertinggi (5) adalah [**opsi**] **X**"
+        r'([Jj]awaban\s+(?:[\w()]+\s+){0,6}adalah\s+\*{0,2}(?:[Oo]psi\s+)?\*{0,2}){L}',
+        # "Jawaban paling tepat adalah [**Opsi**] X"
+        r'([Jj]awaban\s+paling\s+tepat\s+adalah\s+\*{0,2}(?:[Oo]psi\s+)?\*{0,2}){L}',
+        # "Jawaban ... berada pada [**opsi**] X"
+        r'([Jj]awaban\s+(?:\w+\s+){0,5}berada\s+pada\s+\*{0,2}[Oo]psi\s+\*{0,2}){L}',
+        # "Jawaban: X" / "Kunci: X" / "Kunci Jawaban: **Opsi X**"
+        r'((?:[Jj]awaban|[Kk]unci(?:\s+[Jj]awaban)?)\s*:\s*\*{0,2}(?:[Oo]psi\s+)?\*{0,2}){L}',
         # "opsi yang paling akurat/tepat adalah X"
-        r'([Oo]psi\s+yang\s+(?:\w+\s+){0,3}adalah\s+){L}',
-        # "Pengecoh terbaik/terkuat [adalah] Opsi X"
-        r'([Pp]engecoh\s+(?:terbaik|terkuat|utama)\s+(?:adalah\s+)?(?:[Oo]psi\s+)?){L}',
+        r'([Oo]psi\s+yang\s+(?:\w+\s+){0,3}adalah\s+\*{0,2}){L}',
+        # "Pengecoh terbaik/terkuat [adalah] [**Opsi**] X"
+        r'([Pp]engecoh\s+(?:terbaik|terkuat|utama)\s+(?:adalah\s+)?\*{0,2}(?:[Oo]psi\s+)?\*{0,2}){L}',
         # "pengecoh utama di opsi X"
-        r'([Pp]engecoh\s+utama\s+di\s+[Oo]psi\s+){L}',
+        r'([Pp]engecoh\s+utama\s+di\s+\*{0,2}[Oo]psi\s+\*{0,2}){L}',
         # "Pengecoh: Opsi X"
-        r'([Pp]engecoh:\s*[Oo]psi\s+){L}',
+        r'([Pp]engecoh:\s*\*{0,2}[Oo]psi\s+\*{0,2}){L}',
         # "Pengecoh opsi X"
-        r'([Pp]engecoh\s+[Oo]psi\s+){L}',
+        r'([Pp]engecoh\s+\*{0,2}[Oo]psi\s+\*{0,2}){L}',
     ]
     return templates
 
@@ -186,26 +186,28 @@ def remap_discussion(discussion_text: str, letter_mapping: dict) -> str:
             except re.error:
                 pass  # Skip malformed patterns silently
 
-    # --- PASS 1b: SIMPLE keyword+letter patterns ---
+    # --- PASS 1b: SIMPLE keyword+letter patterns (supports Markdown bold e.g. "**Opsi B**") ---
     for keyword in OPTION_KEYWORDS:
         for letter_upper in LETTERS_UPPER:
             letter_lower = letter_upper.lower()
             placeholder = ph_map[letter_upper]
 
             pattern_upper = re.compile(
-                rf'({re.escape(keyword)}\s+){letter_upper}(?![a-zA-Z])'
+                rf'({re.escape(keyword)}\s+\*{{0,2}}){letter_upper}(?![a-zA-Z])'
             )
             pattern_lower = re.compile(
-                rf'({re.escape(keyword)}\s+){letter_lower}(?![a-zA-Z])'
+                rf'({re.escape(keyword)}\s+\*{{0,2}}){letter_lower}(?![a-zA-Z])'
             )
 
             result = pattern_upper.sub(rf'\1{placeholder}', result)
             result = pattern_lower.sub(rf'\1{placeholder.lower()}', result)
 
-    # --- PASS 1c: Compact TKP score summary patterns (e.g., "B=5", "A = 4") ---
+    # --- PASS 1c: Compact TKP score summary patterns (e.g., "B=5", "A = 4", "**B** (5 poin)") ---
     for letter_upper in LETTERS_UPPER:
         placeholder = ph_map[letter_upper]
-        pat_score = re.compile(rf'(?<![a-zA-Z0-9_]){letter_upper}(?=\s*=\s*[1-5]\b)')
+        pat_score = re.compile(
+            rf'(?<![a-zA-Z0-9_]){letter_upper}(?=\*{{0,2}}\s*(?:=\s*[1-5]\b|\(\s*[1-5]\s*poin\s*\)))'
+        )
         result = pat_score.sub(placeholder, result)
 
     # --- PASS 2: Replace all placeholders with final mapped letters ---
@@ -396,10 +398,10 @@ def verify_discussion_consistency(df: pd.DataFrame) -> list:
     """
     mismatches = []
     
-    # Patterns that claim a specific letter is correct
+    # Patterns that claim a specific letter is correct (supports optional Markdown bold **)
     correct_answer_patterns = [
-        re.compile(r'[Jj]awaban\s+(?:\w+\s+){0,6}adalah\s+(?:[Oo]psi\s+)?([A-Ea-e])(?![a-zA-Z])'),
-        re.compile(r'[Jj]awaban\s+paling\s+tepat\s+(?:adalah\s+)?(?:[Oo]psi\s+)?([A-Ea-e])(?![a-zA-Z])'),
+        re.compile(r'[Jj]awaban\s+(?:[\w()]+\s+){0,6}adalah\s+\*{0,2}(?:[Oo]psi\s+)?\*{0,2}([A-Ea-e])(?![a-zA-Z])'),
+        re.compile(r'[Jj]awaban\s+paling\s+tepat\s+(?:adalah\s+)?\*{0,2}(?:[Oo]psi\s+)?\*{0,2}([A-Ea-e])(?![a-zA-Z])'),
     ]
     
     for idx, row in df.iterrows():

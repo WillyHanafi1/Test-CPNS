@@ -9,7 +9,7 @@ Dokumen ini adalah **gerbang terakhir manusia (*Final Human Sign-Off*)** yang di
 ### Menit 0–3 — Audit Dasbor Metrik (`audit-report.md` & `cross-model-audit.md`)
 Buka `data/generated/<kode_paket>/audit-report.md` dan `cross-model-audit.md`, lalu verifikasi 6 angka kunci berikut:
 - [ ] **Total soal & kuota segmen:** Tepat `110` (`TWK 30 / TIU 35 / TKP 45`), semua 6 aspek TKP terisi seimbang (`>= 5` soal per aspek).
-- [ ] **Hard Errors:** `0` (Wajib mutlak). **Warnings:** `0` (termasuk 0 `discussion_key_unexplicit`, 0 `tkp_length_bias`, 0 `latex_rupiah`, 0 `key_imbalance`, 0 `key_streak`, dan 0 `local_image_url` setelah upload Supabase).
+- [ ] **Hard Errors:** `0` (Wajib mutlak). **Warnings:** `0` (termasuk 0 `discussion_key_unexplicit`, 0 `discussion_wall_of_text`, 0 `tkp_length_bias`, 0 `latex_rupiah`, 0 `key_imbalance`, 0 `key_streak`, 0 `local_image_url`, dan 0 `local_discussion_image_url` setelah upload Supabase).
 - [ ] **Kemiripan terhadap seluruh `Packet 1–15` (1.650 soal):** TWK/TKP `< 50%`, TIU `< 85%` (dan angka/deret berbeda). Kemiripan internal `< 55%`.
 - [ ] **Rasio opsi kunci terpanjang:** `<= 35%` (target ideal setara BKN: `12%–25%`).
 - [ ] **Distribusi kunci A–E per segmen:** Merata (`selisih max - min <= 2` di TWK, TIU non-figural, dan TKP) dan tanpa pola siklus berulang. Urutan TKP `#66–110` sudah teracak (`--shuffle-tkp-order`).
@@ -44,9 +44,9 @@ Ambil **10 soal sampel stratifikasi** dari `.xlsx` final (sheet `Impor`) atau da
    - Buka `/admin/packages` → buat paket baru (**Draft**), isi judul, deskripsi, tier (Gratis/Pro), dan durasi `100` menit.
    - Buka `/admin/questions` → pilih paket Draft → **Import Excel / CSV** → unggah `<kode_paket>-impor-final.xlsx`.
 2. **Cek Split-Pane Live Preview pada 5 Soal di Browser Asli:**
-   - [ ] **1 soal TIU pecahan/akar/tabel (`#43–59`):** KaTeX & tabel Markdown ter-render rapi tanpa teks merah atau `$` mentah.
-   - [ ] **1 soal TIU Figural (`#60–65`):** Gambar tampil langsung dari Supabase Storage tanpa `404`/`403`.
-   - [ ] **1 soal TWK & 1 soal TKP:** Paragraf rapi, bebas karakter aneh (`\n` mentah atau tag HTML bocor).
+   - [ ] **1 soal TIU pecahan/akar/tabel (`#43–59`) & Analitis bergambar (`#39–42`):** KaTeX, *block math* `$$...$$`, tabel Markdown, langkah bernomor (`1.`, `2.`, ...), dan diagram pembahasan (`![...](...)`, bisa diklik zoom) ter-render rapi tanpa teks merah atau `$` mentah.
+   - [ ] **1 soal TIU Figural (`#60–65`):** Gambar soal & diagram pembahasan tampil langsung dari Supabase Storage tanpa `404`/`403`.
+   - [ ] **1 soal TWK & 1 soal TKP:** Paragraf rapi, rincian TKP 5→1 berbentuk daftar bullet per baris (bukan tembok teks), bebas karakter aneh (`\n` mentah atau tag HTML bocor).
    - [ ] **Pembahasan & Kunci:** Badge skor (`5, 4, 3, 2, 1`) di UI Admin cocok 100% dengan huruf di pembahasan.
 3. **Validasi Server & Terbitkan:**
    - Kembali ke `/admin/packages` → klik **Validasi & Terbitkan** → pastikan 0 blocker → klik **Terbitkan revisi**!

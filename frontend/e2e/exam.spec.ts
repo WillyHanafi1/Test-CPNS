@@ -235,3 +235,98 @@ $11,\ 48,\ 16,\ 42,\ 23,\ 36,\ 32,\ 30,\ \dots,\ \dots$`
     page.getByRole("button", { name: "Ya, kumpulkan ujian" }),
   ).toBeVisible();
 });
+
+test("structured discussion renders steps, display math, and zoomable diagram image", async ({
+  page,
+}) => {
+  const diagramUrl =
+    "https://assets.example.test/pembahasan/gen01/q39_pembahasan.svg";
+  const diagramSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="160"><rect width="320" height="160" fill="#ffffff"/><circle cx="160" cy="80" r="50" fill="none" stroke="#111827" stroke-width="3"/></svg>`;
+  const discussion = [
+    "Jawaban yang benar adalah **Opsi B**.",
+    "",
+    "Kerjakan operasi langkah demi langkah:",
+    "",
+    String.raw`1. Ubah persen: $25\% = \frac{1}{4}$, lalu hitung $\frac{5}{6} + \frac{1}{4} = \frac{13}{12}$.`,
+    String.raw`2. Hitung perkalian: $0{,}6 \times \frac{13}{12} = 0{,}65$.`,
+    "",
+    "$$",
+    String.raw`1{,}75 - 0{,}65 + 1{,}2 = 2{,}3`,
+    "$$",
+    "",
+    `![Diagram posisi duduk soal 39](${diagramUrl})`,
+  ].join("\n");
+
+  await page.route(diagramUrl, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "image/svg+xml",
+      body: diagramSvg,
+    }),
+  );
+
+  await page.route("**/api/v1/**", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const headers = {
+      "access-control-allow-origin": request.headers().origin || url.origin,
+      "access-control-allow-credentials": "true",
+      "access-control-allow-headers": "*",
+      "access-control-allow-methods": "GET,POST,OPTIONS",
+    };
+    if (request.method() === "OPTIONS")
+      return route.fulfill({ status: 204, headers });
+
+    let data: unknown = {};
+    if (url.pathname.endsWith("/auth/me")) {
+      data = {
+        id: "participant",
+        email: "peserta@example.test",
+        role: "participant",
+      };
+    } else if (url.pathname.endsWith("/exam/session/review-check/review")) {
+      data = {
+        session_id: "review-check",
+        package_id: "pkg-1",
+        package_title: "Tryout SKD CPNS 2026 #1",
+        total_score: 5,
+        score_twk: 0,
+        score_tiu: 5,
+        score_tkp: 0,
+        is_passed: false,
+        questions: [
+          {
+            id: "q43",
+            number: 43,
+            segment: "TIU",
+            content: String.raw`Nilai dari $\frac{7}{4} - 0{,}6 \times \left(\frac{5}{6} + 25\%\right) + 1{,}8 \div 1{,}5$ adalah ...`,
+            discussion,
+            selected_option_id: "opt-b",
+            options: [
+              { id: "opt-a", label: "A", content: "1,9", score: 0 },
+              { id: "opt-b", label: "B", content: "2,3", score: 5 },
+            ],
+          },
+        ],
+      };
+    }
+    return route.fulfill({ json: data, headers });
+  });
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/session/review-check/review");
+
+  const section = page.locator("section[aria-labelledby='discussion-title']");
+  await expect(section).toBeVisible();
+  await expect(section.locator("ol li")).toHaveCount(2);
+  await expect(section.locator(".katex-display")).toBeVisible();
+
+  const zoomBtn = section.getByRole("button", {
+    name: /Perbesar diagram posisi duduk soal 39/i,
+  });
+  await expect(zoomBtn).toBeVisible();
+  await zoomBtn.click();
+  await expect(
+    page.getByRole("dialog", { name: "Diagram posisi duduk soal 39" }),
+  ).toBeVisible();
+});

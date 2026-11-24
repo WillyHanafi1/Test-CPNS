@@ -465,9 +465,9 @@ export function ReviewView({
                   <span className={styles.discussionIcon}>
                     <BookOpen size={19} aria-hidden="true" />
                   </span>
-                  <div>
+                  <div className={styles.discussionBody}>
                     <h3 id="discussion-title">Pembahasan soal</h3>
-                    <ExamText>
+                    <ExamText onImageClick={setZoom}>
                       {q.discussion ||
                         "Pembahasan belum tersedia untuk soal ini."}
                     </ExamText>
