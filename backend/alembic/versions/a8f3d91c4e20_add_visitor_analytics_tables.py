@@ -40,6 +40,26 @@ def upgrade():
         sa.PrimaryKeyConstraint("stat_date", "path"),
     )
 
+    # Supabase can grant new public-schema tables to its API roles by default.
+    # The application reads and writes analytics through its backend connection.
+    op.execute("ALTER TABLE site_daily_stats ENABLE ROW LEVEL SECURITY")
+    op.execute("ALTER TABLE site_visitor_daily ENABLE ROW LEVEL SECURITY")
+    op.execute("ALTER TABLE site_page_daily_stats ENABLE ROW LEVEL SECURITY")
+    op.execute("""
+        DO $block$
+        DECLARE api_role name;
+        BEGIN
+            REVOKE ALL PRIVILEGES ON site_daily_stats, site_visitor_daily, site_page_daily_stats FROM PUBLIC;
+            FOR api_role IN SELECT rolname FROM pg_roles WHERE rolname IN ('anon', 'authenticated') LOOP
+                EXECUTE format(
+                    'REVOKE ALL PRIVILEGES ON site_daily_stats, site_visitor_daily, site_page_daily_stats FROM %I',
+                    api_role
+                );
+            END LOOP;
+        END;
+        $block$;
+    """)
+
 
 def downgrade():
     op.drop_table("site_page_daily_stats")
