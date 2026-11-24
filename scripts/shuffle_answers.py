@@ -101,6 +101,8 @@ def _build_phrase_patterns():
         r'([Jj]awaban\s+paling\s+tepat\s+adalah\s+(?:[Oo]psi\s+)?){L}',
         # "Jawaban ... berada pada opsi X"
         r'([Jj]awaban\s+(?:\w+\s+){0,5}berada\s+pada\s+[Oo]psi\s+){L}',
+        # "Jawaban: X" / "Kunci: X" / "Kunci Jawaban: X"
+        r'((?:[Jj]awaban|[Kk]unci(?:\s+[Jj]awaban)?)\s*:\s*(?:[Oo]psi\s+)?){L}',
         # "opsi yang paling akurat/tepat adalah X"
         r'([Oo]psi\s+yang\s+(?:\w+\s+){0,3}adalah\s+){L}',
         # "Pengecoh terbaik/terkuat [adalah] Opsi X"
@@ -418,6 +420,193 @@ def verify_discussion_consistency(df: pd.DataFrame) -> list:
                 break  # Only check first match per row
     
     return mismatches
+
+
+# ============================================================
+# REUSABLE DATAFRAME SHUFFLER (Used by validate_question_pack.py)
+# ============================================================
+def _max_consecutive_streak(df: pd.DataFrame, segment: str) -> int:
+    keys = []
+    for _, row in df.iterrows():
+        if str(row.get('segment', '')).strip().upper() != segment.upper():
+            continue
+        sub_cat = str(row.get('sub_category', '')).strip().lower()
+        if any(ex.lower() == sub_cat for ex in EXCLUDED_SUB_CATS):
+            continue
+        scores = []
+        for l in LETTERS:
+            s = pd.to_numeric(row.get(f'score_{l}', 0), errors='coerce')
+            scores.append(0 if pd.isna(s) else s)
+        if max(scores) > 0:
+            keys.append(LETTERS_UPPER[scores.index(max(scores))])
+    max_streak = 1 if keys else 0
+    cur = 1
+    for i in range(1, len(keys)):
+        if keys[i] == keys[i - 1]:
+            cur += 1
+            if cur > max_streak:
+                max_streak = cur
+        else:
+            cur = 1
+    return max_streak
+
+
+def _segment_non_figural_dist(df: pd.DataFrame, segment: str) -> dict:
+    dist = {l: 0 for l in LETTERS_UPPER}
+    for _, row in df.iterrows():
+        if str(row.get('segment', '')).strip().upper() != segment.upper():
+            continue
+        sub_cat = str(row.get('sub_category', '')).strip().lower()
+        if any(ex.lower() == sub_cat for ex in EXCLUDED_SUB_CATS):
+            continue
+        scores = []
+        for l in LETTERS:
+            s = pd.to_numeric(row.get(f'score_{l}', 0), errors='coerce')
+            scores.append(0 if pd.isna(s) else s)
+        if max(scores) > 0:
+            dist[LETTERS_UPPER[scores.index(max(scores))]] += 1
+    return dist
+
+
+def _shuffle_row_to_target_letter(row: dict, target_best_letter: str, rng: random.Random) -> dict:
+    """
+    Shuffle options of a single non-figural question so that the highest-score option
+    lands cleanly on `target_best_letter`, while the remaining 4 options are randomly
+    permuted across the other 4 slots, with atomic two-pass discussion remapping.
+    """
+    bundles = []
+    for l in LETTERS:
+        sc = pd.to_numeric(row.get(f'score_{l}', 0), errors='coerce')
+        bundles.append({
+            'text': row.get(f'option_{l}', ''),
+            'score': 0 if pd.isna(sc) else int(sc),
+            'image': row.get(f'option_image_{l}', ''),
+            'original_letter': l.upper(),
+        })
+
+    max_sc = max(b['score'] for b in bundles)
+    best_candidates = [b for b in bundles if b['score'] == max_sc]
+    if len(best_candidates) != 1 or max_sc <= 0:
+        # Degenerate row: fall back to uniform shuffle
+        shuffled = list(bundles)
+        rng.shuffle(shuffled)
+    else:
+        best_bundle = best_candidates[0]
+        others = [b for b in bundles if b is not best_bundle]
+        rng.shuffle(others)
+        target_idx = LETTERS_UPPER.index(target_best_letter)
+        shuffled = []
+        o_iter = iter(others)
+        for i in range(5):
+            shuffled.append(best_bundle if i == target_idx else next(o_iter))
+
+    letter_mapping = {bundle['original_letter']: LETTERS_UPPER[new_idx] for new_idx, bundle in enumerate(shuffled)}
+    for new_idx, bundle in enumerate(shuffled):
+        l = LETTERS[new_idx]
+        row[f'option_{l}'] = bundle['text']
+        row[f'score_{l}'] = bundle['score']
+        row[f'option_image_{l}'] = bundle['image']
+
+    discussion = row.get('discussion', '')
+    if discussion and isinstance(discussion, str):
+        row['discussion'] = remap_discussion(discussion, letter_mapping)
+    return row
+
+
+def _balanced_key_sequence(n: int, rng: random.Random, max_attempts: int = 500) -> list[str]:
+    """Generate a length-n sequence over A..E with guaranteed spread <= 1, zero cycles, and minimal streaks."""
+    if n <= 0:
+        return []
+    base, rem = divmod(n, 5)
+    extra_letters = list(LETTERS_UPPER)
+    rng.shuffle(extra_letters)
+    pool = []
+    for ltr in LETTERS_UPPER:
+        cnt = base + (1 if ltr in extra_letters[:rem] else 0)
+        pool.extend([ltr] * cnt)
+
+    best_seq = list(pool)
+    best_pen = float('inf')
+
+    for _ in range(max_attempts):
+        cand = list(pool)
+        rng.shuffle(cand)
+        # Compute max consecutive streak
+        max_st = 1
+        cur = 1
+        for i in range(1, len(cand)):
+            if cand[i] == cand[i - 1]:
+                cur += 1
+                if cur > max_st:
+                    max_st = cur
+            else:
+                cur = 1
+        # Check repeating cycle of length 3..10
+        has_cycle = False
+        if len(cand) >= 10:
+            for plen in range(3, min(11, len(cand) // 2 + 1)):
+                pat = cand[:plen]
+                matches = sum(1 for i in range(0, len(cand) - plen + 1, plen) if cand[i:i + plen] == pat)
+                if matches / (len(cand) / plen) >= 0.8:
+                    has_cycle = True
+                    break
+        pen = (100 if has_cycle else 0) + max(0, max_st - 2) * 20 + max_st
+        if pen < best_pen:
+            best_pen = pen
+            best_seq = cand
+            if not has_cycle and max_st <= 2:
+                break
+    return best_seq
+
+
+def shuffle_dataframe(
+    original_df: pd.DataFrame,
+    max_attempts: int = DEFAULT_MAX_ATTEMPTS,
+    seed: int | None = 42,
+) -> pd.DataFrame:
+    """
+    Stratified per-segment balanced shuffler for non-figural rows:
+    - Guarantees per-segment A-E distribution spread <= 1 (e.g. TWK 6/6/6/6/6, TKP 9/9/9/9/9)
+    - Eliminates repeating key cycles and keeps consecutive identical-key streaks <= 2
+    - Remaps all option references in discussion via two-pass placeholders
+    - Enforces Zero-Score Tampering via verify_score_integrity()
+    """
+    df_work = original_df.copy()
+    for l in LETTERS:
+        for col, default in [(f'option_{l}', ''), (f'score_{l}', 0), (f'option_image_{l}', '')]:
+            if col not in df_work.columns:
+                df_work[col] = default
+
+    valid_mask = df_work['content'].apply(
+        lambda x: str(x).strip() not in ['', '.', 'nan', 'KOSONG_ISI_NANTI']
+    )
+    excluded_mask = df_work['sub_category'].apply(
+        lambda x: any(ex.lower() == str(x).strip().lower() for ex in EXCLUDED_SUB_CATS)
+    )
+    shufflable_indices = list(df_work[valid_mask & ~excluded_mask].index)
+    if not shufflable_indices:
+        return df_work
+
+    rng = random.Random(seed)
+    by_seg: dict[str, list] = {}
+    for idx in shufflable_indices:
+        seg = str(df_work.at[idx, 'segment']).strip().upper() or 'OTHER'
+        by_seg.setdefault(seg, []).append(idx)
+
+    best_df = df_work.copy()
+    for seg in sorted(by_seg.keys()):
+        seg_indices = by_seg[seg]
+        target_seq = _balanced_key_sequence(len(seg_indices), rng, max_attempts=max_attempts)
+        for idx, target_ltr in zip(seg_indices, target_seq):
+            row_dict = best_df.loc[idx].to_dict()
+            shuffled_row = _shuffle_row_to_target_letter(row_dict, target_ltr, rng)
+            for key, val in shuffled_row.items():
+                best_df.at[idx, key] = val
+
+    if not verify_score_integrity(df_work, best_df):
+        raise RuntimeError("Score integrity violation detected during shuffle_dataframe!")
+
+    return best_df
 
 
 # ============================================================

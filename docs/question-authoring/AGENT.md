@@ -1,11 +1,11 @@
-# AGENT.md — SOP Ringkas & Fokus (Konteks Minimal) untuk AI Agent
+# AGENT.md — SOP Eksekusi *Just-In-Time* (Konteks Minimal) untuk AI Agent
 
-Panduan ini dirancang agar AI Agent bekerja **cepat, akurat, dan tidak tenggelam oleh kelebihan konteks**.
+Panduan ini memastikan AI Agent menghasilkan paket SKD CPNS 110 soal yang **presisi, terverifikasi matematis, bebas bias, dan tidak mengalami *context drift*** hingga soal ke-110.
 
 > **Aturan Anti-Banjir Konteks:**
-> 1. Di awal sesi, baca **HANYA** [RULES.md](file:///d:/ProjectAI/Test-CPNS/docs/question-authoring/RULES.md) dan [BLUEPRINT.md](file:///d:/ProjectAI/Test-CPNS/docs/question-authoring/BLUEPRINT.md).
-> 2. **JANGAN** membaca seluruh `references/*.md` atau seluruh 220 soal contoh sekaligus di awal!
-> 3. Kerjakan **1 batch kecil (5–9 soal)** dalam satu waktu: ambil **hanya 5–9 soal contoh padanannya** dari `vol17-bank-soal.json` / `vol18-bank-soal.json`, lalu cari pasal/kata baku di `references/` **hanya saat diperlukan** (on-demand).
+> 1. Di awal sesi, baca **HANYA** [RULES.md](file:///d:/Project/Test-CPNS/docs/question-authoring/RULES.md) dan [BLUEPRINT.md](file:///d:/Project/Test-CPNS/docs/question-authoring/BLUEPRINT.md).
+> 2. **JANGAN** membaca seluruh `references/*.md` atau seluruh file `Packet 1–15` sekaligus!
+> 3. Untuk setiap batch kecil (4–9 soal), panggil `scripts/sample_anchor_questions.py` agar hanya 4–6 contoh tepat topik yang masuk ke konteks, dan buka `references/` secara *on-demand* (grep/potongan baris saja).
 > 4. Seluruh pekerjaan berjalan **100% offline** di `data/generated/<kode_paket>/`. Jangan sentuh `backend/` atau `frontend/`.
 
 ---
@@ -14,57 +14,68 @@ Panduan ini dirancang agar AI Agent bekerja **cepat, akurat, dan tidak tenggelam
 
 ```text
 data/generated/<kode_paket>/
-├── batches/                        # 17 file JSON kecil (5–9 soal/file)
+├── batches/                          # 18 file JSON kecil (4–9 soal/file)
+├── used_entities.txt                 # Daftar nama tokoh & instansi terpakai (anti-pengulangan)
 ├── verify/
-│   ├── verify_tiu_math_logic.py    # Pembuktian Python TIU #35–59
-│   └── generate_figural.py         # Generator gambar Pillow/matplotlib #60–65
-├── gambar/                         # q60_figural.png s.d. q65_figural.png
-├── cross_audit/                    # Opsional: 6 berkas dari --export-blind-audit
-├── <kode_paket>-bank-soal.json     # Gabungan 110 soal
-├── <kode_paket>-impor-final.csv    # CSV siap impor (sudah di-shuffle)
-├── <kode_paket>-impor-final.xlsx   # Excel siap impor di /admin/questions
-└── audit-report.md                 # Laporan Quality Gate otomatis
+│   ├── verify_tiu_math_logic.py      # Pembuktian Python TIU #35–59 (Numerik + Analitis + Silogisme)
+│   └── generate_figural.py           # Generator gambar deterministik Pillow/matplotlib #60–65
+├── gambar/                           # q60_figural.png s.d. q65_figural.png (6 atau 8 PNG)
+├── cross_audit/                      # 6 berkas dari --export-blind-audit (Review Silang)
+├── <kode_paket>-bank-soal.json       # Gabungan 110 soal pra-shuffle
+├── <kode_paket>-bank-soal-final.json # Gabungan 110 soal pasca-shuffle
+├── <kode_paket>-impor-final.csv      # CSV siap impor (sudah di-shuffle)
+├── <kode_paket>-impor-final.xlsx     # Excel siap impor (sheet 'Impor') di /admin/questions
+└── audit-report.md                   # Laporan Quality Gate otomatis (vs seluruh Packet 1–15)
 ```
 
 ---
 
-## 2. Alur Eksekusi Ringkas (5 Langkah Inti)
+## 2. Alur Eksekusi 5 Langkah Inti
 
-### Langkah 1 — Siapkan Folder & Tentukan Kode Paket
-Buat `data/generated/<kode_paket>/{batches,verify,gambar}`. Tidak perlu memilih profil kesulitan — tingkat kesulitan mengikuti 1-ke-1 soal contoh di `Packet 1` (`vol17`) & `Packet 2` (`vol18`).
+### Langkah 1 — Siapkan Folder & Pilih Profil
+Buat `data/generated/<kode_paket>/{batches,verify,gambar}` serta `used_entities.txt` kosong. Pastikan `<kode_paket>` unik (mis. `gen01`, `gen02` — jangan gunakan `vol17`/`vol18`/`vol19` yang sudah dipakai `Packet 1–3`). Pilih profil TIU: `standard` (default) atau `hots` (ala `Packet 11–13`).
 
-### Langkah 2 — Kerjakan 17 Batch Kecil Secara Bertahap (Just-In-Time Context)
+### Langkah 2 — Kerjakan 18 Batch Kecil Secara Bertahap (atau Paralel per Segmen)
+*Tips anti-context-drift:* Bila lingkungan mendukung subagent, bagi pekerjaan menjadi 4 pekerja terpisah (**TWK `1–30`**, **TIU Non-Figural `31–59`**, **TIU Figural `60–65`**, **TKP `66–110`**) dengan daftar nama tokoh terpisah per segmen agar kualitas TKP `#90–110` tetap setajam soal `#1`.
 
-Untuk setiap batch sesuai `BLUEPRINT.md`:
+Untuk setiap batch sesuai [BLUEPRINT.md](file:///d:/Project/Test-CPNS/docs/question-authoring/BLUEPRINT.md):
 
 - **Batch TWK (`TWK-1` s.d. `TWK-5`, nomor `1–30`):**
-  1. Ekstrak hanya 5–9 soal contoh padanannya dari `vol17` / `vol18`.
-  2. Tiru gaya, panjang, dan tingkat kesulitannya, lalu ganti kasus/cerita/tokoh menjadi baru.
-  3. Untuk cek cepat pasal atau ejaan baku, cari/grep bagian yang dibutuhkan saja di `docs/question-authoring/references/` (`uud_1945_lengkap.md`, `uu_20_2023_asn_lengkap.md`, `korpus_bahasa_indonesia_kbbi6_eyd5.md`, `korpus_twk_tkp_lengkap.md`).
-  4. Langsung validasi batch: `python scripts/validate_question_pack.py <file_batch> --partial`.
+  1. Ambil contoh tepat topik: `python scripts/sample_anchor_questions.py --batch TWK-X --count 5 --seed <S>`.
+  2. Tulis kasus & tokoh baru (catat tokoh ke `used_entities.txt`). Pada `TWK-5`, wajib isi 6 sub-tipe Bahasa Indonesia berbeda (`#25–30`).
+  3. Verifikasi pasal/ejaan *on-demand* di `docs/question-authoring/references/`.
+  4. Validasi segera: `python scripts/validate_question_pack.py data/generated/<kode_paket>/batches/twk_X.json --partial`.
 
-- **Batch TIU Verbal & Numerik (`TIU-1` s.d. `TIU-5`, nomor `31–59`):**
-  1. Ekstrak soal contoh padanannya dari `vol17` / `vol18`.
-  2. **Strategi Clone & Ubah Angka/Variabel:** Gunakan **pola/rumus/struktur yang sama persis** dengan contoh soal, cukup **ganti angka, nama tokoh/benda, atau pasangan kata**, sehingga tingkat kesulitannya otomatis sama!
-  3. **Wajib Python Verifier (`verify/verify_tiu_math_logic.py`):** Hitung ulang seluruh jawaban eksak `#43–59` dengan `fractions.Fraction`/`decimal.Decimal`, buat 4 distraktor baru yang berbeda nilainya, dan buktikan keunikan solusi `#39–42` dengan `itertools.permutations` serta `#35–38` secara logika formal. Jalankan hingga **exit code 0**.
-  4. Bungkus seluruh rumus/pecahan/pangkat/akar dalam KaTeX `$...$`. Validasi batch dengan `--partial`.
+- **Batch TIU Verbal & Numerik (`TIU-1` s.d. `TIU-6`, nomor `31–59`):**
+  1. Ambil contoh tepat sub-jenis: `python scripts/sample_anchor_questions.py --batch TIU-X --profile <standard|hots> --count 5 --seed <S>`.
+  2. Parafrase kalimat, ganti konteks/objek, ubah angka dan variasi target pertanyaan. Pastikan `TIU-1` tepat **2 Analogi Kata + 2 Analogi Kalimat** dan Deret memakai **3 pola berbeda**.
+  3. **Wajib Python Verifier (`verify/verify_tiu_math_logic.py`):**
+     - **Numerik (`#43–59`):** `fractions.Fraction` / `decimal.Decimal` (untuk *Kecukupan Data*, uji seluruh 4 kondisi kecukupan).
+     - **Analitis (`#39–42`):** `itertools.permutations` membuktikan **tepat 1 solusi unik**.
+     - **Silogisme (`#35–38`):** *truth table* proposisi (implikasi/kontraposisi) atau uji himpunan model terbatas (kuantor Semua/Sebagian) — **dilarang `assert True` kosong**.
+     - Jalankan skrip hingga **exit code 0**.
+  4. Format rumus dalam KaTeX `$...$` (`0{,}75`, `Rp` di luar `$...$`, tabel Markdown untuk `P vs Q`). Validasi batch dengan `--partial`.
 
-- **Batch TIU Figural (`TIU-6`, nomor `60–65`):**
-  1. Tulis `verify/generate_figural.py` (Pillow/matplotlib) membuat 6 gambar (`q60_figural.png` – `q65_figural.png`: 2 Analogi, 2 Ketidaksamaan, 2 Serial) dengan pola selevel `vol17`/`vol18`, latar `#FFFFFF`, font TrueType `26–32px`, dan pemisahan zona tengah (`28%–72%`) vs sudut (`<= 16%`) agar tidak tumpang tindih.
-  2. Buka & periksa secara visual keenam PNG tersebut.
-  3. Isi `content` ringkas dan opsi `A–E` dengan `"Gambar A"` s.d. `"Gambar E"`. Validasi `--partial`.
+- **Batch TIU Figural (`TIU-7`, nomor `60–65`):**
+  1. Ambil contoh referensi pola: `python scripts/sample_anchor_questions.py --batch TIU-7 --count 4 --seed <S>`.
+  2. Tulis `verify/generate_figural.py` (Pillow/matplotlib) membuat `q60_figural.png` – `q65_figural.png` (**2 Analogi, 2 Ketidaksamaan, 1 Serial, 1 Matriks 3×3**):
+     - Minimal **2 aturan transformasi simultan** per soal.
+     - Wajib `assert` keunikan 5 state opsi (`A–E`) di Python sebelum merender PNG.
+     - Latar `#FFFFFF`, garis `#111827`, font TrueType `24–32px`, tanpa sorotan warna kunci, zona tengah (`28%–72%`) terpisah dari sudut (`<= 16%`).
+  3. **Buka dan periksa visual** seluruh 6 PNG hasil render; perbaiki bila ada garis/simbol bertabrakan atau terlalu tipis.
+  4. Tulis JSON batch (opsi `"Gambar A"` s.d. `"Gambar E"`) dan validasi dengan `--partial`.
 
 - **Batch TKP (`TKP-1` s.d. `TKP-6`, nomor `66–110`):**
-  1. Ekstrak soal contoh padanannya dari `vol17` / `vol18`.
-  2. Tiru gaya dilema & panjang opsinya, ganti konteks kerja/tokoh menjadi baru.
-  3. Pastikan 5 bobot unik `{5, 4, 3, 2, 1}`, panjang ke-5 opsi seimbang, dan pembahasan menyebut `Jawaban dengan skor tertinggi adalah Opsi X (5 poin).` + urutan `Opsi X=5, Opsi Y=4, ...`.
-  4. Validasi tiap batch dengan `--partial`.
+  1. Ambil contoh tepat aspek: `python scripts/sample_anchor_questions.py --batch TKP-X --count 5 --seed <S>`.
+  2. Buat dilema realistis baru (catat instansi & tokoh di `used_entities.txt`), pastikan panjang 5 opsi seimbang (`selisih <= 5 kata`), kontras `5 vs 4` tegas, dan skor `1` tetap terdengar wajar/rasional.
+  3. Pembahasan mulai `Jawaban dengan skor tertinggi adalah Opsi X (5 poin).` diikuti `Opsi X=5 (...), Opsi Y=4 (...), Opsi Z=3 (...), Opsi W=2 (...), Opsi V=1 (...).`
+  4. Validasi tiap batch dengan `--partial` (pastikan **0 Hard Errors** dan **0 warning `tkp_length_bias` / `discussion_key_unexplicit`**).
 
-### Langkah 3 — Gabungkan, Quality Gate, Shuffle Kunci, & Ekspor `.xlsx`
-Gabungkan 17 batch ke `data/generated/<kode_paket>/<kode_paket>-bank-soal.json` (urut `1..110`), lalu jalankan satu perintah ini:
+### Langkah 3 — Gabungkan, Quality Gate (vs 15 Paket), Shuffle 500× + Acak TKP, & Ekspor `.xlsx`
+Gabungkan seluruh 18 batch ke `data/generated/<kode_paket>/<kode_paket>-bank-soal.json` (urut `1..110`), lalu jalankan satu perintah ini:
 
 ```powershell
-python scripts/validate_question_pack.py data/generated/<kode_paket>/<kode_paket>-bank-soal.json --shuffle --export-csv data/generated/<kode_paket>/<kode_paket>-impor-final.csv --export-xlsx data/generated/<kode_paket>/<kode_paket>-impor-final.xlsx --report data/generated/<kode_paket>/audit-report.md --export-blind-audit data/generated/<kode_paket>/cross_audit/
+python scripts/validate_question_pack.py data/generated/<kode_paket>/<kode_paket>-bank-soal.json --shuffle --shuffle-tkp-order --seed 42 --export-json data/generated/<kode_paket>/<kode_paket>-bank-soal-final.json --export-csv data/generated/<kode_paket>/<kode_paket>-impor-final.csv --export-xlsx data/generated/<kode_paket>/<kode_paket>-impor-final.xlsx --report data/generated/<kode_paket>/audit-report.md --export-blind-audit data/generated/<kode_paket>/cross_audit/
 ```
 
 Lalu verifikasi hasil `.xlsx` final:
@@ -72,11 +83,11 @@ Lalu verifikasi hasil `.xlsx` final:
 python scripts/validate_question_pack.py data/generated/<kode_paket>/<kode_paket>-impor-final.xlsx
 ```
 
-**Wajib Exit Code 0 (`Hard Errors: 0`)!** Jika ada error, perbaiki sumber JSON lalu ulangi.
+**Wajib Exit Code 0 (`Hard Errors: 0`)!** Jika ada error atau warning bias/pembahasan, perbaiki batch sumber lalu ulangi Langkah 3.
 
-### Langkah 4 — Review Silang Beda Model (Opsional / Sangat Disarankan)
-Bila pemilik ingin audit tambahan bebas *blind spot*, kirim berkas di `cross_audit/` ke model AI berbeda mengikuti [CROSS_MODEL_REVIEW.md](file:///d:/ProjectAI/Test-CPNS/docs/question-authoring/CROSS_MODEL_REVIEW.md).
+### Langkah 4 — Review Silang Beda Model (Sangat Disarankan)
+Kirim 6 berkas di `cross_audit/` ke model AI berbeda mengikuti [CROSS_MODEL_REVIEW.md](file:///d:/Project/Test-CPNS/docs/question-authoring/CROSS_MODEL_REVIEW.md).
 
 ### Langkah 5 — Upload Figural, Spot-Check 15 Menit, & Impor Admin
 1. Upload 6 gambar `gambar/q60_figural.png` – `q65_figural.png` ke bucket publik Supabase `exam-assets/figural/<kode_paket>/`, perbarui `image_url`, lalu ekspor ulang `.xlsx`.
-2. Ikuti checklist 15 menit di [HUMAN_SPOT_CHECK_SOP.md](file:///d:/ProjectAI/Test-CPNS/docs/question-authoring/HUMAN_SPOT_CHECK_SOP.md): impor `.xlsx` ke paket Draft di `/admin/questions`, cek Split-Pane Live Preview, lalu klik **Validasi & Terbitkan** di `/admin/packages`.
+2. Ikuti checklist 15 menit di [HUMAN_SPOT_CHECK_SOP.md](file:///d:/Project/Test-CPNS/docs/question-authoring/HUMAN_SPOT_CHECK_SOP.md): impor `.xlsx` ke paket Draft di `/admin/questions`, cek Split-Pane Live Preview, lalu klik **Validasi & Terbitkan** di `/admin/packages`.

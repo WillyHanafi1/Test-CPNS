@@ -1,124 +1,168 @@
-# PROMPTS.md — Prompt Ringkas & Bebas Kelebihan Konteks
+# PROMPTS.md — Prompt Presisi, Ringkas, & Terkalibrasi 15 Paket (`Packet 1–15`)
 
-Semua prompt di bawah sengaja dibuat **padat, langsung ke inti, dan bebas parameter rumit** (tanpa pembagian level kesulitan buatan) agar AI fokus 100% menyamai kualitas soal contoh `Packet 1` & `Packet 2`.
+Semua prompt di bawah bebas parameter rumit, mengambil contoh nyata lintas sumber (`Packet 1–15`) secara *Just-In-Time* lewat `scripts/sample_anchor_questions.py`, dan 100% selaras dengan `scripts/validate_question_pack.py` serta `scripts/shuffle_answers.py`.
 
 ---
 
 ## Prompt 0 — Perintah Tunggal untuk AI Agent Mandiri (Generate 110 Soal)
 
-Salin blok ini, ganti `vol19` dan judul paketnya, lalu kirim ke AI Agent di workspace `d:\ProjectAI\Test-CPNS`:
+Salin blok ini, ganti `gen01`, judul paket, seed (`1`), dan pilih profil (`standard` atau `hots`), lalu kirim ke AI Agent di workspace `d:\Project\Test-CPNS`:
 
 ```text
 Buatkan 1 paket lengkap SKD CPNS (110 soal siap impor ke TOCPNS) secara mandiri:
-- Kode paket: vol19
+- Kode paket: gen01
 - Judul paket: Tryout SKD CPNS 2026 #1
-- Folder kerja: data/generated/vol19/
+- Profil TIU: standard   (pilih "standard" ala Packet 1-10/14-15, atau "hots" ala Packet 11-13)
+- Seed sampling contoh: 1
+- Folder kerja: data/generated/gen01/
 
-Aturan kerja (jaga konteks tetap ringan!):
-1. Baca HANYA docs/question-authoring/RULES.md, docs/question-authoring/BLUEPRINT.md, dan docs/question-authoring/AGENT.md di awal. JANGAN baca seluruh folder references/ sekaligus!
-2. Kerjakan per batch kecil (17 batch sesuai BLUEPRINT.md) di data/generated/vol19/batches/. Setiap mengerjakan 1 batch, ambil HANYA 5–9 soal contoh padanannya dari data/Packet 1/outputs/packet1-vol17/vol17-bank-soal.json atau data/Packet 2/outputs/packet2-vol18/vol18-bank-soal.json sebagai patokan tunggal gaya, panjang, dan tingkat kesulitan.
+Aturan kerja (jaga konteks tetap ringan & presisi!):
+1. Baca HANYA docs/question-authoring/RULES.md, docs/question-authoring/BLUEPRINT.md, dan docs/question-authoring/AGENT.md di awal. JANGAN baca seluruh folder references/ maupun file JSON Packet 1-15 secara utuh!
+2. Kerjakan per batch kecil (18 batch sesuai BLUEPRINT.md, masing-masing 4–9 soal) di data/generated/gen01/batches/.
+   - Sebelum menulis 1 batch, jalankan:
+     python scripts/sample_anchor_questions.py --batch <KODE_BATCH> --profile <standard|hots> --count 5 --seed <SEED>
+   - Gunakan HANYA contoh dari output skrip tersebut sebagai patokan gaya, panjang, dan kompleksitas!
+   - Catat nama tokoh & instansi yang sudah dipakai di data/generated/gen01/used_entities.txt agar tidak ada nama tokoh yang berulang dalam 1 paket.
+   - Jika didukung subagent/pekerja paralel, pisahkan pengerjaan per segmen (TWK / TIU Non-Figural / TIU Figural / TKP) agar batch akhir TKP bebas context drift.
 3. Cara membuat variasi per segmen:
-   - TIU Numerik, Deret, Perbandingan, Cerita, Silogisme, Analitis (#35–59): BOLEH pakai pola/rumus/struktur yang sama persis dengan contoh soal — cukup ganti angka, nama/benda, lalu hitung ulang jawaban & 4 pengecoh baru memakai skrip Python data/generated/vol19/verify/verify_tiu_math_logic.py (Fraction/Decimal/permutations). Semua rumus pakai KaTeX $...$.
-   - TIU Figural (#60–65): Buat 6 gambar deterministik via data/generated/vol19/verify/generate_figural.py (Pillow/matplotlib, latar putih, font TrueType 26–32px, tanpa elemen tumpang tindih) ke data/generated/vol19/gambar/q60_figural.png s.d. q65_figural.png, lalu periksa gambarnya secara visual.
-   - TWK (#1–30) & TKP (#66–110): Samakan gaya, panjang, dan tingkat kesulitan soal contoh, lalu buat kasus/tokoh baru. Buka/cari pasal atau kata baku di docs/question-authoring/references/ HANYA seperlunya saat memverifikasi soal terkait.
-4. Validasi setiap batch segera dengan: python scripts/validate_question_pack.py <file_batch> --partial.
-5. Setelah 17 batch selesai, gabungkan ke data/generated/vol19/vol19-bank-soal.json lalu jalankan:
-   python scripts/validate_question_pack.py data/generated/vol19/vol19-bank-soal.json --shuffle --export-csv data/generated/vol19/vol19-impor-final.csv --export-xlsx data/generated/vol19/vol19-impor-final.xlsx --report data/generated/vol19/audit-report.md --export-blind-audit data/generated/vol19/cross_audit/
-6. Pastikan verify_tiu_math_logic.py lulus 100% dan validasi pada vol19-impor-final.xlsx menghasilkan 0 Hard Errors. Jangan ubah kode backend/ atau frontend/, dan jangan import ke DB produksi sebelum saya meninjau hasilnya.
+   - TWK (#1–30): Buat kasus & tokoh baru; patuhi 6 sub-tipe wajib Bahasa Indonesia (#25–30). Cek pasal/ejaan di docs/question-authoring/references/ secara on-demand (grep/potongan baris saja). Pembahasan mulai "Jawaban yang benar adalah Opsi X." + alasan kunci & penolakan pengecoh terkuat (~60–110 kata).
+   - TIU Verbal & Numerik (#31–59): Pertahankan konsep & kompleksitas contoh, tetapi PARAFRASE kalimat, ganti konteks/angka, dan ubah target pertanyaan bila sesuai. TIU-1 wajib 2 Analogi Kata + 2 Analogi Kalimat; Deret wajib 3 pola berbeda (termasuk 1 loncat/2-larik & 1 cari suku awal). Buktikan SELURUH #35–59 di data/generated/gen01/verify/verify_tiu_math_logic.py (Fraction/Decimal untuk numerik, permutations untuk analitis, truth table/uji himpunan nyata untuk silogisme — dilarang assert True kosong!). Semua rumus pakai KaTeX $...$, desimal 0{,}75, Rupiah di luar $...$, tabel kuantitatif pakai Markdown.
+   - TIU Figural (#60–65): Buat 6 gambar deterministik via data/generated/gen01/verify/generate_figural.py (2 Analogi, 2 Ketidaksamaan, 1 Serial, 1 Matriks 3x3; minimal 2 transformasi simultan per soal; wajib assert keunikan 5 state opsi A–E; latar #FFFFFF, garis #111827, font TrueType 26–32px, tanpa warna kunci bocor) ke data/generated/gen01/gambar/q60_figural.png s.d. q65_figural.png, lalu periksa keenam gambarnya secara visual.
+   - TKP (#66–110): Buat skenario kerja & tokoh baru, panjang 5 opsi seimbang (selisih skor 5 vs rata-rata lain <= 5 kata), skor 5 vs 4 kontras tegas, skor 1 tetap terdengar rasional (bukan kartun). Pembahasan wajib mulai: "Jawaban dengan skor tertinggi adalah Opsi X (5 poin)." diikuti "Opsi X=5 (...), Opsi Y=4 (...), Opsi Z=3 (...), Opsi W=2 (...), Opsi V=1 (...)."
+4. Validasi setiap batch segera: python scripts/validate_question_pack.py <file_batch> --partial.
+5. Setelah 18 batch lulus, gabungkan ke data/generated/gen01/gen01-bank-soal.json lalu jalankan:
+   python scripts/validate_question_pack.py data/generated/gen01/gen01-bank-soal.json --shuffle --shuffle-tkp-order --seed 42 --export-json data/generated/gen01/gen01-bank-soal-final.json --export-csv data/generated/gen01/gen01-impor-final.csv --export-xlsx data/generated/gen01/gen01-impor-final.xlsx --report data/generated/gen01/audit-report.md --export-blind-audit data/generated/gen01/cross_audit/
+6. Pastikan verify_tiu_math_logic.py exit code 0 dan validasi ulang gen01-impor-final.xlsx menghasilkan 0 Hard Errors (dan 0 warning pembahasan/bias). Jangan ubah backend/ atau frontend/, dan jangan impor ke DB produksi sebelum saya meninjau hasilnya.
 ```
 
 ---
 
 ## Prompt 1 — Batch TWK (Mode Web Chat, Konteks Ringan)
 
-*Tempelkan HANYA 2–3 soal contoh dari `Packet 1`/`Packet 2` untuk sub-topik yang dipilih (jika butuh kepastian pasal/kata baku, tempelkan HANYA potongan pasal/tabel yang relevan, bukan seluruh file).*
+*Jalankan `python scripts/sample_anchor_questions.py --batch TWK-X --count 4` lalu tempel hasilnya di bagian contoh.*
 
 ```text
-Buatkan tepat [5] soal TWK sub-kategori "[Nasionalisme / Integritas / Bela Negara / Pilar Negara / Bahasa Indonesia]" nomor [1–5] dengan gaya, panjang kalimat, dan tingkat kesulitan yang SERUPA dengan soal contoh berikut, tetapi gunakan kasus & tokoh yang baru.
-
-Aturan singkat:
-1. Pastikan setiap fakta pasal UUD 1945 / UU ASN 20/2023 / ejaan KBBI VI & EYD V benar akurat (jangan mengarang pasal).
-2. Buat 5 opsi (A–E) yang panjangnya relatif seimbang dan semua terdengar masuk akal (tepat 1 opsi skor 5, 4 opsi lain skor 0).
-3. Pembahasan mulai dengan: "Jawaban yang benar adalah Opsi <HURUF>." lalu jelaskan singkat alasannya. Nama tokoh di pembahasan harus sama persis dengan di soal.
-4. Keluarkan HANYA array JSON valid sesuai schema TOCPNS.
-
-Contoh soal acuan:
-[TEMPEL 2–3 SOAL CONTOH DI SINI]
-```
-
----
-
-## Prompt 2 — Batch TIU Numerik & Logika (Clone Pola, Ubah Angka + Verifikasi Python)
-
-*Tempelkan 4–5 soal contoh dari `Packet 1`/`Packet 2` untuk batch yang dipilih.*
-
-```text
-Buatkan tepat [5] soal TIU sub-kategori "[Berhitung / Deret Angka / Perbandingan Kuantitatif / Soal Cerita / Analitis / Silogisme]" nomor [43–47] dengan MENIRU PERSIS pola/rumus dan tingkat kesulitan soal contoh berikut — cukup UBAH ANGKA, NAMA, atau KONTEKS SINGKATNYA, lalu hitung ulang jawaban baru dan 4 opsi pengecoh baru!
+Buatkan tepat [5/6/8] soal TWK sub_category "[Nasionalisme / Integritas / Bela Negara / Pilar Negara / Bahasa Indonesia]" nomor [X–Y] dengan gaya, panjang kalimat, dan tingkat kesulitan setara soal contoh berikut, menggunakan kasus, instansi, dan tokoh yang sepenuhnya baru.
 
 Aturan wajib:
-1. Tulis dulu skrip Python (pakai fractions.Fraction / decimal.Decimal untuk hitungan, atau itertools.permutations untuk analitis) guna membuktikan jawaban eksak baru dan memastikan ke-5 opsi bernilai BERBEDA serta bukan angka yang sama dengan contoh.
-2. Semua pecahan, pangkat, akar, dan variabel wajib pakai KaTeX inline $...$ (mis. $\frac{3}{8}$, $x^2$, $\sqrt{225}$).
-3. Pembahasan mulai dengan: "Jawaban yang benar adalah Opsi <HURUF>." diikuti langkah hitung singkat sesuai hasil Python.
-4. Keluarkan: (a) skrip Python verifikasi, lalu (b) array JSON valid sesuai schema TOCPNS (1 opsi skor 5, 4 opsi skor 0).
+1. Fakta pasal UUD 1945, UU ASN 20/2023, UU Bela Negara 23/2019, serta ejaan KBBI VI & EYD V wajib 100% akurat (jangan mengarang pasal/ayat).
+2. Jika Bahasa Indonesia (6 soal), wajib mencakup 6 sub-tipe berbeda: (1) Ide Pokok, (2) Inti/Struktur Kalimat, (3) Simpulan/Judul, (4) Kalimat Efektif, (5) Kata Baku/Diksi/Imbuhan, (6) EYD V (Kapital/Tanda Baca).
+3. Buat 5 opsi (A–E) yang panjangnya relatif seimbang dan semua terdengar masuk akal (tepat 1 opsi skor 5, 4 opsi lain skor 0). Jangan mengulang nama tokoh yang sama.
+4. Pembahasan (~60–110 kata) mulai tepat dengan: "Jawaban yang benar adalah Opsi <HURUF>." lalu jelaskan dasar konsep/pasal/kaidah dan 1 kalimat mengapa pengecoh terkuat kurang tepat. Nama tokoh di pembahasan harus identik dengan soal.
+5. Keluarkan HANYA array JSON valid sesuai schema TOCPNS (bebas pembuka meta AI).
 
-Contoh soal acuan:
-[TEMPEL 4–5 SOAL CONTOH DI SINI]
+Contoh soal acuan (dari Packet 1–15):
+[TEMPEL 3–5 SOAL CONTOH DARI sample_anchor_questions.py DI SINI]
 ```
 
 ---
 
-## Prompt 3 — Batch TIU Figural (Generator Kode Python)
+## Prompt 2A — Batch TIU Standar: Verbal & Numerik (Parafrase Konsep + Verifikasi Python)
+
+*Jalankan `python scripts/sample_anchor_questions.py --batch TIU-X --profile standard --count 5` lalu tempel hasilnya.*
+
+```text
+Buatkan tepat [4/6/7] soal TIU sub_category "[Analogi / Silogisme / Analitis / Berhitung / Deret Angka / Perbandingan Kuantitatif / Soal Cerita]" nomor [X–Y] dengan mempertahankan KONSEP dan KOMPLEKSITAS contoh berikut, tetapi WAJIB parafrase struktur kalimat, ganti konteks/objek, ganti seluruh angka, serta buat 4 pengecoh baru yang realistis!
+
+Aturan wajib:
+1. Khusus kuota variasi:
+   - Jika Analogi (4 soal): wajib tepat 2 Analogi Kata + 2 Analogi Kalimat.
+   - Jika Silogisme (4 soal): wajib 3 Kuantor (Semua/Sebagian) + 1 Implikasi/Kontraposisi (Jika–Maka).
+   - Jika Deret Angka (3 soal): wajib 3 pola berbeda — (a) loncat/2-larik, (b) operasi bergantian (minimal 1 mencari suku awal "..., a, b"), (c) bertingkat/Fibonacci/deret pecahan.
+   - Jika Perbandingan Kuantitatif: sajikan P & Q (atau X & Y) dalam tabel Markdown rapi (| P | Q |) bila sesuai.
+2. Tulis dulu skrip Python pembuktian (fractions.Fraction / decimal.Decimal untuk hitung & perbandingan, itertools.permutations untuk analitis, truth table / uji model himpunan untuk silogisme — DILARANG assert True kosong!) guna memastikan tepat 1 jawaban eksak dan ke-5 opsi bernilai unik serta berbeda dari angka contoh.
+3. Semua pecahan, pangkat, akar, derajat, dan variabel wajib pakai KaTeX inline $...$ (mis. $\frac{3}{8}$, $x^2$, $\sqrt{225}$, desimal $0{,}75$). Rupiah (Rp50.000) ditulis DI LUAR $...$.
+4. Pembahasan (~50–100 kata) mulai tepat dengan: "Jawaban yang benar adalah Opsi <HURUF>." diikuti langkah hitung/logika runtut sesuai hasil Python.
+5. Keluarkan: (a) skrip Python verifikasi, lalu (b) array JSON valid sesuai schema TOCPNS (1 opsi skor 5, 4 opsi skor 0).
+
+Contoh soal acuan (dari Packet 1–15):
+[TEMPEL 4–5 SOAL CONTOH DARI sample_anchor_questions.py DI SINI]
+```
+
+---
+
+## Prompt 2B — Batch TIU Profil HOTS-UTBK (Ala `Packet 11–13`: Kecukupan Data, Kesetaraan Operasi, & Pola Tabel 2D)
+
+*Jalankan `python scripts/sample_anchor_questions.py --batch TIU-4 --profile hots` atau `--batch TIU-5 --profile hots` lalu tempel hasilnya.*
+
+```text
+Buatkan tepat [6] soal TIU Profil HOTS-UTBK sub_category "[Kecukupan Data / Kesetaraan Operasi / Pola Bilangan]" nomor [X–Y] setara gaya Packet 11–13 berikut, dengan konteks, tabel, dan angka yang sepenuhnya baru!
+
+Aturan wajib:
+1. Jika Kecukupan Data:
+   - Gunakan 5 opsi baku UTBK/SNBT ("Pernyataan (1) SAJA cukup untuk menjawab pertanyaan, tetapi pernyataan (2) SAJA tidak cukup.", dst.).
+   - Buktikan di skrip Python keempat kasus secara eksplisit: (1) saja (uji minimal 2 kasus valid jika tidak cukup), (2) saja, gabungan (1)+(2), sehingga tepat 1 opsi benar mutlak! Variasikan kunci (jangan semua jawab C).
+2. Jika Kesetaraan Operasi & Estimasi:
+   - Uji number sense (faktorisasi/komutatif: "$36 \times 45$ sama dengan $54 \times 30$" atau estimasi terdekat pecahan besar), buktikan eksak di Python bahwa hanya 1 opsi yang setara/terdekat.
+3. Jika Pola Bilangan Tabel/Kotak 2D:
+   - Sajikan dalam tabel Markdown rapi; buktikan di Python pola berlaku konsisten di semua baris/kotak contoh dan menghasilkan nilai unik untuk $x$.
+4. Semua rumus pakai KaTeX $...$ (desimal $0{,}5$; Rupiah di luar $...$). Pembahasan mulai: "Jawaban yang benar adalah Opsi <HURUF>."
+5. Keluarkan: (a) skrip Python verifikasi, lalu (b) array JSON valid sesuai schema TOCPNS.
+
+Contoh soal acuan (dari Packet 11–13):
+[TEMPEL 4–6 SOAL CONTOH DARI sample_anchor_questions.py --profile hots DI SINI]
+```
+
+---
+
+## Prompt 3 — Batch TIU Figural (Generator Kode Python Deterministik + Matriks 3×3)
 
 ```text
 Tulis skrip Python (Pillow atau matplotlib) untuk membuat 6 gambar soal TIU Figural orisinal ke data/generated/<kode_paket>/gambar/:
-- q60_figural.png & q61_figural.png: Analogi Gambar (A : B = C : ?)
-- q62_figural.png & q63_figural.png: Ketidaksamaan Gambar (pilih 1 dari 5 yang berbeda aturan)
-- q64_figural.png & q65_figural.png: Serial Gambar (4 kotak berurutan → kotak ke-5)
+- q60_figural.png & q61_figural.png: Analogi Gambar (Gambar 1 : Gambar 2 = Gambar 3 : ?)
+- q62_figural.png & q63_figural.png: Ketidaksamaan Gambar (pilih 1 dari 5 gambar A–E yang melanggar aturan rotasi/garis acuan/elemen)
+- q64_figural.png: Serial Gambar (4 kotak berurutan → kotak ke-5)
+- q65_figural.png: Matriks 3×3 (baris/kolom mengikuti aturan penggabungan, rotasi+warna, atau kelengkapan unsur → isi tanda "?")
 
-Aturan:
-1. Setiap soal punya aturan geometris pasti (mis. rotasi + penambahan elemen, atau pergeseran sudut + perubahan isi hitam/putih) dengan tepat 1 jawaban benar pada opsi A–E.
-2. Latar putih (#FFFFFF), garis hitam tajam (#111827, 3–4px), pakai font TrueType besar (arial.ttf/DejaVuSans-Bold.ttf size 26–32px — jangan default font kecil), dan pisahkan zona motif tengah (28%–72% kotak) dari penanda sudut (<= 16% tepi) agar tidak bertabrakan.
-3. Sertakan JSON 6 soal (#60–65) dengan opsi teks "Gambar A" s.d. "Gambar E" dan pembahasan yang mulai dengan "Jawaban yang benar adalah Opsi <HURUF>."
+Aturan keras:
+1. Setiap soal WAJIB menggabungkan minimal 2 aturan transformasi simultan yang objektif (mis. rotasi 90° + inversi warna, atau pergeseran sudut + penambahan sisi) sehingga tidak terlalu dangkal namun tetap 100% logis.
+2. WAJIB tulis assertion di skrip Python yang membuktikan representasi state/parameter ke-5 opsi (A–E) saling UNIK (tidak ada 2 opsi kembar) dan tepat 1 opsi memenuhi aturan.
+3. Desain visual: latar putih bersih (#FFFFFF), garis hitam tajam (#111827, 2.5–4px), TANPA sorotan warna hijau/kunci pada gambar soal, font TrueType besar (arialbd.ttf / DejaVuSans-Bold.ttf size 24–32px) untuk label "A." s.d. "E." dan "?", serta pisahkan zona motif tengah (28%–72% kotak) dari penanda sudut (<= 16% tepi) agar nol tabrakan.
+4. Sertakan JSON 6 soal (#60–65, sub_category: "Figural") dengan opsi teks "Gambar A" s.d. "Gambar E" dan pembahasan rinci mulai dengan "Jawaban yang benar adalah Opsi <HURUF>."
 ```
 
 ---
 
-## Prompt 4 — Batch TKP (Tiru Gaya & Panjang Contoh, Rubrik 5→1)
+## Prompt 4 — Batch TKP (Kontras Tajam 5→1, Anti-Klise, & Format Tervalidasi Otomatis)
 
-*Tempelkan 2–3 soal contoh TKP sub-topik yang sama dari `Packet 1`/`Packet 2`.*
+*Jalankan `python scripts/sample_anchor_questions.py --batch TKP-X --count 5` lalu tempel hasilnya.*
 
 ```text
-Buatkan tepat [6] soal TKP sub-kategori "[Pelayanan Publik / Jejaring Kerja / Sosial Budaya / Teknologi Informasi dan Komunikasi / Profesionalisme / Anti Radikalisme]" nomor [66–71] dengan gaya dilema, panjang soal, dan tingkat kesulitan yang SERUPA dengan contoh berikut, tetapi gunakan situasi & tokoh baru.
+Buatkan tepat [7/8/9] soal TKP sub_category "[Pelayanan Publik / Jejaring Kerja / Sosial Budaya / Teknologi Informasi dan Komunikasi / Profesionalisme / Anti Radikalisme]" nomor [X–Y] dengan gaya dilema kerja ASN/publik, panjang soal, dan tingkat kesulitan setara contoh berikut, menggunakan latar instansi, profesi, dan situasi yang beragam serta sepenuhnya baru.
 
-Aturan:
-1. Wajib punya 5 bobot unik: 5, 4, 3, 2, 1 (tanpa nilai kembar).
-   - 5: Proaktif, solutif tuntas, empatik, taat SOP.
-   - 4: Positif & sopan tapi kurang tuntas/kurang inisiatif.
-   - 3: Normatif kaku atau pasif menunggu arahan.
-   - 2: Kurang peduli atau menunda tanggung jawab.
-   - 1: Reaktif, egois, melanggar SOP, atau permisif pada intoleransi.
-2. Panjang ke-5 opsi HARUS seimbang (jangan buat opsi skor 5 jauh paling panjang) dan nada bahasanya tetap wajar/profesional.
-3. Pembahasan mulai dengan: "Jawaban dengan skor tertinggi adalah Opsi <HURUF> (5 poin)." diikuti ringkasan singkat "Opsi X=5 (...), Opsi Y=4 (...), Opsi Z=3 (...), Opsi W=2 (...), Opsi V=1 (...)."
+Aturan wajib:
+1. Wajib 5 bobot unik: 5, 4, 3, 2, 1 (tanpa nilai kembar):
+   - 5: Proaktif, solutif tuntas, empatik, taat SOP/aturan, menjaga integritas & kolaborasi.
+   - 4: Positif, sopan, dan kooperatif, tetapi kurang tuntas atau kurang inisiatif dibanding opsi 5 (HARUS jelas bedanya dari skor 5, tidak boleh ambigu!).
+   - 3: Normatif kaku, terlalu formalistik, atau pasif menunggu arahan.
+   - 2: Kurang peduli, menunda, atau melempar tanggung jawab ke pihak lain.
+   - 1: Reaktif/defensif, melanggar prosedur, atau permisif terhadap pelanggaran/intoleransi — TETAP ditulis dalam bahasa yang wajar/rasional (bukan "penjahat kartun" yang terlalu mudah ditebak).
+2. ANTI-BIAS PANJANG & ANTI-KLISE: Panjang ke-5 opsi WAJIB seimbang (selisih jumlah kata opsi skor 5 terhadap rata-rata 4 opsi lain <= 5 kata). Hindari pengulangan frasa klise seperti "berkoordinasi secara proaktif dan humanis".
+3. PEMBAHASAN TERVALIDASI OTOMATIS (~70–120 kata): Wajib mulai tepat dengan:
+   "Jawaban dengan skor tertinggi adalah Opsi <HURUF> (5 poin)."
+   diikuti ringkasan kelima opsi dengan format tepat:
+   "Opsi <H5>=5 (<alasan singkat>), Opsi <H4>=4 (<alasan>), Opsi <H3>=3 (<alasan>), Opsi <H2>=2 (<alasan>), Opsi <H1>=1 (<alasan>)."
+   Pastikan seluruh 5 huruf & bobot cocok 100% dengan objek options!
 4. Keluarkan HANYA array JSON valid sesuai schema TOCPNS.
 
-Contoh soal acuan:
-[TEMPEL 2–3 SOAL CONTOH DI SINI]
+Contoh soal acuan (dari Packet 1–15):
+[TEMPEL 3–5 SOAL CONTOH DARI sample_anchor_questions.py DI SINI]
 ```
 
 ---
 
-## Prompt 5 — Audit Cepat Silang Model (Opsional Pasca-Generate)
+## Prompt 5 — Audit Cepat Silang Model (Pasca-Generate)
 
-> Untuk audit lengkap 110 soal tanpa *context fatigue*, jalankan `--export-blind-audit` lalu pakai **Prompt 6A–6D** di [CROSS_MODEL_REVIEW.md](file:///d:/ProjectAI/Test-CPNS/docs/question-authoring/CROSS_MODEL_REVIEW.md).
+> Untuk audit lengkap 110 soal tanpa *context fatigue*, jalankan `--export-blind-audit` lalu pakai **Prompt 6A–6D** di [CROSS_MODEL_REVIEW.md](file:///d:/Project/Test-CPNS/docs/question-authoring/CROSS_MODEL_REVIEW.md).
 
 Untuk cek cepat satu batch kecil di model AI berbeda:
 
 ```text
-Kamu adalah auditor soal CPNS yang kritis. Periksa batch soal JSON terlampir dan laporkan HANYA soal yang punya kesalahan nyata:
-1. Salah fakta pasal/hukum/ejaan KBBI VI & EYD V (TWK).
-2. Salah hitung, jawaban ganda, atau 2 opsi bernilai sama (TIU — hitung ulang dari nol!).
-3. Opsi skor 4 terasa lebih baik/sama baiknya dengan skor 5, atau skor 5 ketahuan karena jauh paling panjang (TKP).
-4. Nama tokoh atau huruf kunci di pembahasan tidak cocok dengan soal/skor.
+Kamu adalah auditor soal CPNS yang kritis dan skeptis. Periksa batch soal JSON terlampir dan laporkan HANYA soal yang memiliki cacat nyata:
+1. TWK: Salah fakta pasal UUD 1945 / UU ASN 20/2023 / UU 23/2019 / ejaan KBBI VI & EYD V, atau pengecoh ternyata juga benar.
+2. TIU: Salah hitung, jawaban ganda, 2 opsi ekuivalen, soal kurang data, atau angka masih identik dengan soal populer (hitung ulang dari nol!).
+3. TKP: Opsi skor 4 terasa lebih baik/setara skor 5, skor 5 ketahuan karena jauh paling panjang/klise, skor 1 terasa kartun, atau rincian Opsi X=5..1 di pembahasan tidak cocok dengan bobot skor.
+4. Konsistensi: Nama tokoh atau huruf kunci di pembahasan berbeda dari soal/skor, ada artefak AI, atau sintaks KaTeX/Rp salah.
 
 Tampilkan dalam tabel: | Nomor | Tingkat (KRITIS/MAYOR) | Masalah | Perbaikan Eksak |
 Jika bersih, tulis: "LULUS AUDIT (0 TEMUAN)".

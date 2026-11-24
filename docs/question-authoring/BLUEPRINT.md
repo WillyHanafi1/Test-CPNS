@@ -1,54 +1,81 @@
-# BLUEPRINT.md — Peta Slot 110 Soal (Cermin 1-ke-1 dari Packet 1 & Packet 2)
+# BLUEPRINT.md — Peta Slot 110 Soal (Terkalibrasi dari 15 Paket Nyata `Packet 1–15`)
 
-Blueprint ini sengaja dibuat **ringkas**: tidak ada pembagian tingkat kesulitan artifisial atau taksonomi rumit. Cukup ikuti **jumlah soal per sub-kategori** dan **tiru tingkat kesulitan dari nomor contoh padanannya** di `vol17` (`Packet 1`) atau `vol18` (`Packet 2`).
+Blueprint ini dirancang berdasarkan audit empiris terhadap seluruh **1.650 soal (`Packet 1–15`)** tanpa label tingkat kesulitan artifisial. Tingkat kesulitan dikalibrasi 1-ke-1 dengan mengambil contoh lintas sumber (`Packet 1–3` Sumber A + `Packet 4–15` Sumber B) melalui skrip [sample_anchor_questions.py](file:///d:/Project/Test-CPNS/scripts/sample_anchor_questions.py) — **jangan lagi menebak contoh berdasarkan rentang nomor mentah**, karena urutan topik di `vol17`/`vol18` bergeser dan TKP-nya teracak!
 
 ---
 
-## 1. Kuota Wajib 110 Soal (Server TOCPNS)
+## 1. Kuota Wajib 110 Soal (Server TOCPNS & KepmenPAN-RB 321/2024)
 
 | Segmen | Nomor | Jumlah | Skor | Passing Grade |
 | :--- | :---: | :---: | :--- | :---: |
 | **TWK** | `1–30` | **30** | Benar `5`, Salah `0` | `65` |
 | **TIU** | `31–65` | **35** | Benar `5`, Salah `0` | `80` |
-| **TKP** | `66–110` | **45** | Unik `1, 2, 3, 4, 5` | `166` |
+| **TKP** | `66–110` | **45** | 5 bobot unik `1, 2, 3, 4, 5` | `166` |
 
 ---
 
-## 2. Peta 17 Batch Kecil (5–9 Soal per Batch)
+## 2. Profil A — Standar SKD BKN (Default, 18 Batch Kecil: 4–9 Soal/Batch)
 
-Kerjakan **1 batch per langkah** dengan hanya melihat **soal contoh pada nomor padanannya** di `vol17-bank-soal.json` / `vol18-bank-soal.json` agar konteks AI tetap ringan dan fokus.
+Menggabungkan standar terbaik **Sumber A (`Packet 1–3`)** dan **Sumber B1 (`Packet 4–10, 14–15`)**. Setiap batch hanya 4–9 soal agar AI tetap tajam dan bebas *context fatigue*.
 
-### A. TWK (`#1–30`, 5 Batch)
-*Cara buat: Tiru gaya, panjang, dan tingkat kesulitan soal contoh, lalu ganti cerita/kasus/tokoh. Cek pasal/kata baku seperlunya (on-demand) di `references/`.*
+### A. TWK (`#1–30`, 5 Batch = 30 Soal)
+*Target gaya: ~45%–55% HOTS studi kasus situasional Indonesia, ~45%–55% konseptual/pasal/analisis bacaan. Verifikasi fakta/pasal/ejaan secara **on-demand** di `references/`.*
 
-| Batch | Nomor | `sub_category` | Jml | Contoh Padanan (`vol17` / `vol18`) | Kamus *On-Demand* (Buka Seperlunya) |
+| Batch | Nomor | `sub_category` | Jml | Perintah Ambil Contoh (`Packet 1–15`) | Komposisi Sub-Materi Wajib |
 | :---: | :---: | :--- | :-: | :--- | :--- |
-| **TWK-1** | `1–6` | `Nasionalisme` | 6 | Vol.17 `#1–6`, Vol.18 `#1–5` | `korpus_twk_tkp_lengkap.md` (Sejarah/Pancasila) |
-| **TWK-2** | `7–11` | `Integritas` | 5 | Vol.17 `#12–16`, Vol.18 `#11–15` | `korpus_twk_tkp_lengkap.md` (9 Nilai KPK) & `uu_20_2023_asn_lengkap.md` |
-| **TWK-3** | `12–16` | `Bela Negara` | 5 | Vol.17 `#17–21`, Vol.18 `#16–20` | `korpus_twk_tkp_lengkap.md` (UU 23/2019) |
-| **TWK-4** | `17–25` | `Pilar Negara` | 9 | Vol.17 `#22–30`, Vol.18 `#21–30` | `uud_1945_lengkap.md` (cari pasal spesifik saja!) |
-| **TWK-5** | `26–30` | `Bahasa Indonesia` | 5 | Vol.17 `#7–11`, Vol.18 `#6–10` | `korpus_bahasa_indonesia_kbbi6_eyd5.md` (cari kata/kaidah saja!) |
+| **TWK-1** | `1–6` | `Nasionalisme` | 6 | `python scripts/sample_anchor_questions.py --batch TWK-1 --count 5 --seed <S>` | 2 Sejarah & Pergerakan Nasional, 2 Identitas/Budaya/Globalisasi, 2 Kebangsaan Kontemporer |
+| **TWK-2** | `7–11` | `Integritas` | 5 | `python scripts/sample_anchor_questions.py --batch TWK-2 --count 5 --seed <S>` | 2 Antikorupsi/Gratifikasi/Konflik Kepentingan, 3 Implementasi 9 Nilai Integritas & Etika ASN (UU 20/2023) |
+| **TWK-3** | `12–16` | `Bela Negara` | 5 | `python scripts/sample_anchor_questions.py --batch TWK-3 --count 5 --seed <S>` | 2 Ancaman Nonmiliter/Siber/Sishankamrata (UU 23/2019), 2 Implementasi 5 Nilai Dasar, 1 Peran Profesi/ASN |
+| **TWK-4** | `17–24` | `Pilar Negara` | 8 | `python scripts/sample_anchor_questions.py --batch TWK-4 --count 6 --seed <S>` | 3 UUD 1945 & Ketatanegaraan/Lembaga Negara, 3 Pancasila (Nilai/Sila/Ideologi), 2 Bhinneka Tunggal Ika & NKRI |
+| **TWK-5** | `25–30` | `Bahasa Indonesia` | 6 | `python scripts/sample_anchor_questions.py --batch TWK-5 --count 6 --seed <S>` | **Wajib 6 sub-tipe berbeda:** `#25` Ide Pokok, `#26` Inti/Struktur/Kepaduan Kalimat, `#27` Simpulan/Judul Bacaan, `#28` Kalimat Efektif, `#29` Kata Baku/Diksi/Imbuhan (KBBI VI), `#30` EYD V (Kapital/Tanda Baca) |
 
-### B. TIU (`#31–65`, 6 Batch)
-*Cara buat: Boleh pakai **pola/rumus/struktur soal yang sama persis** dengan contoh — cukup **ganti angka/nama/pasangan kata**, lalu **hitung ulang jawaban baru & pengecoh baru dengan Python**!*
+---
 
-| Batch | Nomor | `sub_category` | Jml | Contoh Padanan (`vol17` / `vol18`) | Metode Wajib |
+### B. TIU (`#31–65`, 7 Batch = 35 Soal)
+*Strategi variasi: Pertahankan **konsep & tingkat kompleksitas** soal contoh, lalu **parafrase struktur kalimat, ganti konteks/tokoh/angka, dan ubah target pertanyaan bila sesuai**. Semua hitungan & logika `#35–59` **wajib dibuktikan Python** (`Fraction`/`Decimal`/`permutations`/truth table).*
+
+| Batch | Nomor | `sub_category` | Jml | Perintah Ambil Contoh (`Packet 1–15`) | Komposisi Sub-Jenis & Metode Verifikasi Wajib |
 | :---: | :---: | :--- | :-: | :--- | :--- |
-| **TIU-1** | `31–34` | `Analogi` | 4 | Vol.17 `#31–34`, Vol.18 `#31–34` | Pola hubungan sama, ganti pasangan kata/kalimat |
-| **TIU-2** | `35–38` | `Silogisme` | 4 | Vol.17 `#35–38`, Vol.18 `#35–38` | Pola logika sama, ganti subjek/predikat + cek Python |
-| **TIU-3** | `39–42` | `Analitis` | 4 | Vol.17 `#39–42`, Vol.18 `#39–42` | Pola urutan/kursi/jadwal sama, ganti nama/aturan + **Python `permutations`** (1 jawaban unik) |
-| **TIU-4** | `43–51` | `Berhitung` (5) & `Deret Angka` (4) | 9 | Vol.17 `#43–51`, Vol.18 `#43–51` | **Clone pola, ganti angka** + hitung ulang eksak via Python `Fraction`/`Decimal` + LaTeX `$...$` |
-| **TIU-5** | `52–59` | `Perbandingan Kuantitatif` (3) & `Soal Cerita` (5) | 8 | Vol.17 `#52–59`, Vol.18 `#52–59` | **Clone pola/rumus, ganti angka & benda** + hitung ulang eksak via Python + LaTeX `$...$` |
-| **TIU-6** | `60–65` | `Figural` (2 Analogi, 2 Ketidaksamaan, 2 Serial) | 6 | Vol.17 `#60–65`, Vol.18 `#60–65` | Gambar deterministik via **Python Pillow/matplotlib** + cek visual |
+| **TIU-1** | `31–34` | `Analogi` | 4 | `python scripts/sample_anchor_questions.py --batch TIU-1 --count 4 --seed <S>` | **Wajib 2 Analogi Kata (`#31–32`) + 2 Analogi Kalimat (`#33–34`, hubungan setara antarkalimat)** |
+| **TIU-2** | `35–38` | `Silogisme` | 4 | `python scripts/sample_anchor_questions.py --batch TIU-2 --count 4 --seed <S>` | **Wajib 3 Silogisme Kuantor (`Semua/Sebagian`) + 1 Implikasi/Kontraposisi (`Jika…maka…`)** — buktikan dengan *truth table* / uji model himpunan di Python |
+| **TIU-3** | `39–42` | `Analitis` | 4 | `python scripts/sample_anchor_questions.py --batch TIU-3 --count 4 --seed <S>` | **Wajib 4 tipe beragam:** 1 Posisi/Duduk Melingkar, 1 Urutan/Peringkat, 1 Jadwal/Seleksi Tabel, 1 Rute/Graf — buktikan **tepat 1 solusi unik** via `itertools.permutations` |
+| **TIU-4** | `43–48` | `Berhitung` (3) & `Deret Angka` (3) | 6 | `python scripts/sample_anchor_questions.py --batch TIU-4 --count 6 --seed <S>` | **Berhitung (`#43–45`):** pecahan/desimal/persen/aljabar (`Fraction`/`Decimal`).<br>**Deret (`#46–48`) wajib 3 pola berbeda:** 1 loncat/2-larik, 1 operasi bergantian (minimal 1 soal mencari suku awal `..., a, b`), 1 bertingkat/Fibonacci/deret pecahan |
+| **TIU-5** | `49–52` | `Perbandingan Kuantitatif` | 4 | `python scripts/sample_anchor_questions.py --batch TIU-5 --count 4 --seed <S>` | Bandingkan kuantitas `P` vs `Q` atau `X` vs `Y` (pakai tabel Markdown rapi `\| P \| Q \|`, sertakan variasi hubungan aljabar seperti `2P > 3Q` atau *"Informasi tidak cukup"* — buktikan dengan `Fraction`) |
+| **TIU-6** | `53–59` | `Soal Cerita` | 7 | `python scripts/sample_anchor_questions.py --batch TIU-6 --count 6 --seed <S>` | 3 Perbandingan Senilai/Berbalik Nilai/Pekerja (termasuk 1 proyek terhenti), 1–2 Jarak–Kecepatan–Waktu (susul/berpapasan), 1 Aritmetika Sosial (diskon/untung/bunga), 1–2 Interpretasi Tabel Data / Statistika |
+| **TIU-7** | `60–65` | `Figural` | 6 | `python scripts/sample_anchor_questions.py --batch TIU-7 --count 4 --seed <S>` | **Wajib 4 tipe:** `#60–61` Analogi Gambar (2), `#62–63` Ketidaksamaan Gambar (2, mis. garis acuan / aturan rotasi vs cermin), `#64` Serial Gambar (1), `#65` **Matriks 3×3** (1). **Wajib ≥ 2 transformasi simultan + `assert` 5 state opsi unik** di `generate_figural.py`! |
 
-### C. TKP (`#66–110`, 6 Batch)
-*Cara buat: Tiru gaya kasus & panjang opsi dari contoh soal, ganti situasi kerja & tokoh, lalu pastikan urutan skor `5 → 4 → 3 → 2 → 1` tegas dan panjang 5 opsi seimbang.*
+> **Opsi Varian 8-Figural (`#58–65`, ala `Packet 4–15`):** Bila ingin porsi Figural lebih besar (8 soal seperti `Packet 8, 14, 15`), kurangi `TIU-6` menjadi 5 Soal Cerita (`#53–57`) dan perluas `TIU-7` menjadi 8 Figural (`#58–65`: 2 Serial, 2 Analogi, 2 Ketidaksamaan, 2 Matriks 3×3).
 
-| Batch | Nomor | `sub_category` | Jml | Contoh Padanan (`vol17` / `vol18`) | Panduan Ringkas Skor 5 → 1 |
+---
+
+### C. TKP (`#66–110`, 6 Batch = 45 Soal)
+*Semua 6 aspek wajib terisi seimbang (7–9 soal/aspek; larangan keras 0 soal di satu aspek). Saat ekspor final, jalankan `--shuffle-tkp-order` agar nomor urut `#66–110` teracak alami seperti CAT BKN & `Packet 1–3`!*
+
+| Batch | Nomor Awal | `sub_category` | Jml | Perintah Ambil Contoh (`Packet 1–15`) | Fokus Rubrik Skor `5 → 1` |
 | :---: | :---: | :--- | :-: | :--- | :--- |
-| **TKP-1** | `66–74` | `Pelayanan Publik` | 9 | Vol.17 `#66–75`, Vol.18 `#66–73` | 5: Solutif tuntas, ramah, taat SOP; 4: Baik tapi kurang tuntas; 3: Pasif/kaku; 2: Menunda/menghindar; 1: Egois/langgar SOP |
-| **TKP-2** | `75–82` | `Jejaring Kerja` | 8 | Vol.17 `#76–84`, Vol.18 `#74–80` | 5: Proaktif koordinasi & kolaboratif; 1: Ego sektoral/memutus komunikasi |
-| **TKP-3** | `83–88` | `Sosial Budaya` | 6 | Vol.17 `#85–90`, Vol.18 `#81–86` | 5: Menghormati keragaman & merangkul; 1: Diskriminatif/stereotip |
-| **TKP-4** | `89–97` | `Teknologi Informasi dan Komunikasi` | 9 | Vol.17 `#91–98`, Vol.18 `#87–96` | 5: Adaptif digital, aman data, bantu rekan; 1: Menolak teknologi/lalai keamanan |
-| **TKP-5** | `98–104` | `Profesionalisme` | 7 | Vol.17 `#99–103`, Vol.18 `#97–104` | 5: Tuntas tanggung jawab & jaga integritas; 1: Mengabaikan tugas/rahasia |
-| **TKP-6** | `105–110` | `Anti Radikalisme` | 6 | Vol.17 `#104–110`, Vol.18 `#105–110` | 5: Tegas menolak, objektif, edukatif/lapor berjenjang tanpa main hakim sendiri; 1: Permisif/ikut menyebarkan |
+| **TKP-1** | `66–74` | `Pelayanan Publik` | 9 | `python scripts/sample_anchor_questions.py --batch TKP-1 --count 5 --seed <S>` | `5` Proaktif, solutif tuntas, empatik, taat SOP; `4` Sopan/baik tapi belum tuntas; `3` Normatif kaku; `2` Menunda/melempar; `1` Abai/melanggar SOP |
+| **TKP-2** | `75–82` | `Jejaring Kerja` | 8 | `python scripts/sample_anchor_questions.py --batch TKP-2 --count 5 --seed <S>` | `5` Membangun sinergi & alur komunikasi lintas pihak secara objektif; `1` Ego sektoral / memutus koordinasi |
+| **TKP-3** | `83–89` | `Sosial Budaya` | 7 | `python scripts/sample_anchor_questions.py --batch TKP-3 --count 5 --seed <S>` | `5` Inklusif, menghormati adat/keragaman, merangkul tanpa diskriminasi; `1` Stereotip / eksklusif |
+| **TKP-4** | `90–96` | `Teknologi Informasi dan Komunikasi` | 7 | `python scripts/sample_anchor_questions.py --batch TKP-4 --count 5 --seed <S>` | `5` Adaptif sistem digital, menjaga keamanan data/privasi, membantu transisi tim; `1` Menolak sistem / lalai keamanan |
+| **TKP-5** | `97–103` | `Profesionalisme` | 7 | `python scripts/sample_anchor_questions.py --batch TKP-5 --count 5 --seed <S>` | `5` Tuntas target, disiplin mutu, jaga kerahasiaan & integritas; `1` Mengabaikan target / konflik kepentingan |
+| **TKP-6** | `104–110` | `Anti Radikalisme` | 7 | `python scripts/sample_anchor_questions.py --batch TKP-6 --count 5 --seed <S>` | `5` Tegas menolak paham ekstrem/hoaks, edukatif/tabayyun & lapor berjenjang tanpa main hakim sendiri; `1` Permisif / ikut menyebarkan |
+
+---
+
+## 3. Profil B — HOTS / Penalaran Kuantitatif Lanjutan (Terinspirasi `Packet 11–13`)
+
+Gunakan profil ini khusus untuk paket seri **HOTS / Penalaran Lanjutan**. TWK (`#1–30`), TIU Verbal (`#31–42`), TIU Figural (`#60–65`), dan TKP (`#66–110`) mengikuti Profil A; **hanya blok TIU Numerik (`#43–59`, 17 soal)** yang berubah:
+
+| Batch (HOTS) | Nomor | `sub_category` | Jml | Perintah Ambil Contoh (`Packet 11–13`) | Karakteristik Wajib |
+| :---: | :---: | :--- | :-: | :--- | :--- |
+| **TIU-4 (HOTS)** | `43–48` | `Kesetaraan Operasi` (3) & `Pola Bilangan` (3) | 6 | `python scripts/sample_anchor_questions.py --batch TIU-4 --profile hots --count 6 --seed <S>` | 2 Kesetaraan perkalian/pembagian (`a×b = c×d`) + 1 Estimasi terdekat; 3 **Pola Bilangan Tabel/Kotak 2D** |
+| **TIU-5 (HOTS)** | `49–54` | `Kecukupan Data` | 6 | `python scripts/sample_anchor_questions.py --batch TIU-5 --profile hots --count 6 --seed <S>` | 5 opsi baku kecukupan data (*"Pernyataan (1) SAJA cukup..."* s.d. *"tidak cukup"*) — buktikan 4 kombinasi `(1), (2), (1)+(2), tidak cukup` di Python! |
+| **TIU-6 (HOTS)** | `55–59` | `Berhitung` (1) & `Soal Cerita` (4) | 5 | `python scripts/sample_anchor_questions.py --batch TIU-6 --profile hots --count 5 --seed <S>` | 1 Hitung cepat aljabar/pecahan + 4 Soal Cerita multi-tahap / interpretasi tabel |
+
+---
+
+## 4. Lampiran — Peta Nomor Terverifikasi `vol17` (`Packet 1`) & `vol18` (`Packet 2`)
+
+*Hanya sebagai rujukan cadangan jika bekerja manual tanpa `sample_anchor_questions.py` (sudah diaudit 100% akurat terhadap JSON asli):*
+- **`vol17` (`Packet 1`):** TWK: `#1–6` Nasionalisme, `#7–11` Bahasa Indonesia, `#12–16` Bela Negara, `#17–25` Pilar Negara, `#26–30` Integritas | TIU: `#31–34` Analogi (2 Kata+2 Kalimat), `#35–42` Silogisme & Analitis, `#43–45` Berhitung, `#46–49` Perbandingan Kuantitatif, `#50–56` Soal Cerita & Tabel, `#57–59` Deret Angka, `#60–65` Figural | TKP `#66–110`: **diacak penuh** (filter berdasarkan field `topic`).
+- **`vol18` (`Packet 2`):** TWK: `#1–5` Nasionalisme, `#6–10` Bela Negara, `#11–20` Pilar Negara, `#21–25` Integritas, `#26–30` Bahasa Indonesia | TIU: `#31–34` Analogi (2 Kata+2 Kalimat), `#35–39` Silogisme, `#40–42` Analitis, `#43–45` Deret Angka, `#46–48` Berhitung, `#49–52` Perb. Kuantitatif & Cerita, `#53–59` Soal Cerita & Tabel, `#60–65` Figural | TKP `#66–110`: **diacak penuh** (filter berdasarkan field `topic`).

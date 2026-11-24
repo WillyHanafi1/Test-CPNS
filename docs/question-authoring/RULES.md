@@ -1,42 +1,44 @@
-# RULES.md — Aturan Ringkas & Mutlak Bank Soal TOCPNS
+# RULES.md — Aturan Mutlak & Standar Kualitas Bank Soal TOCPNS
 
-Aturan ini sengaja dibuat **singkat dan bebas jargon** agar AI tidak bingung oleh kelebihan konteks. Patuhi 3 prinsip inti dan Hard Gate di bawah.
+Aturan ini dirancang **presisi, terukur, dan bebas jargon** agar setiap paket 110 soal yang dihasilkan langsung lolos Quality Gate otomatis, bebas kesalahan faktual/matematis, dan terasa seperti soal SKD BKN asli.
 
 ---
 
 ## 1. Tiga Prinsip Inti Produksi Soal
 
-1. **Contoh Soal = Satu-Satunya Patokan Kesulitan:**
-   - **TIDAK PERLU** mengatur label kesulitan (`mudah / sedang / sulit`, `20/60/20`, atau taksonomi Bloom `C3–C5`).
-   - Cukup samakan gaya bahasa, panjang kalimat, dan tingkat kesulitan **1-ke-1 dengan soal contoh** pada nomor/sub-kategori yang sama di `Packet 1 (vol17)` atau `Packet 2 (vol18)`.
-2. **Cara Membuat Variasi Baru per Segmen:**
+1. **Korpus 15 Paket (`Packet 1–15`) = Satu-Satunya Patokan Kesulitan:**
+   - **TIDAK PERLU** label kesulitan buatan (`mudah/sedang/sulit` atau Bloom `C3–C5`).
+   - Setiap mengerjakan 1 batch kecil (4–9 soal), panggil `python scripts/sample_anchor_questions.py --batch <ID> --seed <S>` untuk mengambil **4–6 contoh campuran Sumber A (`Packet 1–3`) dan Sumber B (`Packet 4–15`)** yang 100% tepat topik & sub-jenisnya. Samakan panjang, nuansa, dan kompleksitasnya!
+2. **Strategi Variasi Orisinal per Segmen (Anti-Plagiat & Anti-Monoton):**
    - **TIU Numerik, Deret, Perbandingan Kuantitatif, Soal Cerita, Silogisme, Analitis (`#35–59`):**
-     - **Boleh memakai pola/rumus yang sama persis** dengan contoh soal!
-     - Cukup **ganti angka, nama/benda, dan hitung ulang jawaban baru + 4 pengecoh baru menggunakan Python** (`Fraction`/`Decimal`/`permutations`). Pastikan angka dan hasil akhirnya benar-benar berbeda dari contoh.
+     - Pertahankan **konsep matematis/logika dan kompleksitas** soal contoh, tetapi **WAJIB parafrase struktur kalimat, ganti konteks/objek, ganti seluruh angka**, dan bila cocok tambahkan *twist* target pertanyaan (mis. dari *total pekerja* menjadi *tambahan pekerja*, atau deret mundur mencari suku awal `..., a, b`).
+     - Hitung ulang jawaban eksak + 4 pengecoh baru via skrip Python (`Fraction`/`Decimal`/`permutations`/truth table).
    - **TIU Analogi (`#31–34`) & Figural (`#60–65`):**
-     - Tiru tipe pola contoh, ganti pasangan kata (Analogi) atau ganti bentuk/arah rotasi/jumlah elemen (Figural via Python Pillow/matplotlib).
+     - Analogi wajib tepat **2 Analogi Kata + 2 Analogi Kalimat**.
+     - Figural wajib **programatik Python (`Pillow`/`matplotlib`)**, minimal **2 transformasi simultan** (mis. rotasi + inversi warna), menyertakan **Matriks 3×3**, dan wajib `assert` keunikan 5 state opsi `A–E`.
    - **TWK (`#1–30`) & TKP (`#66–110`):**
-     - Tiru gaya, panjang kalimat, dan tingkat kesulitan soal contoh, lalu buat cerita/kasus/tokoh baru.
-3. **Korpus Hukum & Bahasa = Kamus *On-Demand* (JANGAN Dibaca Semua Sekaligus!):**
-   - **JANGAN** memuat seluruh isi `references/*.md` ke dalam prompt secara bersamaan (kelebihan konteks justru merusak kualitas jawaban AI!).
-   - Buka/cari (`grep`/baca sebagian) berkas di `references/` **hanya saat butuh memastikan** bunyi pasal UUD 1945, pasal UU ASN 20/2023, atau kata baku KBBI VI/EYD V untuk soal yang sedang dikerjakan.
+     - Buat kasus/dilema, instansi, dan tokoh yang **sepenuhnya baru** dengan tingkat kesulitan setara contoh.
+     - **Buku Catatan Tokoh & Skenario (Anti-Pengulangan):** Catat nama tokoh dan jenis instansi yang sudah dipakai di paket berjalan; **dilarang** memakai nama tokoh yang sama (mis. Andi/Budi/Rina) lebih dari 1 kali dalam 1 paket 110 soal!
+3. **Korpus Hukum & Bahasa = Kamus *On-Demand* (JANGAN Muat Sekaligus!):**
+   - **JANGAN** membaca seluruh isi `docs/question-authoring/references/*.md` di awal sesi.
+   - Cari/baca bagian relevan (`grep`/rentang baris) **hanya saat memverifikasi** nomor pasal UUD 1945, UU ASN 20/2023, UU Bela Negara 23/2019, atau kata baku KBBI VI/EYD V pada soal terkait.
 
 ---
 
-## 2. Kontrak Schema (Kompatibel 100% dengan Server TOCPNS)
+## 2. Kontrak Schema & Standar `sub_category` Kanonik
 
 ### A. Format JSON Batch / Paket (`<kode_paket>-bank-soal.json`)
 ```json
 {
   "schema_version": "2.0",
   "package": {
-    "code": "vol19",
+    "code": "gen01",
     "title": "Tryout SKD CPNS 2026 #1",
     "category": "Mix"
   },
   "questions": [
     {
-      "id": "tocpns-vol19-001",
+      "id": "tocpns-gen01-001",
       "number": 1,
       "segment": "TWK",
       "sub_category": "Nasionalisme",
@@ -49,41 +51,57 @@ Aturan ini sengaja dibuat **singkat dan bebas jargon** agar AI tidak bingung ole
         { "label": "D", "content": "Isi opsi D", "score": 0, "image_url": null },
         { "label": "E", "content": "Isi opsi E", "score": 0, "image_url": null }
       ],
-      "discussion": "Jawaban yang benar adalah Opsi C. <penjelasan ringkas & tepat>."
+      "discussion": "Jawaban yang benar adalah Opsi C. <alasan kunci dengan rujukan fakta/pasal>. Opsi A kurang tepat karena <alasan singkat penolakan pengecoh terkuat>."
     }
   ]
 }
 ```
 
-### B. Format Excel / CSV Siap Import (`/admin/questions`)
-Kolom wajib persis mengikuti `backend/api/v1/endpoints/admin_import.py`:
+### B. Daftar `sub_category` Kanonik (Kompatibel 100% dengan `analytics_service.py` & `data/csv/*.csv`)
+
+| Segmen | `sub_category` Kanonik (Wajib Persis Ejaannya) | Pemetaan terhadap `topic` di `Packet 1–15` |
+| :--- | :--- | :--- |
+| **TWK** | `Nasionalisme`, `Integritas`, `Bela Negara`, `Pilar Negara`, `Bahasa Indonesia` | Identik 1-ke-1 |
+| **TIU (Standar)** | `Analogi`, `Silogisme`, `Analitis`, `Berhitung`, `Deret Angka`, `Perbandingan Kuantitatif`, `Soal Cerita`, `Figural` | `Analogi/Silogisme/Analitis` → `Verbal`; `Berhitung/Deret/Perb.Kuant/Cerita` → `Numerik`; `Figural` → `Figural` |
+| **TIU (HOTS)** | Tambahan khusus Profil B: `Kecukupan Data`, `Kesetaraan Operasi`, `Pola Bilangan` | Semua terpetakan ke `Numerik` |
+| **TKP** | `Pelayanan Publik`, `Jejaring Kerja`, `Sosial Budaya`, `Teknologi Informasi dan Komunikasi`, `Profesionalisme`, `Anti Radikalisme` | Identik 1-ke-1 |
+
+### C. Format Excel / CSV Siap Import (`/admin/questions`)
+Sheet bernama **`Impor`** dengan 16 kolom wajib sesuai [admin_import.py](file:///d:/Project/Test-CPNS/backend/api/v1/endpoints/admin_import.py):
 `number,segment,content,image_url,discussion,sub_category,option_a,score_a,option_b,score_b,option_c,score_c,option_d,score_d,option_e,score_e`
 
 ---
 
-## 3. Hard Gate Teknis (Divalidasi Otomatis oleh `scripts/validate_question_pack.py`)
+## 3. Standar Pembahasan, KaTeX, & Hard Gate Teknis
 
-1. **Kuota Eksak 110 Soal:** Nomor kontinu `1..110` (`TWK = 30`, `TIU = 35`, `TKP = 45`). Setiap soal wajib punya `content`, `discussion`, `sub_category`, dan tepat 5 opsi unik `A–E` (tidak boleh ada 2 opsi identik).
+Seluruh aturan berikut diverifikasi otomatis oleh [validate_question_pack.py](file:///d:/Project/Test-CPNS/scripts/validate_question_pack.py):
+
+1. **Kuota Eksak 110 Soal:** Nomor kontinu `1..110` (`TWK = 30`, `TIU = 35`, `TKP = 45`). Setiap soal wajib memiliki `content`, `discussion`, `sub_category` kanonik, dan 5 opsi unik `A–E` (tidak boleh ada 2 opsi identik).
 2. **Integritas Bobot Skor:**
-   - **TWK & TIU:** Tepat satu opsi skor `5`, empat opsi lain skor `0` (`[0, 0, 0, 0, 5]`).
-   - **TKP:** Wajib 5 bobot unik (`[1, 2, 3, 4, 5]`) tanpa bobot kembar.
-3. **KaTeX / LaTeX (`GEMINI.md` § 5A):**
-   - Semua pecahan, pangkat, akar, variabel, dan ekspresi hitung wajib di dalam `$...$` atau `$$...$$` (mis. `$\frac{3}{4}$`, `$x^2$`, `$\sqrt{144}$`). Jangan tulis `x^2` atau `akar()` mentah di luar `$...$`. Rupiah (`Rp50.000`) ditulis tanpa `$`.
-4. **Sinkronisasi Pembahasan ↔ Kunci & Tokoh:**
-   - Mulai pembahasan TWK/TIU dengan: `Jawaban yang benar adalah Opsi X.`
-   - Mulai pembahasan TKP dengan: `Jawaban dengan skor tertinggi adalah Opsi X (5 poin).` lalu sebut urutan singkat `Opsi X=5, Opsi Y=4, ...` agar remapper shuffler 100% akurat.
-   - Nama tokoh di soal dan pembahasan wajib sama persis.
+   - **TWK & TIU:** Tepat `[0, 0, 0, 0, 5]`.
+   - **TKP:** Tepat 5 bobot unik `[1, 2, 3, 4, 5]`.
+3. **KaTeX & Markdown (`GEMINI.md` § 5A):**
+   - Semua pecahan, pangkat, akar, variabel, sudut derajat, dan operasi matematika wajib di dalam `$...$` atau `$$...$$` (mis. `$\frac{3}{4}$`, `$x^2$`, `$\sqrt{144}$`, `$90^\circ$`).
+   - Desimal di dalam KaTeX ditulis `0{,}75` agar KaTeX tidak menyisipkan spasi setelah koma.
+   - **Rupiah (`Rp50.000`, `Rp1.250.000,00`) wajib ditulis di luar `$...$`** (menaruh `Rp` di dalam `$...$` memicu warning).
+   - Soal *Perbandingan Kuantitatif* (`P` vs `Q`) dan *Interpretasi Data* dianjurkan memakai **tabel Markdown rapi** (`| P | Q |`).
+4. **Standar Pembahasan Berbobot & Sinkron Shuffler:**
+   - **TWK (`~60–110 kata`):** Mulai tepat dengan `Jawaban yang benar adalah Opsi X.` lalu jelaskan dasar hukum/konsep/kaidah + 1 kalimat penolakan pengecoh terkuat.
+   - **TIU (`~50–100 kata`):** Mulai tepat dengan `Jawaban yang benar adalah Opsi X.` lalu tuliskan langkah hitung/logika runtut sesuai hasil skrip Python.
+   - **TKP (`~70–120 kata`):** Mulai tepat dengan `Jawaban dengan skor tertinggi adalah Opsi X (5 poin).` lalu tuliskan ringkasan kelima bobot secara eksplisit: `Opsi X=5 (...), Opsi Y=4 (...), Opsi Z=3 (...), Opsi W=2 (...), Opsi V=1 (...).` — validator akan mengecek **kecocokan seluruh 5 pasang huruf=skor** secara otomatis, dan shuffler akan me-remap semuanya tanpa tabrakan!
+   - **Bebas Artefak AI:** Dilarang menulis *"Sebagai AI..."*, *"Berikut adalah pembahasannya:"*, atau placeholder `[...]`. Nama tokoh di soal dan pembahasan wajib identik.
 5. **Verifikasi Deterministik TIU:**
-   - **TIU Numerik, Deret, Perbandingan, Cerita (`#43–59`) & Analitis/Silogisme (`#35–42`):** Wajib dibuktikan dengan skrip Python (`Fraction`/`Decimal`/`permutations`) sebelum masuk JSON. Dilarang menghitung hanya di kepala.
-   - **TIU Figural (`#60–65`):** Gambar dibuat dengan Python (`Pillow`/`matplotlib`, latar putih `#FFFFFF`, font TrueType `26–32px`, zona tengah & sudut terpisah tanpa overlap), **bukan** generator gambar AI. Upload ke bucket Supabase `exam-assets/figural/<kode_paket>/` untuk produksi.
-6. **Batas Anti-Salin yang Masuk Akal:**
-   - **TIU:** Boleh memakai kerangka kalimat/rumus sama dengan contoh, selama **angka & jawabannya diubah** (hanya diblokir jika salin-tempel identik `>= 85%`).
-   - **TWK & TKP:** Kasus/cerita harus baru (kemiripan teks terhadap `Packet 1 & 2` wajib `< 50%`).
-7. **Anti-Bias Panjang & Acak Kunci:**
-   - Opsi kunci (skor 5) tidak boleh menjadi opsi terpanjang pada lebih dari **35%** soal. Khusus TKP, usahakan panjang ke-5 opsi seimbang.
-   - Jalankan `--shuffle` sebelum ekspor `.xlsx` agar kunci `A–E` merata tanpa pola siklus (soal Figural otomatis dikecualikan).
+   - **TIU `#35–59`:** Wajib dibuktikan via `verify/verify_tiu_math_logic.py` (memakai `Fraction`/`Decimal` untuk numerik, `itertools.permutations` untuk analitis, dan **tabel kebenaran / uji model himpunan nyata** untuk silogisme — dilarang `assert True` kosong!).
+   - **TIU Figural (`#60–65`):** Gambar dibuat deterministik via `verify/generate_figural.py` (latar putih `#FFFFFF`, garis hitam tajam `#111827`, font TrueType `26–32px`, zona tengah `28%–72%` terpisah dari sudut `<= 16%`, tanpa bocoran warna kunci, wajib `assert` 5 state opsi unik, dan wajib diperiksa visual).
+6. **Anti-Plagiarisme Lintas Seluruh 15 Paket (`Packet 1–15`):**
+   - Validator otomatis membandingkan setiap soal terhadap **seluruh 1.650 soal di `Packet 1–15`**.
+   - **TWK & TKP:** Kemiripan `< 50%` terhadap referensi dan `< 55%` internal.
+   - **TIU:** Kemiripan `< 85%`, serta **dilarang menyalin urutan angka yang sama** (termasuk deret angka).
+7. **Anti-Bias Panjang, Acak Kunci 500×, & Acak Urutan TKP:**
+   - Opsi kunci (skor 5) tidak boleh jadi opsi terpanjang pada `> 35%` soal; pada TKP, selisih panjang opsi skor 5 terhadap rata-rata 4 opsi lain harus `<= 5 kata` (warning di `> 7 kata`).
+   - Jalankan `--shuffle --shuffle-tkp-order` sebelum ekspor `.xlsx` agar distribusi kunci `A–E` seimbang di setiap segmen (`spread <= 2`, bebas siklus, `max_streak <= 3`) dan urutan TKP `#66–110` teracak alami seperti CAT BKN!
 
 ---
 
 ## 4. Batas Proyek (`GEMINI.md`)
-- Seluruh alur berjalan **100% offline** di `data/generated/<kode_paket>/`. **Jangan** mengubah kode `backend/` atau `frontend/` dan jangan menambahkan fitur AI ke aplikasi produksi.
+- Seluruh proses berjalan **100% offline** di `data/generated/<kode_paket>/`. **Jangan** mengubah kode `backend/` atau `frontend/` dan **jangan** menambah fitur AI ke aplikasi produksi.
