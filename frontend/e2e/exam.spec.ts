@@ -210,6 +210,9 @@ $11,\ 48,\ 16,\ 42,\ 23,\ 36,\ 32,\ 30,\ \dots,\ \dots$`
   await expect(series).toHaveCSS("overflow-x", "auto");
   expect(await series.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+  await series.press("ArrowRight");
+  await expect.poll(() => series.evaluate((el) => el.scrollLeft)).toBeGreaterThan(0);
+  await expect(page.getByRole("group", { name: "Pilih satu jawaban untuk soal 1" })).toBeVisible();
 
   // 2. Verify high-visibility Exam Finish CTA + structured confirmation modal
   await page.setViewportSize({ width: 1280, height: 860 });

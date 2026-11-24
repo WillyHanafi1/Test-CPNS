@@ -35,8 +35,12 @@ export function resolveExamShortcut(event: {
   if (event.ctrlKey || event.metaKey || event.altKey) return null;
   if (isEditableTarget(event.target ?? null)) return null;
 
-  if (event.key === "ArrowLeft") return { type: "prev" };
-  if (event.key === "ArrowRight") return { type: "next" };
+  if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+    const focused = event.target as HTMLElement | null | undefined;
+    // Let focused math and tables scroll before treating arrows as navigation.
+    if (focused && focused.scrollWidth > focused.clientWidth) return null;
+    return { type: event.key === "ArrowLeft" ? "prev" : "next" };
+  }
   if (event.repeat) return null;
 
   const lower = event.key.toLowerCase();
