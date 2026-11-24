@@ -31,7 +31,7 @@ export default function Catalog() {
   return (
     <AppShell
       title="Paket soal"
-      description="Seluruh paket berisi soal HOTS sesuai referensi peserta ujian CPNS sebelumnya. Kerjakan dengan tenang, lalu pelajari pembahasannya."
+      description="Pilih paket simulasi SKD, lalu pelajari pembahasannya setelah ujian."
       action={
         !user?.is_pro ? (
           <Link className="button button-secondary" href="/catalog/upgrade">
@@ -45,8 +45,7 @@ export default function Catalog() {
       <div className="hots-strip" role="note">
         <Sparkles size={15} aria-hidden="true" />
         <span>
-          <strong>Standar Soal HOTS</strong> · Disusun mengikuti pola penalaran
-          dan referensi peserta ujian CPNS sebelumnya.
+          Latihan mencakup soal pengetahuan, penerapan, dan penalaran <strong>(HOTS)</strong>.
         </span>
       </div>
       <label className="field" style={{ maxWidth: 510 }}>

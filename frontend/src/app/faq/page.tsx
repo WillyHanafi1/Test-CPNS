@@ -15,8 +15,8 @@ export default function Help() {
       <div className="stack" style={{ maxWidth: 780 }}>
         {[
           [
-            "Apakah seluruh soal di TOCPNS bertipe HOTS?",
-            "Ya. Semua paket soal TWK, TIU, dan TKP di TOCPNS disusun bertipe HOTS (Higher Order Thinking Skills) mengacu pada kisi-kisi KepmenPANRB Nomor 321 Tahun 2024 serta referensi peserta ujian CPNS sebelumnya.",
+            "Apa yang dimaksud soal HOTS di TOCPNS?",
+            "Soal HOTS (Higher Order Thinking Skills) melatih penalaran, misalnya dengan meminta kamu membandingkan data atau menimbang pilihan. Latihan juga mencakup soal pengetahuan dan penerapan.",
           ],
           [
             "Bagaimana cara mulai latihan?",

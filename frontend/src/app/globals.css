@@ -634,15 +634,6 @@ body {
   gap: 12px;
   line-height: 1.5;
 }
-.hero-note {
-  align-items: flex-start;
-  justify-content: flex-start;
-  flex-wrap: nowrap;
-}
-.hero-note svg {
-  flex-shrink: 0;
-  margin-top: 2px;
-}
 .check-list {
   display: flex;
   flex-direction: column;

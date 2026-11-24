@@ -175,10 +175,11 @@ export default function PackageDetail() {
           <span>
             <BookOpen size={17} aria-hidden="true" /> TWK, TIU, TKP
           </span>
-          <span>
-            <Sparkles size={17} aria-hidden="true" /> Soal HOTS
-          </span>
         </div>
+        <p className="muted">
+          <Sparkles size={17} aria-hidden="true" className="inline-block" />{" "}
+          Latihan SKD dengan soal penalaran (HOTS) dan pembahasan.
+        </p>
         {pack.is_weekly && (
           <p className="muted">
             Satu percobaan per peserta.{" "}
@@ -207,10 +208,8 @@ export default function PackageDetail() {
                 server sebelum tenggat yang dinilai.
               </p>
               <p className="muted">
-                Seluruh soal pada paket ini bertipe <strong>HOTS</strong> sesuai
-                referensi peserta ujian CPNS sebelumnya. Kamu bisa lompat nomor
-                dan menandai soal yang masih ragu. Hasil dan pembahasan tersedia
-                setelah ujian selesai.
+                Kamu bisa lompat nomor dan menandai soal yang masih ragu. Hasil
+                dan pembahasan tersedia setelah ujian selesai.
               </p>
             </div>
           )

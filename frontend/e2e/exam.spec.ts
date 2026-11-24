@@ -113,10 +113,18 @@ test("HOTS messaging, footer visitor counter, and clear exam finish modal work s
   const questions = [1, 2].map((number) => ({
     id: `q${number}`,
     number,
-    segment: "TWK",
-    content: `Soal HOTS sintetis ${number}`,
+    segment: "TIU",
+    content: number === 1
+      ? String.raw`Perhatikan tabel berikut.
+
+| Peserta | Skor |
+| --- | ---: |
+| Putri | 88 |
+
+$11,\ 48,\ 16,\ 42,\ 23,\ 36,\ 32,\ 30,\ \dots,\ \dots$`
+      : "Soal TIU sintetis",
     options: [
-      { id: `a${number}`, label: "A", content: "Pilihan A" },
+      { id: `a${number}`, label: "A", content: String.raw`$\frac{5}{12}$` },
       { id: `b${number}`, label: "B", content: "Pilihan B" },
     ],
   }));
@@ -179,9 +187,8 @@ test("HOTS messaging, footer visitor counter, and clear exam finish modal work s
   // 1. Verify HOTS messaging + visitor counter strip on Home
   await page.setViewportSize({ width: 1280, height: 860 });
   await page.goto("/");
-  await expect(page.getByText("Semua Soal HOTS", { exact: true })).toBeVisible();
   await expect(
-    page.getByText(/referensi peserta ujian CPNS sebelumnya/i).first(),
+    page.getByText(/Latihan SKD dengan soal penalaran \(HOTS\) dan pembahasan/),
   ).toBeVisible();
   const footerStrip = page.getByLabel("Statistik pengunjung situs");
   await expect(footerStrip).toBeVisible();
@@ -189,8 +196,23 @@ test("HOTS messaging, footer visitor counter, and clear exam finish modal work s
   await expect(footerStrip).toContainText("412 bulan ini");
   await expect.poll(() => visitPosts).toBeGreaterThanOrEqual(1);
 
-  // 2. Verify high-visibility Exam Finish CTA + structured confirmation modal
+  await page.setViewportSize({ width: 320, height: 760 });
   await page.goto("/session/ux-check");
+  const article = page.locator("main article");
+  await expect(
+    article.getByRole("table").getByRole("columnheader", { name: "Skor" }),
+  ).toHaveAttribute("scope", "col");
+  await expect(article.getByRole("cell", { name: "88" })).toBeVisible();
+  await expect(article.locator("label .katex")).toHaveCSS("font-size", "19.2px");
+  const series = article.locator("p").filter({
+    has: page.locator(".katex", { hasText: "11" }),
+  });
+  await expect(series).toHaveCSS("overflow-x", "auto");
+  expect(await series.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+
+  // 2. Verify high-visibility Exam Finish CTA + structured confirmation modal
+  await page.setViewportSize({ width: 1280, height: 860 });
   const headerFinish = page
     .locator("header")
     .getByRole("button", { name: /Selesai ujian/i });

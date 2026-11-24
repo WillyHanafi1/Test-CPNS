@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Check, BookOpen, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Check, BookOpen } from "lucide-react";
 import AppShell from "@/components/AppShell";
 import HomeTrustStrip from "@/components/HomeTrustStrip";
 import HomeExamPreview from "@/components/HomeExamPreview";
@@ -9,19 +9,15 @@ export default function Home() {
     <AppShell>
       <section className="hero-home">
         <div>
-          <div className="inline" style={{ gap: 8 }}>
-            <span className="badge hero-label">Ruang latihan CPNS</span>
-            <span className="badge badge-green">Semua Soal HOTS</span>
-          </div>
+          <span className="badge hero-label">Ruang latihan CPNS</span>
           <h1 style={{ marginTop: 24 }}>
             Latihan terarah.
             <br />
             <span style={{ color: "var(--accent)" }}>Langkah lebih yakin.</span>
           </h1>
           <p className="muted">
-            Latihan SKD dengan simulasi CAT. Seluruh soal bertipe HOTS sesuai
-            referensi peserta ujian CPNS sebelumnya, lengkap dengan nilai TWK,
-            TIU, TKP dan pembahasan.
+            Latihan SKD dengan soal penalaran (HOTS) dan pembahasan. Simulasikan
+            ujian CAT dan lihat nilai TWK, TIU, serta TKP.
           </p>
           <div className="inline">
             <Link className="button" href="/catalog">
@@ -52,13 +48,6 @@ export default function Home() {
                 </li>
               ))}
             </ol>
-            <div className="notice hero-note">
-              <CheckCircle2 aria-hidden="true" size={19} />
-              <span>
-                Semua soal bertipe HOTS sesuai referensi peserta ujian CPNS
-                sebelumnya. Minim distraksi, latihan lebih terarah.
-              </span>
-            </div>
           </div>
         </section>
       </section>
@@ -77,12 +66,12 @@ export default function Home() {
               "Pantau sisa waktu dan pindah antarsoal dengan mudah. Jawabanmu tersimpan otomatis saat berlatih.",
             ],
             [
-              "Soal HOTS & pembahasan",
-              "Seluruh soal bertipe HOTS sesuai referensi peserta ujian CPNS sebelumnya, lengkap dengan bobot poin dan topik evaluasi.",
+              "Pembahasan per soal",
+              "Pelajari alasan di balik jawaban dan lihat bobot poin untuk mengevaluasi hasil latihanmu.",
             ],
             [
               "Akses paket Pro",
-              "Kerjakan semua paket soal HOTS yang tersedia selama Paket Pro aktif.",
+              "Kerjakan semua paket yang tersedia selama Paket Pro aktif.",
             ],
           ].map(([title, description]) => (
             <article className="panel stack" key={title}>
@@ -165,8 +154,8 @@ export default function Home() {
         <div className="stack">
           {[
             [
-              "Apakah semua soal di TOCPNS bertipe HOTS?",
-              "Ya. Seluruh paket soal TWK, TIU, dan TKP disusun bertipe HOTS (Higher Order Thinking Skills) sesuai kisi-kisi KepmenPANRB Nomor 321 Tahun 2024 serta referensi peserta ujian CPNS sebelumnya.",
+              "Jenis soal apa yang ada di TOCPNS?",
+              "Latihan mencakup soal pengetahuan, penerapan, dan penalaran (HOTS) dalam simulasi TWK, TIU, dan TKP.",
             ],
             [
               "Apakah saya bisa mencoba latihan gratis?",
