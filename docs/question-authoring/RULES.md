@@ -97,9 +97,10 @@ Seluruh aturan berikut diverifikasi otomatis oleh [validate_question_pack.py](fi
    - Validator otomatis membandingkan setiap soal terhadap **seluruh 1.650 soal di `Packet 1–15`**.
    - **TWK & TKP:** Kemiripan `< 50%` terhadap referensi dan `< 55%` internal.
    - **TIU:** Kemiripan `< 85%`, serta **dilarang menyalin urutan angka yang sama** (termasuk deret angka).
-7. **Anti-Bias Panjang, Acak Kunci 500×, & Acak Urutan TKP:**
-   - Opsi kunci (skor 5) tidak boleh jadi opsi terpanjang pada `> 35%` soal; pada TKP, selisih panjang opsi skor 5 terhadap rata-rata 4 opsi lain harus `<= 5 kata` (warning di `> 7 kata`).
-   - Jalankan `--shuffle --shuffle-tkp-order` sebelum ekspor `.xlsx` agar distribusi kunci `A–E` seimbang di setiap segmen (`spread <= 2`, bebas siklus, `max_streak <= 3`) dan urutan TKP `#66–110` teracak alami seperti CAT BKN!
+7. **Anti-Bias Panjang, Anti-Bias Sintaksis Koma TKP, Acak Kunci 500×, & Acak Urutan TKP:**
+   - Opsi kunci (skor 5) tidak boleh jadi opsi terpanjang (secara kata maupun karakter) pada `> 35%` soal; pada TKP, selisih panjang opsi skor 5 terhadap rata-rata 4 opsi lain harus `<= 5 kata` (warning di `> 7 kata`).
+   - **Anti-Bias Koma / Pola 3-Aksi Paralel TKP:** Jangan hanya memakai struktur daftar berkoma (`"melakukan A, B, serta C"`) pada opsi skor 5 sementara skor 1–3 berupa 1 klausa tanpa koma! Variasikan struktur 1 klausa dan 2–3 klausa berkoma secara merata di seluruh bobot `5–4–3–2–1` (validator otomatis memicu `tkp_comma_bias` bila heuristik buta "koma terbanyak" `>= 166/225` atau rasio koma terbanyak di skor 5 `> 35%`).
+   - Jalankan `--shuffle --shuffle-tkp-order` sebelum ekspor `.xlsx` agar distribusi kunci `A–E` seimbang di setiap segmen (`spread <= 1`, bebas siklus, `max_streak <= 2`) dan urutan TKP `#66–110` teracak alami seperti CAT BKN!
 
 ---
 

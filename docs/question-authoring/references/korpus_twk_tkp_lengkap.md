@@ -74,7 +74,7 @@ Soal TWK modern sering menjebak peserta di batas tipis antar-subtopik:
 
 ### 9 Nilai Integritas KPK (JUMAT BERSEPEDA KK)
 1. **Jujur**, 2. **Peduli**, 3. **Mandiri**, 4. **Disiplin**, 5. **Tanggung jawab**, 6. **Kerja keras**, 7. **Sederhana**, 8. **Berani**, 9. **Adil**.
-- *Gratifikasi (UU Tipikor / UU 20/2001 Pasal 12B):* Pemberian terkait jabatan yang berlawanan dengan kewajiban/tugas ASN wajib ditolak, atau jika terpaksa diterima dalam kondisi tertentu wajib dilaporkan ke KPK/UPG paling lambat **30 hari kerja**.
+- *Gratifikasi (UU Tipikor / UU No. 20/2001 Pasal 12B jo. Pasal 12C ayat (1)–(2) & Peraturan KPK No. 2/2019 Pasal 5):* Pemberian terkait jabatan yang berlawanan dengan kewajiban/tugas ASN wajib ditolak; jika terpaksa diterima dalam kondisi tertentu, wajib dilaporkan langsung kepada KPK paling lambat **30 hari kerja** sejak diterima (Pasal 12C), atau melalui Unit Pengendalian Gratifikasi (UPG) instansi paling lambat **10 hari kerja** (Peraturan KPK No. 2/2019).
 
 ---
 

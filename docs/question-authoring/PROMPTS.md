@@ -137,7 +137,7 @@ Aturan wajib:
    - 3: Normatif kaku, terlalu formalistik, atau pasif menunggu arahan.
    - 2: Kurang peduli, menunda, atau melempar tanggung jawab ke pihak lain.
    - 1: Reaktif/defensif, melanggar prosedur, atau permisif terhadap pelanggaran/intoleransi — TETAP ditulis dalam bahasa yang wajar/rasional (bukan "penjahat kartun" yang terlalu mudah ditebak).
-2. ANTI-BIAS PANJANG & ANTI-KLISE: Panjang ke-5 opsi WAJIB seimbang (selisih jumlah kata opsi skor 5 terhadap rata-rata 4 opsi lain <= 5 kata). Hindari pengulangan frasa klise seperti "berkoordinasi secara proaktif dan humanis".
+2. ANTI-BIAS PANJANG, ANTI-KOMA-3-AKSI, & ANTI-KLISE: Panjang ke-5 opsi WAJIB seimbang secara kata MAUPUN karakter (selisih jumlah kata opsi skor 5 terhadap rata-rata 4 opsi lain <= 5 kata). DILARANG membuat hanya opsi skor 5 yang memakai daftar 3 aksi berkoma ("melakukan A, B, dan C") sementara skor 1–3 tanpa koma — variasikan kalimat 1 klausa dan kalimat berkoma secara merata di semua bobot 5–4–3–2–1! Hindari pengulangan frasa klise seperti "berkoordinasi secara proaktif dan humanis" atau "secara objektif".
 3. PEMBAHASAN TERVALIDASI OTOMATIS (~70–120 kata): Wajib mulai tepat dengan:
    "Jawaban dengan skor tertinggi adalah Opsi <HURUF> (5 poin)."
    diikuti ringkasan kelima opsi dengan format tepat:

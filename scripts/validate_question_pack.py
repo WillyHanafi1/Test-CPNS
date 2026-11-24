@@ -578,7 +578,7 @@ def validate_pack(
                     )
                 )
 
-    # Global length bias ratio
+    # Global length bias ratio + TKP structural comma & char-length bias audit
     if non_figural_count > 0:
         summary.longest_correct_ratio = round(longest_correct_hits / non_figural_count, 4)
         if non_figural_count >= 10 and summary.longest_correct_ratio > 0.35:
@@ -588,6 +588,45 @@ def validate_pack(
                     None,
                     "option_length_bias",
                     f"Opsi skor tertinggi adalah opsi terpanjang pada {summary.longest_correct_ratio*100:.1f}% soal ({longest_correct_hits}/{non_figural_count}; target <= 35%).",
+                )
+            )
+
+    tkp_qs = [q for q in questions if q["segment"] == "TKP" and len(q["options"]) == 5]
+    if len(tkp_qs) >= 10:
+        tkp_char_longest = 0
+        tkp_comma_strict_max = 0
+        comma_heuristic_expected = 0.0
+        for q in tkp_qs:
+            opts = q["options"]
+            best = max(opts, key=lambda o: o["score"])
+            others = [o for o in opts if o is not best]
+            if len(best["content"]) > max(len(o["content"]) for o in others):
+                tkp_char_longest += 1
+            comma_counts = [(o["content"].count(","), o["score"], o is best) for o in opts]
+            max_c = max(c for c, _, _ in comma_counts)
+            top_c_items = [item for item in comma_counts if item[0] == max_c]
+            comma_heuristic_expected += sum(item[1] for item in top_c_items) / len(top_c_items)
+            if len(top_c_items) == 1 and top_c_items[0][2]:
+                tkp_comma_strict_max += 1
+        char_ratio = tkp_char_longest / len(tkp_qs)
+        comma_ratio = tkp_comma_strict_max / len(tkp_qs)
+        scaled_score = comma_heuristic_expected * (45.0 / len(tkp_qs))
+        if char_ratio > 0.35:
+            summary.warnings.append(
+                Issue(
+                    "WARNING",
+                    None,
+                    "tkp_char_length_bias",
+                    f"Opsi skor 5 TKP paling panjang secara karakter pada {char_ratio*100:.1f}% soal ({tkp_char_longest}/{len(tkp_qs)}; target <= 35%).",
+                )
+            )
+        if comma_ratio > 0.35 or scaled_score >= 166.0:
+            summary.warnings.append(
+                Issue(
+                    "WARNING",
+                    None,
+                    "tkp_comma_bias",
+                    f"Kebocoran sinyal koma/3-aksi paralel pada TKP: skor 5 memiliki koma terbanyak pada {comma_ratio*100:.1f}% soal (heuristik buta koma = {scaled_score:.1f}/225; target < 166 & rasio <= 35%).",
                 )
             )
 

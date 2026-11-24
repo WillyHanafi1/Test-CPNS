@@ -149,6 +149,25 @@ def remap_discussion(discussion_text: str, letter_mapping: dict) -> str:
     for i, letter_upper in enumerate(LETTERS_UPPER):
         ph_map[letter_upper] = f"{PH_PREFIX}{i}__"
 
+    # --- PASS 1a-list: MULTI-OPTION LIST patterns (e.g., "Opsi A, C, dan D", "Opsi B dan E", "Pilihan A, B, serta C") ---
+    # Must run BEFORE single-option patterns so ALL letters in a list are atomically placeholder-mapped!
+    kw_union = "|".join(re.escape(k) for k in OPTION_KEYWORDS)
+    multi_opt_re = re.compile(
+        rf'(\b(?:{kw_union})\s+)([A-E](?:\s*(?:,\s*(?:(?:dan|atau|serta)\s+)?|\s+(?:dan|atau|serta)\s+)[A-E])+)(?![a-zA-Z])'
+    )
+
+    def _replace_list_match(m: re.Match) -> str:
+        prefix = m.group(1)
+        body = m.group(2)
+        remapped_body = re.sub(
+            r'(?<![a-zA-Z])([A-E])(?![a-zA-Z])',
+            lambda lm: ph_map[lm.group(1)],
+            body,
+        )
+        return prefix + remapped_body
+
+    result = multi_opt_re.sub(_replace_list_match, result)
+
     # --- PASS 1a: PHRASE-level patterns (most specific, process FIRST) ---
     for template in PHRASE_TEMPLATES:
         for letter_upper in LETTERS_UPPER:
