@@ -15,7 +15,7 @@ Aturan ini dirancang **presisi, terukur, dan bebas jargon** agar setiap paket 11
      - Hitung ulang jawaban eksak + 4 pengecoh baru via skrip Python (`Fraction`/`Decimal`/`permutations`/truth table).
    - **TIU Analogi (`#31–34`) & Figural (`#60–65`):**
      - Analogi wajib tepat **2 Analogi Kata + 2 Analogi Kalimat**.
-     - Figural wajib **programatik Python (`Pillow`/`matplotlib`)**, minimal **2 transformasi simultan** (mis. rotasi + inversi warna), menyertakan **Matriks 3×3**, dan wajib `assert` keunikan 5 state opsi `A–E`.
+     - Figural dibuat dengan **Python (`Pillow`/`matplotlib`)**, mencakup **Matriks 3×3**, dan memakai minimal **4 mekanisme penalaran berbeda per paket**. Tiap soal memiliki minimal **2 kriteria objektif**. Buktikan dengan `assert` bahwa 5 state dan 5 gambar opsi berbeda serta kuncinya tunggal. Ikuti Prompt 3 di [PROMPTS.md](PROMPTS.md).
    - **TWK (`#1–30`) & TKP (`#66–110`):**
      - Buat kasus/dilema, instansi, dan tokoh yang **sepenuhnya baru** dengan tingkat kesulitan setara contoh.
      - **Buku Catatan Tokoh & Skenario (Anti-Pengulangan):** Catat nama tokoh dan jenis instansi yang sudah dipakai di paket berjalan; **dilarang** memakai nama tokoh yang sama (mis. Andi/Budi/Rina) lebih dari 1 kali dalam 1 paket 110 soal!
@@ -86,6 +86,7 @@ Seluruh aturan berikut diverifikasi otomatis oleh [validate_question_pack.py](fi
    - **Rupiah (`Rp50.000`, `Rp1.250.000,00`) wajib ditulis di luar `$...$`** (menaruh `Rp` di dalam `$...$` memicu warning).
    - Soal *Perbandingan Kuantitatif* (`P` vs `Q`) dan *Interpretasi Data* dianjurkan memakai **tabel Markdown rapi** (`| P | Q |`).
 4. **Standar Pembahasan Ramah Belajar (Anti-Wall-of-Text & Sinkron Shuffler):**
+   - Gunakan istilah materi yang umum. Tulis langkah penyelesaian secara langsung dan periksa teks serta gambar agar atribusi internal, jargon merek, dan watermark tidak masuk ke materi peserta.
    - **Dilarang menulis pembahasan sebagai 1 paragraf padat tanpa jeda baris!** Gunakan Markdown standar dengan paragraf (`\n\n`), daftar bernomor (`1.`, `2.`, ...), bullet (`- ...`), penebalan (`**...**`), dan *block math* (`$$...$$`) agar mudah dipindai mata peserta di desktop maupun ponsel (di JSON gunakan `\n\n` untuk paragraf baru dan `\n` antar-item daftar; di Excel gunakan Alt+Enter / `\n`).
    - **TWK (`~60–110 kata`):**
      - Paragraf 1: Mulai tepat dengan `Jawaban yang benar adalah **Opsi X**.` diikuti alasan kunci (rujukan pasal/konsep/kaidah EYD V/KBBI VI).
