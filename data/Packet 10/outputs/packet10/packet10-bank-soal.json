@@ -10,10 +10,8 @@
   },
   "coverage": {
     "expected_questions": 110,
-    "extracted_questions": 109,
-    "missing_numbers": [
-      65
-    ]
+    "extracted_questions": 110,
+    "missing_numbers": []
   },
   "questions": [
     {
@@ -3499,6 +3497,56 @@
         "primary": "Screenshot 2026-11-23 181129.png",
         "alternates": [
           "Screenshot 2026-11-23 181131.png"
+        ]
+      },
+      "discussion_images": [],
+      "recorded_answer": null
+    },
+    {
+      "id": "skd-casn-2026-packet10-065",
+      "number": 65,
+      "segment": "TIU",
+      "topic": "Figural",
+      "content": "Perhatikan gambar berikut. Pilihlah gambar yang menggantikan tanda tanya!",
+      "image": "gambar/packet10-065-soal.png",
+      "options": [
+        {
+          "label": "A",
+          "content": "Gambar A",
+          "score": 0,
+          "image": null
+        },
+        {
+          "label": "B",
+          "content": "Gambar B",
+          "score": 0,
+          "image": null
+        },
+        {
+          "label": "C",
+          "content": "Gambar C",
+          "score": 5,
+          "image": null
+        },
+        {
+          "label": "D",
+          "content": "Gambar D",
+          "score": 0,
+          "image": null
+        },
+        {
+          "label": "E",
+          "content": "Gambar E",
+          "score": 0,
+          "image": null
+        }
+      ],
+      "answer_key": "C",
+      "discussion": "Setiap baris memiliki pola yang sama yaitu lingkaran pada kolom 1 ke kolom 2 dirotasikan sebesar $90^\\circ$ searah jarum jam kemudian posisi warna biru–oranye ditukar.\nJawaban: C",
+      "source_screenshots": {
+        "primary": "Screenshot 2026-11-24 091517.png",
+        "alternates": [
+          "Screenshot 2026-11-24 091521.png"
         ]
       },
       "discussion_images": [],
