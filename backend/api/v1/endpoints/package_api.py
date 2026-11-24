@@ -1,4 +1,5 @@
 """Public metadata only. Personal state is never served from shared cache."""
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
@@ -45,6 +46,11 @@ async def metadata(db, package, user=None):
     return result
 
 
+def _natural_title_key(pkg: Package):
+    parts = re.split(r"(\d+)", pkg.title or "")
+    return ([(0, int(p)) if p.isdigit() else (1, p.lower()) for p in parts], str(pkg.id))
+
+
 @router.get("", response_model=list[PackageSchema])
 async def get_packages(skip: int = Query(0, ge=0), limit: int = Query(12, ge=1, le=100),
                        category: Optional[str] = None, search: Optional[str] = None,
@@ -66,7 +72,8 @@ async def get_packages(skip: int = Query(0, ge=0), limit: int = Query(12, ge=1, 
         term = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")[:150]
         query = query.where(or_(Package.title.ilike(f"%{term}%", escape="\\"),
                                 Package.description.ilike(f"%{term}%", escape="\\")))
-    packages = (await db.scalars(query.order_by(Package.title, Package.id).offset(skip).limit(limit))).all()
+    all_packages = sorted((await db.scalars(query)).all(), key=_natural_title_key)
+    packages = all_packages[skip : skip + limit]
     return [await metadata(db, p, current_user) for p in packages]
 
 
