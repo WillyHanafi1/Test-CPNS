@@ -19,10 +19,10 @@ export type MembershipOffer = {
 };
 
 const FALLBACK_OFFER = {
-  price: 29000,
-  normal_price: 49000,
-  is_early_bird: true,
-  price_label: "Early Bird",
+  price: 50000,
+  normal_price: null as number | null,
+  is_early_bird: false,
+  price_label: null as string | null,
   duration_days: 365,
 };
 

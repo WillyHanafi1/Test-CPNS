@@ -160,8 +160,21 @@ $11,\ 48,\ 16,\ 42,\ 23,\ 36,\ 32,\ 30,\ \dots,\ \dots$`
         users_count: 50,
         completed_sessions_count: 15,
       };
-    } else if (url.pathname.endsWith("/public/pricing")) {
-      data = { pro_price: 29000, pro_normal_price: 49000, pro_price_label: "Early Bird" };
+    } else if (url.pathname.endsWith("/membership/offer")) {
+      data = {
+        id: "pro-365",
+        name: "Pro",
+        price: 50000,
+        normal_price: null,
+        is_early_bird: false,
+        price_label: null,
+        duration_days: 365,
+        auto_renew: false,
+        environment: "production",
+        checkout_available: true,
+        payment_methods: ["QRIS", "VIRTUAL_ACCOUNT_DOKU", "VIRTUAL_ACCOUNT_BNI"],
+        preferred_payment_method: "QRIS",
+      };
     } else if (url.pathname.endsWith("/auth/me")) {
       data = {
         id: "participant",
