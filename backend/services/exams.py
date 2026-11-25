@@ -78,7 +78,7 @@ def validation_errors(payload):
 
 def public_payload(payload):
     return {"id": payload["id"], "title": payload["title"], "questions": [
-        {**{key: q[key] for key in ("id", "number", "content", "image_url", "segment")},
+        {**{key: q.get(key) for key in ("id", "number", "content", "image_url", "segment", "sub_category")},
          "options": [{key: o[key] for key in ("id", "label", "content", "image_url")}
                      for o in q["options"]]} for q in payload["questions"]]}
 

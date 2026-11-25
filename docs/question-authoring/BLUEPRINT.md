@@ -49,7 +49,7 @@ Menggabungkan standar terbaik **Sumber A (`Packet 1–3`)** dan **Sumber B1 (`Pa
 ---
 
 ### C. TKP (`#66–110`, 6 Batch = 45 Soal)
-*Semua 6 aspek wajib terisi seimbang (7–9 soal/aspek; larangan keras 0 soal di satu aspek). Saat ekspor final, jalankan `--shuffle-tkp-order` agar nomor urut `#66–110` teracak alami seperti CAT BKN & `Packet 1–3`!*
+*Semua 6 aspek wajib terisi seimbang (7–9 soal/aspek; larangan keras 0 soal di satu aspek). Saat ekspor final, jalankan `--group-by-blocks` agar **TWK** berkelompok per blok (urutan blok berganti antar-paket), **TIU** berkelompok per rumpun `Verbal → Numerik → Figural` dengan tiap sub-materi utuh, dan **TKP** berkelompok utuh per blok aspek dengan urutan blok berganti antar-paket!*
 
 | Batch | Nomor Awal | `sub_category` | Jml | Perintah Ambil Contoh (`Packet 1–15`) | Fokus Rubrik Skor `5 → 1` |
 | :---: | :---: | :--- | :-: | :--- | :--- |

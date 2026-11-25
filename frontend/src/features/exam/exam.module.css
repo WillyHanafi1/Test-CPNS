@@ -370,8 +370,9 @@
 }
 .questionLabel {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.48rem 0.55rem;
   font-size: 0.88rem;
   color: var(--muted);
   scroll-margin-top: 6rem;
@@ -382,6 +383,15 @@
   padding: 0.25rem 0.52rem;
   border-radius: 5px;
   font-size: 0.79rem;
+}
+.subCategory {
+  color: var(--ink);
+  background: var(--surface-hover);
+  border: 1px solid var(--control-line);
+  padding: 0.2rem 0.52rem;
+  border-radius: 5px;
+  font-size: 0.78rem;
+  font-weight: 600;
 }
 .flag[aria-pressed="true"] {
   color: var(--warning);

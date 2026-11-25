@@ -12,7 +12,7 @@ Buka `data/generated/<kode_paket>/audit-report.md` dan `cross-model-audit.md`, l
 - [ ] **Hard Errors:** `0` (Wajib mutlak). **Warnings:** `0` (termasuk 0 `discussion_key_unexplicit`, 0 `discussion_wall_of_text`, 0 `tkp_length_bias`, 0 `latex_rupiah`, 0 `key_imbalance`, 0 `key_streak`, 0 `local_image_url`, dan 0 `local_discussion_image_url` setelah upload Supabase).
 - [ ] **Kemiripan terhadap seluruh `Packet 1–15` (1.650 soal):** TWK/TKP `< 50%`, TIU `< 85%` (dan angka/deret berbeda). Kemiripan internal `< 55%`.
 - [ ] **Rasio opsi kunci terpanjang:** `<= 35%` (target ideal setara BKN: `12%–25%`).
-- [ ] **Distribusi kunci A–E & urutan soal per segmen:** Merata (`selisih max - min <= 2` di TWK, TIU non-figural, dan TKP) tanpa pola siklus berulang. Urutan nomor di dalam TWK `#1–30`, TIU `#31–59` & `#60–65`, dan TKP `#66–110` sudah teracak (`--shuffle-all-orders`) serta judul gambar diagram bebas nomor `(Soal #XX)`.
+- [ ] **Distribusi kunci A–E, pengelompokan blok, & label `sub_category`:** Kunci merata (`selisih max - min <= 2` di TWK, TIU non-figural, dan TKP) tanpa pola siklus berulang. Paket sudah diurutkan dengan `--group-by-blocks` (TWK per blok urutan bervariasi, TIU per rumpun `Verbal → Numerik → Figural` dengan sub-blok utuh, TKP per blok aspek urutan bervariasi), seluruh soal memiliki `sub_category` kanonik, dan judul PNG diagram bebas nomor `(Soal #XX)`.
 - [ ] **Review Silang Beda Model:** `0` temuan KRITIS tersisa, `0` temuan MAYOR terbuka, Blind-Solve TIU `100%` cocok.
 
 ---

@@ -13,6 +13,7 @@ export type Question = {
   content: string;
   image_url?: string;
   segment: string;
+  sub_category?: string | null;
   number: number;
   options: Option[];
 };

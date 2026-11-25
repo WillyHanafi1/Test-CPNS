@@ -299,6 +299,7 @@ test("structured discussion renders steps, display math, and zoomable diagram im
             id: "q43",
             number: 43,
             segment: "TIU",
+            sub_category: "Berhitung",
             content: String.raw`Nilai dari $\frac{7}{4} - 0{,}6 \times \left(\frac{5}{6} + 25\%\right) + 1{,}8 \div 1{,}5$ adalah ...`,
             discussion,
             selected_option_id: "opt-b",
@@ -318,6 +319,7 @@ test("structured discussion renders steps, display math, and zoomable diagram im
 
   const section = page.locator("section[aria-labelledby='discussion-title']");
   await expect(section).toBeVisible();
+  await expect(page.locator("#review-question")).toContainText("Berhitung");
   await expect(section.locator("ol li")).toHaveCount(2);
   // Ensure list items containing inline KaTeX do not clip outside decimal markers via overflow-x: auto
   const firstLiOverflowX = await section

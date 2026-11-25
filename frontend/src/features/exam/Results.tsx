@@ -434,8 +434,15 @@ export function ReviewView({
                     ref={heading}
                     tabIndex={-1}
                   >
-                    <strong>{q.segment}</strong> Soal {q.number} dari{" "}
-                    {questions.length}
+                    <strong>{q.segment}</strong>
+                    {q.sub_category && (
+                      <span className={styles.subCategory}>
+                        {q.sub_category}
+                      </span>
+                    )}
+                    <span>
+                      Soal {q.number} dari {questions.length}
+                    </span>
                   </h2>
                   <span
                     className={styles.reviewPoints}

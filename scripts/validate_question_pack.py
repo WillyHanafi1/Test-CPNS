@@ -13,16 +13,14 @@ Memvalidasi paket soal offline (JSON / CSV / XLSX) sebelum diimpor ke TOCPNS:
 9. Audit gambar figural (image_url wajib terisi, peringatan jika masih memakai 127.0.0.1).
 10. Opsional:
     - --shuffle: mengacak kunci A-E non-figural secara seimbang (500 percobaan, bebas siklus, streak <= 3) + two-pass discussion remap.
-    - --shuffle-twk-order: mengacak urutan nomor soal TWK (#1-30) agar sub-materi tidak kaku per nomor.
-    - --shuffle-tiu-order: mengacak urutan nomor soal TIU non-figural (#31-59) dan figural (#60-65) agar tipe/pola soal tidak bisa ditebak dari nomor.
-    - --shuffle-tkp-order: mengacak urutan nomor soal TKP (#66-110) agar tidak berkelompok per aspek (meniru CAT BKN asli).
-    - --shuffle-all-orders: mengaktifkan --shuffle-twk-order, --shuffle-tiu-order, dan --shuffle-tkp-order sekaligus.
+    - --group-by-blocks: mengelompokkan TWK per blok sub-materi (urutan blok acak antar-paket), TIU per rumpun (Verbal -> Numerik -> Figural, dengan sub-materi berkelompok utuh & urutan sub-blok acak antar-paket), dan TKP per blok aspek (urutan blok acak antar-paket).
+    - --shuffle-twk-order / --shuffle-tiu-order / --shuffle-tkp-order / --shuffle-all-orders: pengacakan penuh lintas sub-materi di dalam segmen.
     - --export-csv, --export-xlsx (sheet 'Impor'), --report, --export-blind-audit.
 
 Penggunaan:
     python scripts/validate_question_pack.py data/generated/gen01/batches/twk_01_06.json --partial
     python scripts/validate_question_pack.py data/generated/gen01/gen01-bank-soal.json
-    python scripts/validate_question_pack.py data/generated/gen01/gen01-bank-soal.json --shuffle --shuffle-all-orders --export-csv data/generated/gen01/gen01-impor-final.csv --export-xlsx data/generated/gen01/gen01-impor-final.xlsx --report data/generated/gen01/audit-report.md --export-blind-audit data/generated/gen01/cross_audit/
+    python scripts/validate_question_pack.py data/generated/gen01/gen01-bank-soal.json --shuffle --group-by-blocks --export-csv data/generated/gen01/gen01-impor-final.csv --export-xlsx data/generated/gen01/gen01-impor-final.xlsx --report data/generated/gen01/audit-report.md --export-blind-audit data/generated/gen01/cross_audit/
 """
 
 from __future__ import annotations
@@ -854,6 +852,94 @@ def shuffle_tiu_question_order(questions: list[dict[str, Any]], seed: int = 42) 
     return sorted(non_tiu + reordered_nf + reordered_fig, key=lambda x: x["number"])
 
 
+TIU_VERBAL_SUBS = {"Analogi", "Silogisme", "Analitis", "Verbal"}
+TIU_FIGURAL_SUBS = {"Figural", "Analogi Gambar", "Serial Gambar", "Ketidaksamaan Gambar", "Matriks 3×3"}
+
+
+def _tiu_rumpun(q: dict[str, Any]) -> str:
+    sub = (q.get("sub_category") or "").strip()
+    if is_figural(q) or sub in TIU_FIGURAL_SUBS:
+        return "Figural"
+    if sub in TIU_VERBAL_SUBS:
+        return "Verbal"
+    return "Numerik"
+
+
+def order_pack_by_blocks(questions: list[dict[str, Any]], seed: int = 42) -> list[dict[str, Any]]:
+    """
+    Standard CPNS block-grouped ordering:
+    - TWK (#1-30): Contiguous blocks per sub_category; block order & intra-block order randomized per seed.
+    - TIU (#31-65): Grouped by macro rumpun (Verbal -> Numerik -> Figural); inside Verbal and Numerik,
+      grouped into contiguous sub_category blocks with randomized sub-block order & intra-block order;
+      Figural grouped at end with randomized puzzle order.
+    - TKP (#66-110): Contiguous blocks per sub_category; block order & intra-block order randomized per seed.
+    Automatically updates Markdown discussion image alt-text question numbers ('soal XX').
+    """
+    rng = random.Random(seed)
+    out: list[dict[str, Any]] = []
+
+    def group_and_shuffle(seg_qs: list[dict[str, Any]], numbers: list[int]) -> list[dict[str, Any]]:
+        buckets: dict[str, list[dict[str, Any]]] = {}
+        for q in seg_qs:
+            key = (q.get("sub_category") or "").strip() or "Lainnya"
+            buckets.setdefault(key, []).append(q)
+        block_keys = sorted(buckets.keys())
+        rng.shuffle(block_keys)
+        ordered: list[dict[str, Any]] = []
+        for bk in block_keys:
+            items = list(buckets[bk])
+            rng.shuffle(items)
+            ordered.extend(items)
+        result = []
+        for new_num, q in zip(numbers, ordered):
+            q_copy = dict(q)
+            q_copy["number"] = new_num
+            if q_copy.get("discussion"):
+                q_copy["discussion"] = _sync_discussion_alt_number(q_copy["discussion"], new_num)
+            result.append(q_copy)
+        return result
+
+    twk_qs = [q for q in questions if q["segment"] == "TWK"]
+    if twk_qs:
+        out.extend(group_and_shuffle(twk_qs, sorted(q["number"] for q in twk_qs)))
+
+    tiu_qs = [q for q in questions if q["segment"] == "TIU"]
+    if tiu_qs:
+        tiu_nums = sorted(q["number"] for q in tiu_qs)
+        ordered_tiu: list[dict[str, Any]] = []
+        for rumpun in ("Verbal", "Numerik", "Figural"):
+            r_qs = [q for q in tiu_qs if _tiu_rumpun(q) == rumpun]
+            if not r_qs:
+                continue
+            if rumpun == "Figural":
+                items = list(r_qs)
+                rng.shuffle(items)
+                ordered_tiu.extend(items)
+            else:
+                buckets: dict[str, list[dict[str, Any]]] = {}
+                for q in r_qs:
+                    key = (q.get("sub_category") or "").strip() or rumpun
+                    buckets.setdefault(key, []).append(q)
+                sub_keys = sorted(buckets.keys())
+                rng.shuffle(sub_keys)
+                for sk in sub_keys:
+                    items = list(buckets[sk])
+                    rng.shuffle(items)
+                    ordered_tiu.extend(items)
+        for new_num, q in zip(tiu_nums, ordered_tiu):
+            q_copy = dict(q)
+            q_copy["number"] = new_num
+            if q_copy.get("discussion"):
+                q_copy["discussion"] = _sync_discussion_alt_number(q_copy["discussion"], new_num)
+            out.append(q_copy)
+
+    tkp_qs = [q for q in questions if q["segment"] == "TKP"]
+    if tkp_qs:
+        out.extend(group_and_shuffle(tkp_qs, sorted(q["number"] for q in tkp_qs)))
+
+    return sorted(out, key=lambda x: x["number"])
+
+
 def shuffle_tkp_question_order(questions: list[dict[str, Any]], seed: int = 42) -> list[dict[str, Any]]:
     """
     Interleave TKP question order (#66-110) so topics are mixed like authentic BKN CAT
@@ -967,11 +1053,12 @@ def main() -> int:
     parser.add_argument("--no-ref", action="store_true", help="Lewati cek kemiripan terhadap seluruh paket referensi.")
     parser.add_argument("--similarity-threshold", type=float, default=0.50, help="Ambang batas kemiripan TWK/TKP terhadap referensi (default 0.50; TIU otomatis < 0.85).")
     parser.add_argument("--shuffle", action="store_true", help="Acak posisi opsi A-E non-figural secara seimbang (500x) & remap pembahasan.")
-    parser.add_argument("--shuffle-twk-order", action="store_true", help="Acak urutan nomor soal TWK (#1-30) agar tidak berkelompok per sub-materi.")
-    parser.add_argument("--shuffle-tiu-order", action="store_true", help="Acak urutan nomor soal TIU non-figural (#31-59) dan figural (#60-65).")
-    parser.add_argument("--shuffle-tkp-order", action="store_true", help="Acak urutan nomor soal TKP (#66-110) agar tidak berkelompok per aspek.")
-    parser.add_argument("--shuffle-all-orders", action="store_true", help="Acak urutan nomor soal di dalam TWK, TIU, dan TKP sekaligus.")
-    parser.add_argument("--seed", type=int, default=42, help="Random seed deterministik untuk --shuffle dan pengacakan urutan soal.")
+    parser.add_argument("--group-by-blocks", action="store_true", help="Kelompokkan TWK per blok (urutan blok acak), TIU per rumpun Verbal->Numerik->Figural (sub-blok utuh, urutan acak), dan TKP per blok aspek (urutan blok acak).")
+    parser.add_argument("--shuffle-twk-order", action="store_true", help="Acak penuh urutan nomor soal TWK (#1-30).")
+    parser.add_argument("--shuffle-tiu-order", action="store_true", help="Acak penuh urutan nomor soal TIU non-figural (#31-59) dan figural (#60-65).")
+    parser.add_argument("--shuffle-tkp-order", action="store_true", help="Acak penuh urutan nomor soal TKP (#66-110).")
+    parser.add_argument("--shuffle-all-orders", action="store_true", help="Acak penuh urutan nomor soal di dalam TWK, TIU, dan TKP sekaligus.")
+    parser.add_argument("--seed", type=int, default=42, help="Random seed deterministik untuk --shuffle dan pengurutan blok/soal.")
     parser.add_argument("--export-json", help="Opsional: path keluaran JSON final setelah shuffle.")
     parser.add_argument("--export-csv", help="Path keluaran CSV siap import TOCPNS.")
     parser.add_argument("--export-xlsx", help="Path keluaran XLSX siap import TOCPNS (sheet 'Impor').")
@@ -998,14 +1085,17 @@ def main() -> int:
                 for rq in load_questions(ref_path):
                     ref_questions.append((pkt_label, rq))
 
-    if args.shuffle_all_orders or args.shuffle_twk_order:
-        questions = shuffle_twk_question_order(questions, seed=args.seed)
+    if args.group_by_blocks:
+        questions = order_pack_by_blocks(questions, seed=args.seed)
+    else:
+        if args.shuffle_all_orders or args.shuffle_twk_order:
+            questions = shuffle_twk_question_order(questions, seed=args.seed)
 
-    if args.shuffle_all_orders or args.shuffle_tiu_order:
-        questions = shuffle_tiu_question_order(questions, seed=args.seed)
+        if args.shuffle_all_orders or args.shuffle_tiu_order:
+            questions = shuffle_tiu_question_order(questions, seed=args.seed)
 
-    if args.shuffle_all_orders or args.shuffle_tkp_order:
-        questions = shuffle_tkp_question_order(questions, seed=args.seed)
+        if args.shuffle_all_orders or args.shuffle_tkp_order:
+            questions = shuffle_tkp_question_order(questions, seed=args.seed)
 
     if args.shuffle:
         questions = shuffle_pack_in_memory(questions, seed=args.seed)

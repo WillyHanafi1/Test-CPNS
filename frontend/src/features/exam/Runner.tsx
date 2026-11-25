@@ -472,8 +472,15 @@ export default function Runner({ id }: { id: string }) {
                 ref={questionHeading}
                 tabIndex={-1}
               >
-                <strong>{question.segment}</strong> Soal {question.number} dari{" "}
-                {total}
+                <strong>{question.segment}</strong>
+                {question.sub_category && (
+                  <span className={styles.subCategory}>
+                    {question.sub_category}
+                  </span>
+                )}
+                <span>
+                  Soal {question.number} dari {total}
+                </span>
               </h2>
               <button
                 type="button"

@@ -117,7 +117,12 @@ Seluruh aturan berikut diverifikasi otomatis oleh [validate_question_pack.py](fi
 7. **Anti-Bias Panjang, Anti-Bias Sintaksis Koma TKP, Acak Kunci 500×, & Acak Urutan TKP:**
    - Opsi kunci (skor 5) tidak boleh jadi opsi terpanjang (secara kata maupun karakter) pada `> 35%` soal; pada TKP, selisih panjang opsi skor 5 terhadap rata-rata 4 opsi lain harus `<= 5 kata` (warning di `> 7 kata`).
    - **Anti-Bias Koma / Pola 3-Aksi Paralel TKP:** Jangan hanya memakai struktur daftar berkoma (`"melakukan A, B, serta C"`) pada opsi skor 5 sementara skor 1–3 berupa 1 klausa tanpa koma! Variasikan struktur 1 klausa dan 2–3 klausa berkoma secara merata di seluruh bobot `5–4–3–2–1` (validator otomatis memicu `tkp_comma_bias` bila heuristik buta "koma terbanyak" `>= 166/225` atau rasio koma terbanyak di skor 5 `> 35%`).
-   - Jalankan `--shuffle --shuffle-all-orders` (mengacak urutan nomor di dalam TWK `#1–30`, TIU non-figural `#31–59`, TIU figural `#60–65`, dan TKP `#66–110`) sebelum ekspor `.xlsx` agar distribusi kunci `A–E` seimbang di setiap segmen (`spread <= 1`, bebas siklus, `max_streak <= 2`) serta tipe/pola soal tidak terkunci di nomor yang sama antar-paket!
+   - Jalankan `--shuffle --group-by-blocks` sebelum ekspor `.xlsx` agar:
+     1. Distribusi kunci `A–E` seimbang di setiap segmen (`spread <= 1`, bebas siklus, `max_streak <= 2`).
+     2. **TWK (`#1–30`)** berkelompok utuh sesuai 5 blok sub-materi, dengan urutan antar-blok berganti antar-paket.
+     3. **TIU (`#31–65`)** berkelompok sesuai rumpun (`Verbal → Numerik → Figural`), dengan setiap sub-materi (mis. seluruh *Deret Angka*, seluruh *Berhitung*, seluruh *Analogi*) terkumpul utuh dalam 1 blok dan urutan antar sub-blok berganti antar-paket.
+     4. **TKP (`#66–110`)** berkelompok utuh sesuai 6 blok aspek, dengan urutan antar-blok berganti antar-paket.
+     5. Setiap soal wajib memiliki `sub_category` kanonik yang valid karena label sub-materi ditampilkan langsung pada kartu soal di UI Ujian & Pembahasan.
 
 ---
 

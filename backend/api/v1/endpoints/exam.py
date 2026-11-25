@@ -41,6 +41,7 @@ class QuestionResponse(BaseModel):
     content: str
     image_url: Optional[str] = None
     segment: str
+    sub_category: Optional[str] = None
     number: int
     options: List[OptionResponse]
     # PEMBAHASAN (discussion) SENGAJA TIDAK DIMASUKKAN
@@ -77,6 +78,7 @@ class ReviewQuestionResponse(BaseModel):
     image_url: Optional[str] = None
     discussion: Optional[str] = None
     segment: str
+    sub_category: Optional[str] = None
     number: int
     options: List[ReviewOptionResponse]
     selected_option_id: Optional[uuid.UUID] = None
@@ -455,6 +457,7 @@ async def get_exam_review(
             image_url=q.image_url,
             discussion=q.discussion,
             segment=q.segment,
+            sub_category=q.sub_category,
             number=q.number,
             options=q.options,
             selected_option_id=selected_option_id

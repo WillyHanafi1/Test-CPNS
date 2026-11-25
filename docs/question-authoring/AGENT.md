@@ -75,7 +75,7 @@ Untuk setiap batch sesuai [BLUEPRINT.md](file:///d:/Project/Test-CPNS/docs/quest
 Gabungkan seluruh 18 batch ke `data/generated/<kode_paket>/<kode_paket>-bank-soal.json` (urut `1..110`), lalu jalankan satu perintah ini:
 
 ```powershell
-python scripts/validate_question_pack.py data/generated/<kode_paket>/<kode_paket>-bank-soal.json --shuffle --shuffle-all-orders --seed 42 --export-json data/generated/<kode_paket>/<kode_paket>-bank-soal-final.json --export-csv data/generated/<kode_paket>/<kode_paket>-impor-final.csv --export-xlsx data/generated/<kode_paket>/<kode_paket>-impor-final.xlsx --report data/generated/<kode_paket>/audit-report.md --export-blind-audit data/generated/<kode_paket>/cross_audit/
+python scripts/validate_question_pack.py data/generated/<kode_paket>/<kode_paket>-bank-soal.json --shuffle --group-by-blocks --seed 42 --export-json data/generated/<kode_paket>/<kode_paket>-bank-soal-final.json --export-csv data/generated/<kode_paket>/<kode_paket>-impor-final.csv --export-xlsx data/generated/<kode_paket>/<kode_paket>-impor-final.xlsx --report data/generated/<kode_paket>/audit-report.md --export-blind-audit data/generated/<kode_paket>/cross_audit/
 ```
 
 Lalu verifikasi hasil `.xlsx` final:
