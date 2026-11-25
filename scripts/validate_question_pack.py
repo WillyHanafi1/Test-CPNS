@@ -45,12 +45,13 @@ def _natural_sort_key(path: Path) -> list[Any]:
 
 
 def discover_default_references() -> list[Path]:
-    """Discover all reference bank-soal JSONs across data/Packet 1..N."""
+    """Discover all reference bank-soal JSONs across data/Packet 1..N and prior data/generated/* packs."""
     data_dir = REPO_ROOT / "data"
     if not data_dir.exists():
         return []
-    found = sorted(data_dir.glob("Packet */outputs/**/*-bank-soal.json"), key=_natural_sort_key)
-    return found
+    packet_refs = sorted(data_dir.glob("Packet */outputs/**/*-bank-soal.json"), key=_natural_sort_key)
+    generated_refs = sorted(data_dir.glob("generated/*/*-bank-soal-final.json"), key=_natural_sort_key)
+    return packet_refs + generated_refs
 
 
 DEFAULT_REFERENCES = discover_default_references()
@@ -422,10 +423,19 @@ def validate_pack(
 
         sub_cat = q["sub_category"]
         if not sub_cat:
-            summary.warnings.append(Issue("WARNING", num, "missing_sub_category", "sub_category kosong (diperlukan untuk Topic Mastery Analytics)."))
+            summary.warnings.append(Issue("WARNING", num, "missing_sub_category", "sub_category kosong (diperlukan untuk badge UI & Topic Mastery Analytics)."))
         elif seg in CANONICAL_SUB_CATEGORIES and sub_cat not in CANONICAL_SUB_CATEGORIES[seg]:
             summary.warnings.append(
                 Issue("WARNING", num, "non_canonical_sub_category", f"sub_category '{sub_cat}' di luar daftar kanonik {seg}.")
+            )
+        elif seg == "TIU" and sub_cat in {"Verbal", "Numerik"}:
+            summary.warnings.append(
+                Issue(
+                    "WARNING",
+                    num,
+                    "generic_tiu_sub_category",
+                    f"sub_category TIU '{sub_cat}' terlalu umum untuk paket baru; gunakan label granular (Analogi/Silogisme/Analitis/Berhitung/Deret Angka/Perbandingan Kuantitatif/Soal Cerita/Kecukupan Data/Kesetaraan Operasi/Pola Bilangan).",
+                )
             )
 
         # AI artifact check
@@ -443,7 +453,17 @@ def validate_pack(
                 if not o["content"] and not o["image_url"]:
                     summary.errors.append(Issue("ERROR", num, "empty_option", f"Opsi {o['label']} kosong (tanpa teks maupun gambar)."))
                 if o["content"]:
-                    norm_opts.append((o["label"], re.sub(r"\s+", " ", o["content"].strip())))
+                    stripped_opt = o["content"].strip()
+                    norm_opts.append((o["label"], re.sub(r"\s+", " ", stripped_opt)))
+                    if re.search(r"(?:[^\s-]-| -)$", stripped_opt):
+                        summary.warnings.append(
+                            Issue(
+                                "WARNING",
+                                num,
+                                "trailing_hyphen_option",
+                                f"Opsi {o['label']} diakhiri tanda hubung '-' menggantung ('{stripped_opt[-25:]}'); periksa typo/potongan kata.",
+                            )
+                        )
             text_counter = Counter(t for _, t in norm_opts)
             for dup_txt, cnt in text_counter.items():
                 if cnt > 1:
@@ -521,6 +541,17 @@ def validate_pack(
                 summary.errors.append(Issue("ERROR", num, "latex_syntax", f"[{field_name}] {prob}"))
             for wprob in l_warns:
                 summary.warnings.append(Issue("WARNING", num, "latex_rupiah", f"[{field_name}] {wprob}"))
+            if field_name in ("soal", "pembahasan") and "$$" in txt:
+                no_fenced = re.sub(r"\$\$[ \t]*\n[\s\S]*?\n[ \t]*\$\$", "", txt)
+                if re.search(r"\$\$[^$\n]+\$\$", no_fenced):
+                    summary.warnings.append(
+                        Issue(
+                            "WARNING",
+                            num,
+                            "single_line_display_math",
+                            f"[{field_name}] Terdeteksi block math 1 baris `$$...$$`; remark-math v6 mewajibkan `$$` buka & tutup pada baris terpisah (`$$\\n...\\n$$`) agar tampil sebagai display math.",
+                        )
+                    )
 
         # Discussion readability & embedded image hygiene
         disc_txt = q["discussion"]
@@ -545,6 +576,27 @@ def validate_pack(
                         "Pembahasan TKP menyatu dalam 1 paragraf; pecah rincian skor 5→1 menjadi daftar bullet per baris (- **Opsi X (5 poin):** ...) agar mudah dipindai.",
                     )
                 )
+            if seg == "TKP":
+                disc_low = disc_txt.lower()
+                boilerplate_hits = [
+                    p
+                    for p in (
+                        "usulnya adalah",
+                        "tindakan ini memberi respons terbatas",
+                        "mendapat bobot paling rendah dalam rubrik",
+                        "menjadi perhatian yang belum terjawab",
+                    )
+                    if p in disc_low
+                ]
+                if boilerplate_hits:
+                    summary.warnings.append(
+                        Issue(
+                            "WARNING",
+                            num,
+                            "tkp_boilerplate_discussion",
+                            f"Pembahasan TKP mengandung frasa template robotik ({', '.join(boilerplate_hits)}); tulis alasan substantif spesifik konteks dilema.",
+                        )
+                    )
             for m_img in re.finditer(r"!\[[^\]]*\]\(([^)]+)\)", disc_txt):
                 d_url = m_img.group(1).strip()
                 if "127.0.0.1" in d_url or "localhost" in d_url or d_url.startswith("gambar/"):
@@ -556,14 +608,31 @@ def validate_pack(
                             f"Gambar pembahasan ({d_url}) masih lokal; unggah ke bucket publik Supabase exam-assets sebelum produksi.",
                         )
                     )
+                if re.search(r"(?:^|/)q\d+_pembahasan", d_url, re.IGNORECASE):
+                    summary.warnings.append(
+                        Issue(
+                            "WARNING",
+                            num,
+                            "diagram_filename_has_number",
+                            f"Nama berkas diagram pembahasan ({d_url}) memuat nomor soal; gunakan nama berbasis topik bebas nomor (mis. diagram_meja_bundar.png) agar aman pasca --group-by-blocks.",
+                        )
+                    )
 
         # Figural image check
         if fig:
             has_any_img = bool(q["image_url"]) or any(o.get("image_url") for o in opts)
             if not has_any_img:
                 summary.errors.append(Issue("ERROR", num, "figural_missing_image", "Soal Figural wajib memiliki image_url soal atau gambar opsi."))
-            if q["image_url"] and "127.0.0.1" in q["image_url"]:
-                summary.warnings.append(Issue("WARNING", num, "local_image_url", "image_url masih menunjuk ke 127.0.0.1 (ganti ke URL Supabase exam-assets sebelum produksi)."))
+            for img_label, img_val in [("soal", q["image_url"]), *[(f"opsi {o['label']}", o.get("image_url")) for o in opts]]:
+                if img_val and ("127.0.0.1" in img_val or "localhost" in img_val or img_val.startswith("gambar/")):
+                    summary.warnings.append(
+                        Issue(
+                            "WARNING",
+                            num,
+                            "local_image_url",
+                            f"image_url [{img_label}] masih lokal ({img_val}); ganti ke URL publik Supabase exam-assets sebelum produksi.",
+                        )
+                    )
 
         # Originality vs reference corpus (all Packet 1..N)
         if not fig and ref_indexed:
@@ -1077,13 +1146,19 @@ def main() -> int:
     ref_pack_count = 0
     if not args.no_ref:
         resolved_source = source.resolve()
+        source_parents = {resolved_source.parent, resolved_source.parent.parent}
         for ref_path in discover_default_references():
-            if ref_path.exists() and ref_path.resolve() != resolved_source:
-                # Use folder name like 'Packet 10' for readable error messages
-                pkt_label = next((p for p in ref_path.parts if p.lower().startswith("packet ")), ref_path.parent.name)
-                ref_pack_count += 1
-                for rq in load_questions(ref_path):
-                    ref_questions.append((pkt_label, rq))
+            resolved_ref = ref_path.resolve()
+            if not ref_path.exists() or resolved_ref == resolved_source:
+                continue
+            # Avoid self-comparing a generated draft/batch/export against its own package folder's *-final.json
+            if "generated" in resolved_ref.parts and resolved_ref.parent in source_parents:
+                continue
+            # Use folder name like 'Packet 10' or 'gen02' for readable error messages
+            pkt_label = next((p for p in ref_path.parts if p.lower().startswith("packet ")), ref_path.parent.name)
+            ref_pack_count += 1
+            for rq in load_questions(ref_path):
+                ref_questions.append((pkt_label, rq))
 
     if args.group_by_blocks:
         questions = order_pack_by_blocks(questions, seed=args.seed)
