@@ -319,6 +319,12 @@ test("structured discussion renders steps, display math, and zoomable diagram im
   const section = page.locator("section[aria-labelledby='discussion-title']");
   await expect(section).toBeVisible();
   await expect(section.locator("ol li")).toHaveCount(2);
+  // Ensure list items containing inline KaTeX do not clip outside decimal markers via overflow-x: auto
+  const firstLiOverflowX = await section
+    .locator("ol li")
+    .first()
+    .evaluate((el) => getComputedStyle(el).overflowX);
+  expect(firstLiOverflowX).toBe("visible");
   await expect(section.locator(".katex-display")).toBeVisible();
 
   const zoomBtn = section.getByRole("button", {
