@@ -13,13 +13,16 @@ Memvalidasi paket soal offline (JSON / CSV / XLSX) sebelum diimpor ke TOCPNS:
 9. Audit gambar figural (image_url wajib terisi, peringatan jika masih memakai 127.0.0.1).
 10. Opsional:
     - --shuffle: mengacak kunci A-E non-figural secara seimbang (500 percobaan, bebas siklus, streak <= 3) + two-pass discussion remap.
+    - --shuffle-twk-order: mengacak urutan nomor soal TWK (#1-30) agar sub-materi tidak kaku per nomor.
+    - --shuffle-tiu-order: mengacak urutan nomor soal TIU non-figural (#31-59) dan figural (#60-65) agar tipe/pola soal tidak bisa ditebak dari nomor.
     - --shuffle-tkp-order: mengacak urutan nomor soal TKP (#66-110) agar tidak berkelompok per aspek (meniru CAT BKN asli).
+    - --shuffle-all-orders: mengaktifkan --shuffle-twk-order, --shuffle-tiu-order, dan --shuffle-tkp-order sekaligus.
     - --export-csv, --export-xlsx (sheet 'Impor'), --report, --export-blind-audit.
 
 Penggunaan:
     python scripts/validate_question_pack.py data/generated/gen01/batches/twk_01_06.json --partial
     python scripts/validate_question_pack.py data/generated/gen01/gen01-bank-soal.json
-    python scripts/validate_question_pack.py data/generated/gen01/gen01-bank-soal.json --shuffle --shuffle-tkp-order --export-csv data/generated/gen01/gen01-impor-final.csv --export-xlsx data/generated/gen01/gen01-impor-final.xlsx --report data/generated/gen01/audit-report.md --export-blind-audit data/generated/gen01/cross_audit/
+    python scripts/validate_question_pack.py data/generated/gen01/gen01-bank-soal.json --shuffle --shuffle-all-orders --export-csv data/generated/gen01/gen01-impor-final.csv --export-xlsx data/generated/gen01/gen01-impor-final.xlsx --report data/generated/gen01/audit-report.md --export-blind-audit data/generated/gen01/cross_audit/
 """
 
 from __future__ import annotations
@@ -770,6 +773,87 @@ def shuffle_pack_in_memory(
     return out
 
 
+def _sync_discussion_alt_number(discussion: str, new_num: int) -> str:
+    """Update Markdown image alt text like '![Diagram pembahasan soal 39]' to match new_num."""
+    if not discussion or "![" not in discussion:
+        return discussion
+    return re.sub(
+        r"(!\[[^\]]*\bsoal\s*#?)(\d+)([^\]]*\])",
+        lambda m: f"{m.group(1)}{new_num}{m.group(3)}",
+        discussion,
+        flags=re.IGNORECASE,
+    )
+
+
+def _interleave_question_block(
+    block: list[dict[str, Any]],
+    numbers: list[int],
+    rng: random.Random,
+    tries: int = 300,
+) -> list[dict[str, Any]]:
+    if len(block) < 2:
+        return [dict(q) for q in block]
+    best_order = list(block)
+    best_adjacent = len(block)
+    for _ in range(tries):
+        cand = list(block)
+        rng.shuffle(cand)
+        adj = sum(
+            1
+            for i in range(1, len(cand))
+            if (cand[i].get("sub_category") or "") == (cand[i - 1].get("sub_category") or "")
+        )
+        if adj < best_adjacent:
+            best_adjacent = adj
+            best_order = cand
+            if adj == 0:
+                break
+    out = []
+    for new_num, q in zip(numbers, best_order):
+        q_copy = dict(q)
+        q_copy["number"] = new_num
+        if q_copy.get("discussion"):
+            q_copy["discussion"] = _sync_discussion_alt_number(q_copy["discussion"], new_num)
+        out.append(q_copy)
+    return out
+
+
+def shuffle_twk_question_order(questions: list[dict[str, Any]], seed: int = 42) -> list[dict[str, Any]]:
+    """Interleave TWK question order (#1-30) so sub-categories are mixed naturally across packages."""
+    non_twk = [q for q in questions if q["segment"] != "TWK"]
+    twk = [q for q in questions if q["segment"] == "TWK"]
+    if len(twk) < 4:
+        return questions
+    twk_numbers = sorted(q["number"] for q in twk)
+    rng = random.Random(seed + 101)
+    reordered = _interleave_question_block(twk, twk_numbers, rng)
+    return sorted(non_twk + reordered, key=lambda x: x["number"])
+
+
+def shuffle_tiu_question_order(questions: list[dict[str, Any]], seed: int = 42) -> list[dict[str, Any]]:
+    """
+    Interleave TIU non-figural (#31-59) across their numbers and independently shuffle
+    TIU figural (#60-65) across their numbers so no archetype or answer pattern is locked to a fixed slot.
+    """
+    non_tiu = [q for q in questions if q["segment"] != "TIU"]
+    tiu = [q for q in questions if q["segment"] == "TIU"]
+    if len(tiu) < 4:
+        return questions
+
+    tiu_fig = [q for q in tiu if is_figural(q)]
+    tiu_nonfig = [q for q in tiu if not is_figural(q)]
+    rng_nf = random.Random(seed + 202)
+    rng_fig = random.Random(seed + 303)
+
+    reordered_nf = _interleave_question_block(
+        tiu_nonfig, sorted(q["number"] for q in tiu_nonfig), rng_nf
+    )
+    reordered_fig = _interleave_question_block(
+        tiu_fig, sorted(q["number"] for q in tiu_fig), rng_fig, tries=50
+    )
+    return sorted(non_tiu + reordered_nf + reordered_fig, key=lambda x: x["number"])
+
+
 def shuffle_tkp_question_order(questions: list[dict[str, Any]], seed: int = 42) -> list[dict[str, Any]]:
     """
     Interleave TKP question order (#66-110) so topics are mixed like authentic BKN CAT
@@ -782,28 +866,7 @@ def shuffle_tkp_question_order(questions: list[dict[str, Any]], seed: int = 42) 
 
     tkp_numbers = sorted(q["number"] for q in tkp)
     rng = random.Random(seed)
-    best_order = list(tkp)
-    best_adjacent = len(tkp)
-
-    for _ in range(300):
-        cand = list(tkp)
-        rng.shuffle(cand)
-        adj = sum(
-            1 for i in range(1, len(cand))
-            if (cand[i].get("sub_category") or "") == (cand[i - 1].get("sub_category") or "")
-        )
-        if adj < best_adjacent:
-            best_adjacent = adj
-            best_order = cand
-            if adj == 0:
-                break
-
-    reordered_tkp = []
-    for new_num, q in zip(tkp_numbers, best_order):
-        q_copy = dict(q)
-        q_copy["number"] = new_num
-        reordered_tkp.append(q_copy)
-
+    reordered_tkp = _interleave_question_block(tkp, tkp_numbers, rng)
     return sorted(non_tkp + reordered_tkp, key=lambda x: x["number"])
 
 
@@ -904,8 +967,11 @@ def main() -> int:
     parser.add_argument("--no-ref", action="store_true", help="Lewati cek kemiripan terhadap seluruh paket referensi.")
     parser.add_argument("--similarity-threshold", type=float, default=0.50, help="Ambang batas kemiripan TWK/TKP terhadap referensi (default 0.50; TIU otomatis < 0.85).")
     parser.add_argument("--shuffle", action="store_true", help="Acak posisi opsi A-E non-figural secara seimbang (500x) & remap pembahasan.")
+    parser.add_argument("--shuffle-twk-order", action="store_true", help="Acak urutan nomor soal TWK (#1-30) agar tidak berkelompok per sub-materi.")
+    parser.add_argument("--shuffle-tiu-order", action="store_true", help="Acak urutan nomor soal TIU non-figural (#31-59) dan figural (#60-65).")
     parser.add_argument("--shuffle-tkp-order", action="store_true", help="Acak urutan nomor soal TKP (#66-110) agar tidak berkelompok per aspek.")
-    parser.add_argument("--seed", type=int, default=42, help="Random seed deterministik untuk --shuffle dan --shuffle-tkp-order.")
+    parser.add_argument("--shuffle-all-orders", action="store_true", help="Acak urutan nomor soal di dalam TWK, TIU, dan TKP sekaligus.")
+    parser.add_argument("--seed", type=int, default=42, help="Random seed deterministik untuk --shuffle dan pengacakan urutan soal.")
     parser.add_argument("--export-json", help="Opsional: path keluaran JSON final setelah shuffle.")
     parser.add_argument("--export-csv", help="Path keluaran CSV siap import TOCPNS.")
     parser.add_argument("--export-xlsx", help="Path keluaran XLSX siap import TOCPNS (sheet 'Impor').")
@@ -932,7 +998,13 @@ def main() -> int:
                 for rq in load_questions(ref_path):
                     ref_questions.append((pkt_label, rq))
 
-    if args.shuffle_tkp_order:
+    if args.shuffle_all_orders or args.shuffle_twk_order:
+        questions = shuffle_twk_question_order(questions, seed=args.seed)
+
+    if args.shuffle_all_orders or args.shuffle_tiu_order:
+        questions = shuffle_tiu_question_order(questions, seed=args.seed)
+
+    if args.shuffle_all_orders or args.shuffle_tkp_order:
         questions = shuffle_tkp_question_order(questions, seed=args.seed)
 
     if args.shuffle:

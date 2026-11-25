@@ -54,7 +54,7 @@ Untuk setiap batch sesuai [BLUEPRINT.md](file:///d:/Project/Test-CPNS/docs/quest
      - **Analitis (`#39–42`):** `itertools.permutations` membuktikan **tepat 1 solusi unik**.
      - **Silogisme (`#35–38`):** *truth table* proposisi (implikasi/kontraposisi) atau uji himpunan model terbatas (kuantor Semua/Sebagian) — **dilarang `assert True` kosong**.
      - Jalankan skrip hingga **exit code 0**.
-  4. Format rumus dalam KaTeX `$...$` (`0{,}75`, `Rp` di luar `$...$`, tabel Markdown untuk `P vs Q`). **Pembahasan wajib bertahap (anti-wall-of-text):** mulai `Jawaban yang benar adalah **Opsi X**.`, lalu `\n\n` diikuti daftar langkah bernomor (`1.`, `2.`, ...) per baris + `$$...$$` untuk persamaan akhir. Khusus soal Analitis visual (`#39–42` seperti meja bundar/rute graf) dan Deret loncat, buat diagram ilustrasi `gambar/q39_pembahasan.png` (latar `#FFFFFF`) dan sisipkan di pembahasan sebagai `![Diagram pembahasan soal 39](gambar/q39_pembahasan.png)` (ganti URL Supabase pada Langkah 5). Validasi batch dengan `--partial`.
+  4. Format rumus dalam KaTeX `$...$` (`0{,}75`, `Rp` di luar `$...$`, tabel Markdown untuk `P vs Q`). **Pembahasan wajib bertahap (anti-wall-of-text):** mulai `Jawaban yang benar adalah **Opsi X**.`, lalu `\n\n` diikuti daftar langkah bernomor (`1.`, `2.`, ...) per baris + `$$...$$` untuk persamaan akhir. Khusus soal Analitis visual (`#39–42` seperti meja bundar/rute graf) dan Deret loncat, buat diagram ilustrasi `gambar/q39_pembahasan.png` (latar `#FFFFFF`, **judul gambar tanpa nomor `(Soal #XX)`** agar tetap cocok pasca-acak nomor) dan sisipkan di pembahasan sebagai `![Diagram pembahasan soal 39](gambar/q39_pembahasan.png)` (ganti URL Supabase pada Langkah 5). Validasi batch dengan `--partial`.
 
 - **Batch TIU Figural (`TIU-7`, nomor `60–65`):**
   1. Ambil contoh referensi pola: `python scripts/sample_anchor_questions.py --batch TIU-7 --count 4 --seed <S>`.
@@ -75,7 +75,7 @@ Untuk setiap batch sesuai [BLUEPRINT.md](file:///d:/Project/Test-CPNS/docs/quest
 Gabungkan seluruh 18 batch ke `data/generated/<kode_paket>/<kode_paket>-bank-soal.json` (urut `1..110`), lalu jalankan satu perintah ini:
 
 ```powershell
-python scripts/validate_question_pack.py data/generated/<kode_paket>/<kode_paket>-bank-soal.json --shuffle --shuffle-tkp-order --seed 42 --export-json data/generated/<kode_paket>/<kode_paket>-bank-soal-final.json --export-csv data/generated/<kode_paket>/<kode_paket>-impor-final.csv --export-xlsx data/generated/<kode_paket>/<kode_paket>-impor-final.xlsx --report data/generated/<kode_paket>/audit-report.md --export-blind-audit data/generated/<kode_paket>/cross_audit/
+python scripts/validate_question_pack.py data/generated/<kode_paket>/<kode_paket>-bank-soal.json --shuffle --shuffle-all-orders --seed 42 --export-json data/generated/<kode_paket>/<kode_paket>-bank-soal-final.json --export-csv data/generated/<kode_paket>/<kode_paket>-impor-final.csv --export-xlsx data/generated/<kode_paket>/<kode_paket>-impor-final.xlsx --report data/generated/<kode_paket>/audit-report.md --export-blind-audit data/generated/<kode_paket>/cross_audit/
 ```
 
 Lalu verifikasi hasil `.xlsx` final:

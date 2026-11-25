@@ -94,7 +94,7 @@ Seluruh aturan berikut diverifikasi otomatis oleh [validate_question_pack.py](fi
    - **TIU Numerik, Analitis, & Silogisme (`~60–120 kata`, wajib bertahap per baris):**
      - Baris 1: `Jawaban yang benar adalah **Opsi X**.`
      - Pisahkan dengan `\n\n`, lalu uraikan langkah hitung/logika dalam **daftar bernomor `1.`, `2.`, `3.`, ...** (1 langkah = 1 baris). Untuk persamaan akhir atau langkah panjang, gunakan *block math* `$$\n...\n$$` agar rumus tidak berdesakan dengan teks.
-     - **Ilustrasi Diagram Pembahasan (Disarankan kuat untuk Analitis `#39–42` seperti meja bundar/rute graf, Deret loncat/bertingkat, dan Figural):** Buat PNG latar putih (`#FFFFFF`) via Python (`q39_pembahasan.png`, dst.), unggah ke bucket publik Supabase `exam-assets/pembahasan/<kode_paket>/`, lalu sisipkan di `discussion` sebagai `![Diagram pembahasan soal 39](https://.../exam-assets/pembahasan/<kode_paket>/q39_pembahasan.png)`. Frontend otomatis memberi bingkai putih (aman di Dark Mode) dan fitur *click-to-zoom*.
+     - **Ilustrasi Diagram Pembahasan (Disarankan kuat untuk Analitis `#39–42` seperti meja bundar/rute graf, Deret loncat/bertingkat, dan Figural):** Buat PNG latar putih (`#FFFFFF`) via Python (`q39_pembahasan.png`, dst.) **tanpa mencantumkan nomor soal (`Soal #39`) di judul gambar** agar aman saat urutan nomor diacak, unggah ke bucket publik Supabase `exam-assets/pembahasan/<kode_paket>/`, lalu sisipkan di `discussion` sebagai `![Diagram pembahasan soal 39](https://.../exam-assets/pembahasan/<kode_paket>/q39_pembahasan.png)`. Frontend otomatis memberi bingkai putih (aman di Dark Mode) dan fitur *click-to-zoom*.
    - **TKP (`~80–130 kata`, wajib daftar bullet per opsi `5 → 1`):**
      - Baris 1: `Jawaban dengan skor tertinggi adalah **Opsi X** (5 poin).`
      - Pisahkan dengan `\n\n`, lalu tulis rincian kelima opsi terurut `5 → 1` dalam bullet per baris:
@@ -117,7 +117,7 @@ Seluruh aturan berikut diverifikasi otomatis oleh [validate_question_pack.py](fi
 7. **Anti-Bias Panjang, Anti-Bias Sintaksis Koma TKP, Acak Kunci 500×, & Acak Urutan TKP:**
    - Opsi kunci (skor 5) tidak boleh jadi opsi terpanjang (secara kata maupun karakter) pada `> 35%` soal; pada TKP, selisih panjang opsi skor 5 terhadap rata-rata 4 opsi lain harus `<= 5 kata` (warning di `> 7 kata`).
    - **Anti-Bias Koma / Pola 3-Aksi Paralel TKP:** Jangan hanya memakai struktur daftar berkoma (`"melakukan A, B, serta C"`) pada opsi skor 5 sementara skor 1–3 berupa 1 klausa tanpa koma! Variasikan struktur 1 klausa dan 2–3 klausa berkoma secara merata di seluruh bobot `5–4–3–2–1` (validator otomatis memicu `tkp_comma_bias` bila heuristik buta "koma terbanyak" `>= 166/225` atau rasio koma terbanyak di skor 5 `> 35%`).
-   - Jalankan `--shuffle --shuffle-tkp-order` sebelum ekspor `.xlsx` agar distribusi kunci `A–E` seimbang di setiap segmen (`spread <= 1`, bebas siklus, `max_streak <= 2`) dan urutan TKP `#66–110` teracak alami seperti CAT BKN!
+   - Jalankan `--shuffle --shuffle-all-orders` (mengacak urutan nomor di dalam TWK `#1–30`, TIU non-figural `#31–59`, TIU figural `#60–65`, dan TKP `#66–110`) sebelum ekspor `.xlsx` agar distribusi kunci `A–E` seimbang di setiap segmen (`spread <= 1`, bebas siklus, `max_streak <= 2`) serta tipe/pola soal tidak terkunci di nomor yang sama antar-paket!
 
 ---
 

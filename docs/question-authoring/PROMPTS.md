@@ -31,7 +31,7 @@ Aturan kerja (jaga konteks tetap ringan & presisi!):
    - TKP (#66–110): Buat skenario kerja & tokoh baru, panjang 5 opsi seimbang (selisih skor 5 vs rata-rata lain <= 5 kata), skor 5 vs 4 kontras tegas, skor 1 tetap terdengar rasional (bukan kartun). Pembahasan WAJIB memakai format bullet per baris (anti-wall-of-text): baris 1 "Jawaban dengan skor tertinggi adalah **Opsi X** (5 poin)." lalu `\n\n` diikuti daftar 5 bullet berurutan 5→1: `- **Opsi X (5 poin):** ...` sampai `- **Opsi V (1 poin):** ...`.
 4. Validasi setiap batch segera: python scripts/validate_question_pack.py <file_batch> --partial.
 5. Setelah 18 batch lulus, gabungkan ke data/generated/gen01/gen01-bank-soal.json lalu jalankan:
-   python scripts/validate_question_pack.py data/generated/gen01/gen01-bank-soal.json --shuffle --shuffle-tkp-order --seed 42 --export-json data/generated/gen01/gen01-bank-soal-final.json --export-csv data/generated/gen01/gen01-impor-final.csv --export-xlsx data/generated/gen01/gen01-impor-final.xlsx --report data/generated/gen01/audit-report.md --export-blind-audit data/generated/gen01/cross_audit/
+   python scripts/validate_question_pack.py data/generated/gen01/gen01-bank-soal.json --shuffle --shuffle-all-orders --seed 42 --export-json data/generated/gen01/gen01-bank-soal-final.json --export-csv data/generated/gen01/gen01-impor-final.csv --export-xlsx data/generated/gen01/gen01-impor-final.xlsx --report data/generated/gen01/audit-report.md --export-blind-audit data/generated/gen01/cross_audit/
 6. Pastikan verify_tiu_math_logic.py exit code 0 dan validasi ulang gen01-impor-final.xlsx menghasilkan 0 Hard Errors (dan 0 warning pembahasan/bias). Jangan ubah backend/ atau frontend/, dan jangan impor ke DB produksi sebelum saya meninjau hasilnya.
 ```
 
