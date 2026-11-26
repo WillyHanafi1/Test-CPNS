@@ -55,6 +55,7 @@ const PAGE_LABELS: Record<string, string> = {
   "/session/[id]/result": "Hasil ujian",
   "/session/[id]/review": "Pembahasan ujian",
   "/support": "Kontak & bantuan",
+  "/tips": "Tips CPNS",
 };
 
 const CHART_COLORS = [

@@ -10,6 +10,7 @@ import {
   ArrowUpRight,
   Loader2,
   Heart,
+  Lightbulb,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -48,10 +49,15 @@ export default function AppShell({
   }, []);
   const active = (href: string) => path === href || path.startsWith(href + "/");
   const navigation = user
-    ? [...links, { href: "/donasi", title: "Donasi", icon: Heart }]
+    ? [
+        ...links,
+        { href: "/tips", title: "Tips CPNS", icon: Lightbulb },
+        { href: "/donasi", title: "Donasi", icon: Heart },
+      ]
     : [
         { href: "/catalog", title: "Paket Soal", icon: BookOpen },
         { href: "/catalog/upgrade", title: "Paket Pro", icon: UserRound },
+        { href: "/tips", title: "Tips CPNS", icon: Lightbulb },
         { href: "/faq", title: "Bantuan", icon: Home },
         { href: "/donasi", title: "Donasi", icon: Heart },
       ];
@@ -98,6 +104,12 @@ export default function AppShell({
             Paket soal
           </Link>
           <Link
+            href="/tips"
+            aria-current={active("/tips") ? "page" : undefined}
+          >
+            Tips CPNS
+          </Link>
+          <Link
             href="/donasi"
             aria-current={active("/donasi") ? "page" : undefined}
           >
@@ -135,6 +147,7 @@ export default function AppShell({
           <FooterVisitorStats />
         </div>
         <div className="app-footer-links">
+          <Link href="/tips">Tips CPNS</Link>
           <Link href="/faq">Bantuan</Link>
           <Link href="/support">Kontak</Link>
           <Link href="/donasi">Donasi</Link>

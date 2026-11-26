@@ -530,7 +530,8 @@
 @media (max-width: 767px) {
   .mobile-header-links {
     display: flex;
-    gap: 26px;
+    flex-wrap: wrap;
+    gap: 4px 18px;
     padding: 0 18px 8px;
     border-top: 1px solid var(--line);
   }
