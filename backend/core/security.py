@@ -1,22 +1,37 @@
 from datetime import datetime, timedelta, timezone
 from typing import Union
+import logging
 import jwt
 import bcrypt
 import uuid
 from backend.config import settings
+
+logger = logging.getLogger(__name__)
 
 # JWT Settings
 SECRET_KEY = settings.SECRET_KEY
 ALGORITHM = settings.ALGORITHM
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
 
+# Precomputed dummy bcrypt hash so non-existent login lookups spend comparable CPU time.
+_DUMMY_PASSWORD_HASH = bcrypt.hashpw(b"tocpns-constant-time-dummy-secret", bcrypt.gensalt()).decode("utf-8")
+
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     try:
         # bcrypt.checkpw expects bytes
         return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
     except Exception as e:
-        print(f"Error verifying password: {e}")
+        logger.warning("Password verification failed: %s", type(e).__name__)
         return False
+
+
+def verify_password_constant_time(plain_password: str, hashed_password: Union[str, None]) -> bool:
+    """Always run bcrypt even when user is absent to prevent timing-based account enumeration."""
+    if not hashed_password:
+        verify_password(plain_password, _DUMMY_PASSWORD_HASH)
+        return False
+    return verify_password(plain_password, hashed_password)
 
 def get_password_hash(password: str) -> str:
     salt = bcrypt.gensalt()

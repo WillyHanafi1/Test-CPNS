@@ -28,11 +28,16 @@ import logging
 logging.basicConfig(level=settings.LOG_LEVEL.upper())
 logger = logging.getLogger(__name__)
 
+is_production = settings.ENV == "production"
+
 app = FastAPI(
     title="CPNS Platform API",
     description="Latest Tech Stack CPNS Exam Practice Platform",
     version="1.0.0",
-    redirect_slashes=True
+    redirect_slashes=True,
+    docs_url=None if is_production else "/docs",
+    redoc_url=None if is_production else "/redoc",
+    openapi_url=None if is_production else "/openapi.json",
 )
 
 # Configure CORS — origins read from settings (configurable via .env CORS_ORIGINS)
@@ -40,8 +45,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Exam-Protocol", "X-Requested-With", "Accept"],
 )
 
 # GZIP Compression for payload efficiency
@@ -52,6 +57,20 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
 
+CSRF_EXEMPT_PATHS = frozenset({
+    "/api/payments/doku/notifications",
+    "/api/v1/transactions/webhook",
+})
+
+
+def _referer_origin(referer: str) -> str:
+    from urllib.parse import urlsplit
+    parsed = urlsplit(referer)
+    if not parsed.scheme or not parsed.netloc:
+        return ""
+    return f"{parsed.scheme}://{parsed.netloc}"
+
+
 @app.middleware("http")
 async def log_requests(request, call_next):
     import uuid
@@ -59,10 +78,23 @@ async def log_requests(request, call_next):
     from fastapi.responses import JSONResponse
     request_id = uuid.uuid4().hex
     started = perf_counter()
-    if request.method in {"POST", "PUT", "PATCH", "DELETE"} and request.cookies.get("access_token"):
+    if (
+        request.method in {"POST", "PUT", "PATCH", "DELETE"}
+        and request.cookies.get("access_token")
+        and request.url.path not in CSRF_EXEMPT_PATHS
+    ):
+        allowed_origins = set(settings.cors_origins_list)
         origin = request.headers.get("origin")
-        if origin and origin not in settings.cors_origins_list:
-            return JSONResponse(status_code=403, content={"detail": "Asal permintaan tidak diizinkan."})
+        if origin is not None:
+            if origin not in allowed_origins:
+                return JSONResponse(status_code=403, content={"detail": "Asal permintaan tidak diizinkan."})
+        else:
+            referer = request.headers.get("referer")
+            if referer:
+                if _referer_origin(referer) not in allowed_origins:
+                    return JSONResponse(status_code=403, content={"detail": "Asal permintaan tidak diizinkan."})
+            elif not (request.headers.get("x-exam-protocol") or request.headers.get("x-requested-with")):
+                return JSONResponse(status_code=403, content={"detail": "Asal permintaan tidak dapat diverifikasi."})
     # Password-reset tokens and payment callbacks may appear in query strings.
     logger.info("Incoming request: %s %s", request.method, request.url.path)
     # NOTE: Cookies and Authorization headers are NOT logged for security
@@ -117,7 +149,8 @@ async def health_check():
             health["db"] = "ok"
             break
     except Exception as e:
-        health["db"] = f"error: {type(e).__name__}"
+        logger.warning("Health check database failure: %s", type(e).__name__)
+        health["db"] = "error" if settings.ENV == "production" else f"error: {type(e).__name__}"
         is_healthy = False
     
     # Check Redis
@@ -126,10 +159,11 @@ async def health_check():
             await redis_service.redis.ping()
             health["redis"] = "ok"
         else:
-            health["redis"] = "not initialized"
+            health["redis"] = "error" if settings.ENV == "production" else "not initialized"
             is_healthy = False
     except Exception as e:
-        health["redis"] = f"error: {type(e).__name__}"
+        logger.warning("Health check Redis failure: %s", type(e).__name__)
+        health["redis"] = "error" if settings.ENV == "production" else f"error: {type(e).__name__}"
         is_healthy = False
     
     if not is_healthy:

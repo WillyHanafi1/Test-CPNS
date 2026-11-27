@@ -17,11 +17,16 @@ class Settings(BaseSettings):
     # These will be automatically loaded from .env if present
     DATABASE_URL: str
     REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_PASSWORD: str = ""
     
     # Security
     SECRET_KEY: str = "your-secret-key-keep-it-secret"
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7 # 7 days
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days (participant)
+    ADMIN_ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=60 * 4, ge=5, le=60 * 24 * 7)  # 4 hours (admin)
+    LOGIN_MAX_FAILED_ATTEMPTS: int = Field(default=10, ge=3, le=100)
+    LOGIN_LOCKOUT_SECONDS: int = Field(default=900, ge=60, le=86400)
+    TRUSTED_PROXIES: str = "127.0.0.1/32,172.30.42.2/32"
 
     # Frontend URL — dedicated config for reset emails, not dependent on CORS list ordering
     # pydantic-settings will override from env/file if FRONTEND_URL is set
@@ -37,10 +42,23 @@ class Settings(BaseSettings):
     COOKIE_SECURE: bool = False
 
     @model_validator(mode="after")
-    def derive_cookie_secure(self):
-        """Set COOKIE_SECURE=True when ENV=production, after pydantic-settings has loaded .env"""
+    def derive_security_defaults(self):
+        """Derive production cookie security and optional Redis auth credentials."""
+        from urllib.parse import quote, urlsplit, urlunsplit
         if self.ENV == "production":
             self.COOKIE_SECURE = True
+        if self.REDIS_PASSWORD and self.REDIS_URL:
+            parts = urlsplit(self.REDIS_URL)
+            if parts.password is None and parts.hostname:
+                host_port = parts.hostname
+                if ":" in host_port and not host_port.startswith("["):
+                    host_port = f"[{host_port}]"
+                if parts.port:
+                    host_port = f"{host_port}:{parts.port}"
+                encoded_pw = quote(self.REDIS_PASSWORD, safe="")
+                user_prefix = quote(parts.username, safe="") if parts.username else ""
+                netloc = f"{user_prefix}:{encoded_pw}@{host_port}"
+                self.REDIS_URL = urlunsplit((parts.scheme, netloc, parts.path, parts.query, parts.fragment))
         return self
 
     # Google SSO

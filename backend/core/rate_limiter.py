@@ -15,12 +15,27 @@ from backend.config import settings
 
 
 import ipaddress
+import logging
 
-# IP nginx/container range - Bisa berupa IP tunggal atau Subnet (CIDR)
-TRUSTED_PROXIES = [
-    ipaddress.ip_network("127.0.0.1/32"),
-    ipaddress.ip_network("172.19.0.0/16"), # Subnet yang ditemukan di Droplet kamu
-]
+logger = logging.getLogger(__name__)
+
+
+def _parse_trusted_proxies(raw: str) -> list[ipaddress.IPv4Network | ipaddress.IPv6Network]:
+    networks: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = []
+    for item in (raw or "").split(","):
+        cidr = item.strip()
+        if not cidr:
+            continue
+        try:
+            networks.append(ipaddress.ip_network(cidr, strict=False))
+        except ValueError:
+            logger.warning("Ignoring invalid TRUSTED_PROXIES entry: %r", cidr)
+    return networks
+
+
+# Trusted reverse-proxy CIDRs (configured via TRUSTED_PROXIES; defaults to loopback + gateway 172.30.42.2/32)
+TRUSTED_PROXIES = _parse_trusted_proxies(settings.TRUSTED_PROXIES)
+
 
 def _is_ip_trusted(ip_str: str) -> bool:
     try:
@@ -32,19 +47,29 @@ def _is_ip_trusted(ip_str: str) -> bool:
         pass
     return False
 
+
 def _get_client_ip(request: Request) -> str:
     """
-    Extract real client IP considering trusted reverse proxies.
+    Extract real client IP safely behind trusted reverse proxies.
+    Walks X-Forwarded-For from RIGHT to LEFT and picks the rightmost untrusted IP
+    so client-supplied spoofed leftmost headers cannot bypass rate limits.
     """
     client_host = request.client.host if request.client else None
-    
-    # Hanya percaya X-Forwarded-For jika request dari proxy yang dikenal
+
     if client_host and _is_ip_trusted(client_host):
         forwarded_for = request.headers.get("X-Forwarded-For")
         if forwarded_for:
-            # Take the first IP (original client)
-            return forwarded_for.split(",")[0].strip()
-            
+            hops = [hop.strip() for hop in forwarded_for.split(",") if hop.strip()]
+            for hop in reversed(hops):
+                try:
+                    ipaddress.ip_address(hop)
+                except ValueError:
+                    continue
+                if not _is_ip_trusted(hop):
+                    return hop
+            if hops:
+                return hops[0]
+
     return client_host or "unknown"
 
 

@@ -33,6 +33,7 @@ export async function api<T>(
       cache: "no-store",
       headers: {
         "X-Exam-Protocol": "2",
+        "X-Requested-With": "fetch",
         ...(typeof options.body === "string"
           ? { "Content-Type": "application/json" }
           : {}),

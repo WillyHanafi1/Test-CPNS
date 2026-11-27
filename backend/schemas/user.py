@@ -6,9 +6,24 @@ from datetime import datetime
 class UserBase(BaseModel):
     email: EmailStr
 
+    @field_validator('email', mode='before')
+    @classmethod
+    def normalize_email(cls, value):
+        if isinstance(value, str):
+            return value.strip().lower()
+        return value
+
 class UserCreate(UserBase):
     password: str
     full_name: str
+
+    @field_validator('full_name')
+    @classmethod
+    def clean_full_name(cls, value: str) -> str:
+        cleaned = (value or '').strip()
+        if not cleaned or len(cleaned) > 100:
+            raise ValueError('Nama lengkap wajib diisi (maksimal 100 karakter).')
+        return cleaned
 
     @field_validator('password')
     @classmethod
@@ -21,6 +36,13 @@ class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     full_name: Optional[str] = None
     password: Optional[str] = None
+
+    @field_validator('email', mode='before')
+    @classmethod
+    def normalize_email(cls, value):
+        if isinstance(value, str):
+            return value.strip().lower()
+        return value
 
 class User(UserBase):
     id: uuid.UUID

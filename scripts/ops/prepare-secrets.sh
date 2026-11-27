@@ -18,6 +18,16 @@ with target.open('x') as handle:
 target.chmod(0o600)
 PY
 fi
+if [[ ! -e .secrets/redis.env ]]; then
+    python3 - <<'PY'
+from pathlib import Path
+import secrets
+target = Path('.secrets/redis.env')
+with target.open('x') as handle:
+    handle.write(f"REDIS_PASSWORD={secrets.token_hex(48)}\n")
+target.chmod(0o600)
+PY
+fi
 if [[ ! -e .secrets/cloudflare-token ]]; then
     install -m 600 /dev/null .secrets/cloudflare-token
 fi

@@ -1,9 +1,12 @@
 import redis.asyncio as redis
 import json
+import logging
 import uuid
 from datetime import datetime
 from typing import Optional, Any
 from backend.config import settings
+
+logger = logging.getLogger(__name__)
 
 class RedisService:
     def __init__(self):
@@ -35,8 +38,7 @@ class RedisService:
             await self.redis.set(key, json.dumps(value, default=json_serial), ex=expire)
         except Exception as e:
             # Fallback: log error but don't break the request
-            print(f"REDIS CACHE SET ERROR: {e}")
-            pass
+            logger.warning("Redis cache set error for key=%s: %s", key, type(e).__name__)
 
     async def get_cache(self, key: str) -> Optional[Any]:
         try:
@@ -45,7 +47,7 @@ class RedisService:
                 return json.loads(data)
         except Exception as e:
             # Fallback: log error and treat as cache miss
-            print(f"REDIS CACHE GET ERROR: {e}")
+            logger.warning("Redis cache get error for key=%s: %s", key, type(e).__name__)
         return None
 
     async def delete_cache(self, key: str):

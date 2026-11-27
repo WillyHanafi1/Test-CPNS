@@ -219,7 +219,7 @@ def configuration_archive():
     output = io.BytesIO()
     root = Path('/backup-config')
     names = ('public.env', 'manifests/images.env', 'manifests/images.previous.env', 'secrets/application.env',
-             'secrets/operations.env', 'secrets/cloudflare-token', 'secrets/postgres-root-ca.crt',
+             'secrets/redis.env', 'secrets/operations.env', 'secrets/cloudflare-token', 'secrets/postgres-root-ca.crt',
              'manifests/operations.override.yml')
     with tarfile.open(fileobj=output, mode='w:gz') as archive:
         for name in names:

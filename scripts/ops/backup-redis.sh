@@ -10,7 +10,7 @@ backup=".server-notes/backups/redis-$(date -u +%Y%m%dT%H%M%SZ).rdb"
 temporary="$(mktemp .server-notes/backups/snapshot.XXXXXX)"
 trap 'rm -f -- "$temporary"' EXIT
 bash scripts/ops/compose.sh exec -T redis sh -ec \
-    'redis-cli --rdb /tmp/ujian-snapshot.rdb >/dev/null 2>&1; cat /tmp/ujian-snapshot.rdb; rm -f /tmp/ujian-snapshot.rdb' > "$temporary"
+    'if [ -n "${REDIS_PASSWORD:-}" ]; then export REDISCLI_AUTH="$REDIS_PASSWORD"; fi; redis-cli --rdb /tmp/ujian-snapshot.rdb >/dev/null 2>&1; cat /tmp/ujian-snapshot.rdb; rm -f /tmp/ujian-snapshot.rdb' > "$temporary"
 test -s "$temporary"
 chmod 600 "$temporary"
 mv -- "$temporary" "$backup"

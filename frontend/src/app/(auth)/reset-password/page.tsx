@@ -1,17 +1,22 @@
 "use client";
-import { useState, Suspense } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import AppShell, { Loading, ErrorPanel } from "@/components/AppShell";
 import { api } from "@/lib/api";
 function Form() {
   const params = useSearchParams();
-  const token = params.get("token");
+  const [token] = useState<string | null>(() => params.get("token"));
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.location.search.includes("token=")) {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
   return (
     <AppShell>
       <section className="panel auth-panel stack">

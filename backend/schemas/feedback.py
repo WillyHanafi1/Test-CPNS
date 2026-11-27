@@ -1,23 +1,31 @@
-from pydantic import BaseModel, ConfigDict
-from typing import Optional, List, Dict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from typing import Optional, List, Dict, Literal
 import uuid
 from datetime import datetime
 
 class FeedbackBase(BaseModel):
-    category: str = "suggestion" # suggestion, bug, other
-    content: str
+    category: Literal["suggestion", "bug", "correction", "other"] = "suggestion"
+    content: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("content")
+    @classmethod
+    def clean_content(cls, value: str) -> str:
+        cleaned = (value or "").strip()
+        if not cleaned:
+            raise ValueError("Isi masukan tidak boleh kosong.")
+        return cleaned
 
 class FeedbackCreate(FeedbackBase):
-    path_context: Optional[str] = None
+    path_context: Optional[str] = Field(default=None, max_length=255)
 
 class FeedbackUser(BaseModel):
     email: str
     model_config = ConfigDict(from_attributes=True)
 
 class FeedbackUpdate(BaseModel):
-    status: Optional[str] = None
-    priority: Optional[str] = None
-    admin_notes: Optional[str] = None
+    status: Optional[Literal["pending", "reviewed", "in_progress", "resolved"]] = None
+    priority: Optional[Literal["low", "medium", "high", "urgent"]] = None
+    admin_notes: Optional[str] = Field(default=None, max_length=2000)
 
 class FeedbackResponse(FeedbackBase):
     id: uuid.UUID

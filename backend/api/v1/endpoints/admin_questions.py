@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 from typing import List, Optional
@@ -94,8 +94,8 @@ async def list_questions(
     segment: Optional[str] = None,
     search: Optional[str] = None,
     missing_discussion: Optional[bool] = None,
-    page: int = 1,
-    size: int = 20,
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_async_session),
     admin: User = Depends(get_current_admin)
 ):

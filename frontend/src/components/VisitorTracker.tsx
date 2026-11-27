@@ -15,7 +15,10 @@ function sendVisitBeacon(path: string, heartbeat: boolean) {
     method: "POST",
     credentials: "include",
     keepalive: true,
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "X-Requested-With": "fetch",
+    },
     body: JSON.stringify({ path, heartbeat }),
   }).catch(() => {
     // Silent by design: visitor telemetry must never interrupt user flows.

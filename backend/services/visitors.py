@@ -52,6 +52,40 @@ _UUID_SEGMENT_RE = re.compile(
 )
 _NUMERIC_SEGMENT_RE = re.compile(r"/\d+(?=/|$)")
 
+# Explicit allowlist of normalized public routes to prevent unbounded cardinality/table flooding.
+ALLOWED_PUBLIC_PATHS = frozenset({
+    "/",
+    "/account",
+    "/analytics",
+    "/beranda/desain",
+    "/catalog",
+    "/catalog/[id]",
+    "/catalog/upgrade",
+    "/dashboard",
+    "/donasi",
+    "/donasi/desain",
+    "/exam/[id]",
+    "/exam/[id]/result",
+    "/exam/[id]/review",
+    "/faq",
+    "/forgot-password",
+    "/history",
+    "/leaderboard",
+    "/login",
+    "/payment/failed",
+    "/payment/success",
+    "/privacy",
+    "/register",
+    "/reset-password",
+    "/session/[id]",
+    "/session/[id]/result",
+    "/session/[id]/review",
+    "/support",
+    "/terms",
+    "/tips",
+    "/ujian/desain",
+})
+
 
 def is_bot_user_agent(user_agent: str | None) -> bool:
     if not user_agent:
@@ -60,7 +94,7 @@ def is_bot_user_agent(user_agent: str | None) -> bool:
 
 
 def normalize_visit_path(raw_path: str | None) -> str | None:
-    """Normalize public frontend route paths; return None for admin/api/invalid paths."""
+    """Normalize public frontend route paths; return None for admin/api/unknown paths."""
     if not raw_path:
         return "/"
     path = raw_path.strip().split("?", 1)[0].split("#", 1)[0]
@@ -93,7 +127,10 @@ def normalize_visit_path(raw_path: str | None) -> str | None:
     elif path.startswith("/catalog/") and path not in {"/catalog/upgrade"}:
         path = "/catalog/[id]"
 
-    return path[:120]
+    normalized = path[:120]
+    if normalized not in ALLOWED_PUBLIC_PATHS:
+        return None
+    return normalized
 
 
 def jakarta_today(now_utc: datetime | None = None) -> date:
@@ -101,12 +138,19 @@ def jakarta_today(now_utc: datetime | None = None) -> date:
     return ts.astimezone(BUSINESS_TIMEZONE).date()
 
 
+def _visitor_hmac_key() -> bytes:
+    """Derive a domain-separated key from SECRET_KEY instead of reusing the raw JWT signing key."""
+    return hashlib.sha256(
+        b"tocpns:visitor-analytics:v1:" + settings.SECRET_KEY.encode("utf-8")
+    ).digest()
+
+
 def compute_visitor_hash(ip: str, user_agent: str, visit_date: date) -> str:
     """Monthly-rotating anonymized visitor hash (no PII persisted)."""
     month_salt = visit_date.strftime("%Y-%m")
     payload = f"{ip.strip()}|{(user_agent or '').strip()[:256]}|{month_salt}".encode("utf-8")
     digest = hmac.new(
-        settings.SECRET_KEY.encode("utf-8"),
+        _visitor_hmac_key(),
         payload,
         hashlib.sha256,
     ).hexdigest()

@@ -318,7 +318,7 @@ async def finish_exam(
                 logger.error(f"CRITICAL: Failed to revert session {session_id} to ongoing: {revert_err}")
                 # Session stuck in 'processing' — manual intervention needed
             logger.error(traceback.format_exc())
-            raise HTTPException(status_code=500, detail=f"Gagal menghitung nilai ujian: {str(fallback_error)}")
+            raise HTTPException(status_code=500, detail="Gagal menghitung nilai ujian. Silakan coba lagi.")
 
 @router.get("/result/{session_id}")
 @limiter.limit("60/minute", key_func=authenticated_limit_key)

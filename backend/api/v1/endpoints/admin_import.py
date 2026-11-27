@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import pandas as pd
 import io
+import logging
 import uuid
 from typing import List
 from backend.db.session import get_async_session
@@ -11,6 +12,7 @@ from backend.api.v1.endpoints.auth import get_current_admin
 from backend.core.redis_service import redis_service
 from backend.services.exams import lock_editable_package
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin/import", tags=["admin-import"])
 
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
@@ -26,17 +28,19 @@ async def import_questions(
     # 1. Check if package exists
     package = await lock_editable_package(db, package_id)
 
-    content = await file.read()
+    filename = (file.filename or "").lower()
+    if not filename.endswith(('.csv', '.xls', '.xlsx')):
+        raise HTTPException(status_code=400, detail="Invalid file format. Use CSV or Excel.")
+
+    content = await file.read(MAX_FILE_SIZE + 1)
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(status_code=413, detail="File terlalu besar (maks 5MB)")
     
     try:
-        if file.filename.endswith('.csv'):
+        if filename.endswith('.csv'):
             df = pd.read_csv(io.BytesIO(content))
-        elif file.filename.endswith(('.xls', '.xlsx')):
-            df = pd.read_excel(io.BytesIO(content))
         else:
-            raise HTTPException(status_code=400, detail="Invalid file format. Use CSV or Excel.")
+            df = pd.read_excel(io.BytesIO(content))
         
         # Replace NaN with empty string
         df.fillna('', inplace=True)
@@ -44,8 +48,9 @@ async def import_questions(
         df.columns = [str(col).lower().strip() for col in df.columns]
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error parsing file: {str(e)}")
+    except Exception:
+        logger.exception("Admin question import failed while parsing file=%s", filename)
+        raise HTTPException(status_code=400, detail="Format file tidak dapat dibaca. Pastikan file CSV/Excel valid.")
 
     # 2. Header Mapping (Support both English & Indonesian)
     mapping = {
@@ -190,6 +195,7 @@ async def import_questions(
             "count": len(questions_to_insert)
         }
         
-    except Exception as e:
+    except Exception:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Database Error: {str(e)}")
+        logger.exception("Admin question import failed during DB insertion for package=%s", package_id)
+        raise HTTPException(status_code=500, detail="Terjadi kesalahan saat menyimpan soal ke database.")

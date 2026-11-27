@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from sqlalchemy import select
@@ -6,6 +6,7 @@ from backend.db.session import get_async_session
 from backend.models.models import User, UserProfile, Feedback
 from backend.api.v1.endpoints.auth import get_current_user
 from backend.core.analytics_service import analytics_service
+from backend.core.rate_limiter import authenticated_limit_key, limiter
 from backend.schemas.feedback import FeedbackCreate
 from backend.schemas.user import UserProfile as UserProfileSchema, UserProfileUpdate
 
@@ -63,7 +64,10 @@ async def get_my_weak_points(
     return await analytics_service.get_weak_points(db, current_user.id)
 
 @router.post("/feedback")
+@limiter.limit("10/minute", key_func=authenticated_limit_key)
 async def submit_feedback(
+    request: Request,
+    response: Response,
     feedback_in: FeedbackCreate,
     db: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_user)

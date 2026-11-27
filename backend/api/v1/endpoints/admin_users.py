@@ -239,7 +239,15 @@ async def delete_user_admin(
     # - Financial transaction records (audit/tax compliance)
     # - Exam history data integrity  
     # - Ability to undo accidental deletions
-    user.is_active = False
+    if user.is_active:
+        user.is_active = False
+        user.auth_version += 1
+        db.add(AuditEvent(
+            actor_id=admin.id,
+            action='admin.user_deactivate',
+            entity_id=str(user_id),
+            details={'before': {'is_active': True}, 'after': {'is_active': False}},
+        ))
     await db.commit()
     
     logger.info(
